@@ -1,0 +1,31 @@
+'use client';
+import { useState } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import BottomNav from '@/components/nav/BottomNav';
+import SideNav from '@/components/nav/SideNav';
+import './globals.css';
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const [queryClient] = useState(() => new QueryClient());
+  return (
+    <html lang="en">
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#4F46E5" />
+        <title>Spending Tracker</title>
+      </head>
+      <body className="bg-gray-50 text-gray-900">
+        <QueryClientProvider client={queryClient}>
+          <div className="flex min-h-screen">
+            <SideNav />
+            <main className="flex-1 p-4 pb-24 md:pb-4 max-w-5xl mx-auto w-full">
+              {children}
+            </main>
+          </div>
+          <BottomNav />
+        </QueryClientProvider>
+      </body>
+    </html>
+  );
+}
