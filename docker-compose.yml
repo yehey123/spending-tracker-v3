@@ -1,37 +1,21 @@
 services:
   backend:
-    container_name: budget_backend
-    build: .
+    build: ./backend
     ports:
       - "8000:8000"
     env_file:
       - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://user:password@db:5432/spending_tracker
     depends_on:
-      - localstack
       - db
-    # This ensures the backend can talk to localstack using the service name
-    environment:
-      - AWS_ENDPOINT_URL=http://localstack:4566
-      - DATABASE_URL=postgresql+asyncpg://user:password@db:5432/budget_tracker
-
-  localstack:
-    container_name: localstack_main
-    image: localstack/localstack:latest
-    ports:
-      - "4566:4566"
-    environment:
-      - SERVICES=s3,dynamodb,lambda
-      - PERSISTENCE=1
-    volumes:
-      - "./ls_data:/var/lib/localstack"
 
   db:
     image: postgres:16-alpine
-    container_name: budget_db
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
-      POSTGRES_DB: budget_tracker
+      POSTGRES_DB: spending_tracker
     ports:
       - "5432:5432"
     volumes:

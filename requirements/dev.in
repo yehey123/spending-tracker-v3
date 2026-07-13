@@ -1,6 +1,0 @@
--r base.in
-pip-tools
-pytest
-pytest-asyncio
-black
-ruff

@@ -21,4 +21,5 @@ ls_data/
 
 # IDEs
 .vscode/
-.idea/
+.idea/.claude/task/
+.claude/task/
