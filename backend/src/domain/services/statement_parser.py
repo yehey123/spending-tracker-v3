@@ -31,11 +31,13 @@ _SKIP_AMOUNT = Decimal("999999")
 
 def _parse_date(s: str) -> datetime | None:
     s = s.strip()
+    current_year = datetime.now().year
     for fmt in _DATE_FORMATS:
         try:
-            dt = datetime.strptime(s, fmt)
-            if dt.year == 1900:
-                dt = dt.replace(year=datetime.now().year)
+            if "%Y" not in fmt and "%y" not in fmt:
+                dt = datetime.strptime(f"{s} {current_year}", f"{fmt} %Y")
+            else:
+                dt = datetime.strptime(s, fmt)
             return dt
         except ValueError:
             continue

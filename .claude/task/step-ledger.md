@@ -17,6 +17,7 @@ branch: initial_backend
 | 5a | All __init__.py files | PASS | 12 files confirmed present 2026-07-13 |
 | 5b | category.py model fix (functional index) | PASS | edit applied cleanly; SQLAlchemy validation deferred to Docker (Step 15) |
 | 8 | statement_parser.py | PASS | parse_statement('01/05/2026 | GRAB | 150.00 | DEBIT') → 1 result, direction=debit |
+| 8b | Fix DeprecationWarning: year-less strptime in _parse_date | PASS | 39 passed, 0 warnings — 2026-07-14 |
 | 16 | Frontend config files | PASS | package.json, tsconfig.json, next.config.ts, tailwind.config.ts, postcss.config.mjs, capacitor.config.ts written |
 | 3 | Alembic setup + initial migration | PASS (deferred) | alembic.ini, alembic/env.py, alembic/versions/0001_initial.py written; `from alembic.config import Config` deferred to Docker (alembic not installed locally) |
 | 6 | preprocessor.py | PASS | `python3 -c "from src.domain.services.preprocessor import preprocess; print('ok')"` → ok (cv2 runtime deferred to Docker) |
