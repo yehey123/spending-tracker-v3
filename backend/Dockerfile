@@ -7,8 +7,8 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY requirements/base.txt .
-RUN pip install --no-cache-dir -r base.txt
+COPY requirements/base.txt requirements/dev.txt ./requirements/
+RUN pip install --no-cache-dir -r requirements/dev.txt
 
 COPY . .
 
