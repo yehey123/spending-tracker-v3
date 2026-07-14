@@ -5,18 +5,18 @@ from datetime import datetime
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
 
-from src.db.session import get_db
-from src.domain.models.transaction import Transaction
-from src.domain.models.category import Category
 from src.api.schemas.analytics import (
     ByCategoryResponse,
-    CategoryBreakdown,
     CashFlowResponse,
+    CategoryBreakdown,
     MonthCashFlow,
 )
+from src.db.session import get_db
+from src.domain.models.category import Category
+from src.domain.models.transaction import Transaction
 
 router = APIRouter()
 

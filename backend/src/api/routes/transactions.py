@@ -4,14 +4,14 @@ from __future__ import annotations
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from src.api.schemas.transactions import TransactionCreate, TransactionOut, TransactionPatch
 from src.db.session import get_db
-from src.domain.models.transaction import Transaction
 from src.domain.models.category import Category
-from src.api.schemas.transactions import TransactionCreate, TransactionPatch, TransactionOut
+from src.domain.models.transaction import Transaction
 
 router = APIRouter()
 
@@ -80,7 +80,9 @@ async def create_transaction(body: TransactionCreate, db: AsyncSession = Depends
 
     # Reload with category eagerly
     result = await db.execute(
-        select(Transaction).options(selectinload(Transaction.category)).where(Transaction.id == tx.id)
+        select(Transaction)
+        .options(selectinload(Transaction.category))
+        .where(Transaction.id == tx.id)
     )
     return result.scalar_one()
 

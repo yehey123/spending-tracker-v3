@@ -1,7 +1,7 @@
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-import re
 
 
 @dataclass
@@ -74,7 +74,14 @@ def parse_statement(text: str) -> list[ParsedTransaction]:
             if date is None or amount is None or amount > _SKIP_AMOUNT:
                 continue
             direction = _direction_from_token(m.group("dir"))
-            results.append(ParsedTransaction(date=date, description=m.group("desc").strip(), amount=amount, direction=direction))
+            results.append(
+                ParsedTransaction(
+                    date=date,
+                    description=m.group("desc").strip(),
+                    amount=amount,
+                    direction=direction,
+                )
+            )
             continue
 
         # Regex fallback: find amount in line
@@ -104,6 +111,13 @@ def parse_statement(text: str) -> list[ParsedTransaction]:
         dir_m = _DIR_RE.search(suffix)
         direction = _direction_from_token(dir_m.group(1)) if dir_m else "debit"
 
-        results.append(ParsedTransaction(date=date, description=desc, amount=amount, direction=direction))
+        results.append(
+            ParsedTransaction(
+                date=date,
+                description=desc,
+                amount=amount,
+                direction=direction,
+            )
+        )
 
     return results

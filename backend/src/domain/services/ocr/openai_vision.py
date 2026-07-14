@@ -31,7 +31,10 @@ class OpenAIVisionProvider(OCRProvider):
                 {
                     "role": "user",
                     "content": [
-                        {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{encoded}"}},
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:image/png;base64,{encoded}"},
+                        },
                         {"type": "text", "text": _PROMPT},
                     ],
                 }

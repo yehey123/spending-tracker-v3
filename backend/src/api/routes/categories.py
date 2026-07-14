@@ -1,13 +1,13 @@
 """Categories CRUD routes."""
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, delete
+from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.api.schemas.categories import CategoryCreate, CategoryOut, CategoryUpdate
 from src.db.session import get_db
 from src.domain.models.category import Category
 from src.domain.models.transaction import Transaction
-from src.api.schemas.categories import CategoryCreate, CategoryUpdate, CategoryOut
 
 router = APIRouter()
 

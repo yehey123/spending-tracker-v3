@@ -1,6 +1,8 @@
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 from src.db.session import engine
 
 
@@ -19,7 +21,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from src.api.routes import health, categories, statements, transactions, analytics, settings  # noqa: E402
+from src.api.routes import (  # noqa: E402
+    analytics,
+    categories,
+    health,
+    settings,
+    statements,
+    transactions,
+)
 
 app.include_router(health.router)
 app.include_router(categories.router, prefix="/categories", tags=["categories"])

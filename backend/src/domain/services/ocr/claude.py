@@ -33,7 +33,11 @@ class ClaudeVisionProvider(OCRProvider):
                     "content": [
                         {
                             "type": "image",
-                            "source": {"type": "base64", "media_type": "image/png", "data": encoded},
+                            "source": {
+                                "type": "base64",
+                                "media_type": "image/png",
+                                "data": encoded,
+                            },
                         },
                         {"type": "text", "text": _PROMPT},
                     ],

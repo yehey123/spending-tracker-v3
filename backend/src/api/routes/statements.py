@@ -6,9 +6,11 @@ import os
 import uuid
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.api.schemas.statements import StatementOut
+from src.core.config import settings
 from src.db.session import get_db
 from src.domain.models.app_settings import AppSettings
 from src.domain.models.statement import Statement
@@ -16,8 +18,6 @@ from src.domain.models.transaction import Transaction
 from src.domain.services.pdf_parser import extract_pdf_text
 from src.domain.services.preprocessor import preprocess
 from src.domain.services.statement_parser import parse_statement
-from src.api.schemas.statements import StatementOut
-from src.core.config import settings
 
 try:
     from PIL import Image as PILImage
@@ -25,9 +25,9 @@ except ImportError:  # pragma: no cover
     PILImage = None  # type: ignore[assignment]
 
 try:
-    from src.domain.services.ocr.tesseract import TesseractProvider
     from src.domain.services.ocr.claude import ClaudeProvider
     from src.domain.services.ocr.openai_vision import OpenAIVisionProvider
+    from src.domain.services.ocr.tesseract import TesseractProvider
 except ImportError:  # pragma: no cover
     TesseractProvider = None  # type: ignore[assignment]
     ClaudeProvider = None  # type: ignore[assignment]
@@ -151,11 +151,21 @@ async def upload_statement(
         await db.commit()
         raise HTTPException(status_code=500, detail=f"Pipeline error: {e}") from e
 
+    status_str = (
+        str(statement.status.value)
+        if hasattr(statement.status, "value")
+        else str(statement.status)
+    )
+    type_str = (
+        str(statement.type.value)
+        if hasattr(statement.type, "value")
+        else str(statement.type)
+    )
     return StatementOut(
         id=statement.id,
         filename=statement.filename,
-        type=str(statement.type.value) if hasattr(statement.type, "value") else str(statement.type),
-        status=str(statement.status.value) if hasattr(statement.status, "value") else str(statement.status),
+        type=type_str,
+        status=status_str,
         ocr_provider=statement.ocr_provider,
         transaction_count=len(parsed),
         uploaded_at=statement.uploaded_at,
@@ -190,8 +200,16 @@ async def list_statements(
                     for k, v in row.Statement.__dict__.items()
                     if not k.startswith("_")
                 },
-                "type": str(row.Statement.type.value) if hasattr(row.Statement.type, "value") else str(row.Statement.type),
-                "status": str(row.Statement.status.value) if hasattr(row.Statement.status, "value") else str(row.Statement.status),
+                "type": (
+                    str(row.Statement.type.value)
+                    if hasattr(row.Statement.type, "value")
+                    else str(row.Statement.type)
+                ),
+                "status": (
+                    str(row.Statement.status.value)
+                    if hasattr(row.Statement.status, "value")
+                    else str(row.Statement.status)
+                ),
                 "transaction_count": row.transaction_count or 0,
             }
         )

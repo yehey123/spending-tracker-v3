@@ -1,11 +1,11 @@
 """Settings routes: read and update OCR provider configuration."""
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.api.schemas.settings import SettingsOut, SettingsPut
 from src.db.session import get_db
 from src.domain.models.app_settings import AppSettings
-from src.api.schemas.settings import SettingsOut, SettingsPut
 
 router = APIRouter()
 
