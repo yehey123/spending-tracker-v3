@@ -3,6 +3,7 @@
 Stage 3 of the OCR pipeline (ocr-pipeline.md §Stage 3):
     pdfplumber → text/tables; falls back to per-page rasterize+OCR if empty.
 """
+
 from __future__ import annotations
 
 import io
@@ -27,8 +28,7 @@ async def extract_pdf_text(content: bytes, ocr_provider: object) -> str:
     """
     if pdfplumber is None:  # pragma: no cover
         raise RuntimeError(
-            "pdfplumber is required for PDF extraction. "
-            "Install it with: pip install pdfplumber"
+            "pdfplumber is required for PDF extraction. Install it with: pip install pdfplumber"
         )
 
     page_texts: list[str] = []

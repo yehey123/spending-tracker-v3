@@ -1,4 +1,5 @@
 """Analytics routes: by-category and cash-flow summaries."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -59,9 +60,7 @@ async def by_category(
     category_ids = [row.category_id for row in rows if row.category_id is not None]
     cats: dict[int, Category] = {}
     if category_ids:
-        cat_result = await db.execute(
-            select(Category).where(Category.id.in_(category_ids))
-        )
+        cat_result = await db.execute(select(Category).where(Category.id.in_(category_ids)))
         for cat in cat_result.scalars().all():
             cats[cat.id] = cat
 
@@ -125,8 +124,7 @@ async def cash_flow(
 
         # Sum credit
         credit_result = await db.execute(
-            select(func.coalesce(func.sum(Transaction.amount), 0))
-            .where(
+            select(func.coalesce(func.sum(Transaction.amount), 0)).where(
                 Transaction.direction == "credit",
                 Transaction.date >= first_day,
                 Transaction.date < first_day_next,
@@ -136,8 +134,7 @@ async def cash_flow(
 
         # Sum debit
         debit_result = await db.execute(
-            select(func.coalesce(func.sum(Transaction.amount), 0))
-            .where(
+            select(func.coalesce(func.sum(Transaction.amount), 0)).where(
                 Transaction.direction == "debit",
                 Transaction.date >= first_day,
                 Transaction.date < first_day_next,

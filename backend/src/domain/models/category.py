@@ -14,6 +14,4 @@ class Category(Base):
 
     transactions: Mapped[list["Transaction"]] = relationship(back_populates="category")
 
-    __table_args__ = (
-        Index("ix_categories_name", func.lower(name), unique=True),
-    )
+    __table_args__ = (Index("ix_categories_name", func.lower(name), unique=True),)

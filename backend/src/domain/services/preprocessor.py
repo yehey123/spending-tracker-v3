@@ -3,6 +3,7 @@
 Stage 1 of the OCR pipeline (ocr-pipeline.md §Stage 1):
     PIL → grayscale → denoise → adaptive threshold → deskew → PIL
 """
+
 from __future__ import annotations
 
 import numpy as np

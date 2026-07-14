@@ -1,4 +1,5 @@
 """Settings routes: read and update OCR provider configuration."""
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -59,9 +60,7 @@ async def update_settings(body: SettingsPut, db: AsyncSession = Depends(get_db))
     new_anthropic = (
         body.anthropic_api_key if "anthropic_api_key" in fields_set else row.anthropic_api_key
     )
-    new_openai = (
-        body.openai_api_key if "openai_api_key" in fields_set else row.openai_api_key
-    )
+    new_openai = body.openai_api_key if "openai_api_key" in fields_set else row.openai_api_key
 
     # Validate that the required key will be present after the update
     if body.ocr_provider == "claude" and not new_anthropic:

@@ -107,7 +107,7 @@ def parse_statement(text: str) -> list[ParsedTransaction]:
         desc = re.sub(r"^\S+\s+", "", pre_amt).strip() or pre_amt
 
         # Direction hint from suffix after amount
-        suffix = line[amt_match.end():].strip()
+        suffix = line[amt_match.end() :].strip()
         dir_m = _DIR_RE.search(suffix)
         direction = _direction_from_token(dir_m.group(1)) if dir_m else "debit"
 

@@ -1,4 +1,5 @@
 """Categories CRUD routes."""
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
@@ -62,9 +63,7 @@ async def delete_category(id: int, db: AsyncSession = Depends(get_db)):
 
     # Explicitly null-out transactions before deleting the category
     await db.execute(
-        update(Transaction)
-        .where(Transaction.category_id == id)
-        .values(category_id=None)
+        update(Transaction).where(Transaction.category_id == id).values(category_id=None)
     )
     await db.execute(delete(Category).where(Category.id == id))
     await db.commit()

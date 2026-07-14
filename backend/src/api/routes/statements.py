@@ -1,4 +1,5 @@
 """Statements upload, list, and delete routes."""
+
 from __future__ import annotations
 
 import io
@@ -92,9 +93,7 @@ async def upload_statement(
     ocr_provider = _resolve_ocr(settings_row)  # raises 422 if key missing
 
     # --- Save file ---
-    ext = "pdf" if inferred_type == "pdf" else (
-        "png" if content_type == "image/png" else "jpg"
-    )
+    ext = "pdf" if inferred_type == "pdf" else ("png" if content_type == "image/png" else "jpg")
     file_name = f"{uuid.uuid4()}.{ext}"
     os.makedirs(settings.upload_dir, exist_ok=True)
     file_path = os.path.join(settings.upload_dir, file_name)
@@ -152,14 +151,10 @@ async def upload_statement(
         raise HTTPException(status_code=500, detail=f"Pipeline error: {e}") from e
 
     status_str = (
-        str(statement.status.value)
-        if hasattr(statement.status, "value")
-        else str(statement.status)
+        str(statement.status.value) if hasattr(statement.status, "value") else str(statement.status)
     )
     type_str = (
-        str(statement.type.value)
-        if hasattr(statement.type, "value")
-        else str(statement.type)
+        str(statement.type.value) if hasattr(statement.type, "value") else str(statement.type)
     )
     return StatementOut(
         id=statement.id,
@@ -186,20 +181,12 @@ async def list_statements(
         .correlate(Statement)
         .scalar_subquery()
     )
-    stmt = (
-        select(Statement, count_sq.label("transaction_count"))
-        .offset(offset)
-        .limit(limit)
-    )
+    stmt = select(Statement, count_sq.label("transaction_count")).offset(offset).limit(limit)
     rows = (await db.execute(stmt)).all()
     return [
         StatementOut(
             **{
-                **{
-                    k: v
-                    for k, v in row.Statement.__dict__.items()
-                    if not k.startswith("_")
-                },
+                **{k: v for k, v in row.Statement.__dict__.items() if not k.startswith("_")},
                 "type": (
                     str(row.Statement.type.value)
                     if hasattr(row.Statement.type, "value")
