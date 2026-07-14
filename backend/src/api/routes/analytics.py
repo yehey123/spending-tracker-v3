@@ -1,7 +1,7 @@
 """Analytics routes: by-category and cash-flow summaries."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, Query
@@ -22,14 +22,14 @@ router = APIRouter()
 
 
 def _month_bounds(month: str) -> tuple[datetime, datetime]:
-    """Return (first_day, first_day_of_next_month) for a YYYY-MM string."""
+    """Return (first_day, first_day_of_next_month) for a YYYY-MM string (tz-naive)."""
     year, mon = int(month[:4]), int(month[5:7])
-    first_day = datetime(year, mon, 1, tzinfo=timezone.utc)
+    first_day = datetime(year, mon, 1)  # tz-naive to match TIMESTAMP WITHOUT TIME ZONE
     if mon == 12:
         next_year, next_mon = year + 1, 1
     else:
         next_year, next_mon = year, mon + 1
-    first_day_next = datetime(next_year, next_mon, 1, tzinfo=timezone.utc)
+    first_day_next = datetime(next_year, next_mon, 1)
     return first_day, first_day_next
 
 
@@ -100,7 +100,7 @@ async def cash_flow(
     db: AsyncSession = Depends(get_db),
 ):
     """Monthly credit/debit totals for the last N calendar months."""
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now()  # tz-naive to match TIMESTAMP WITHOUT TIME ZONE column
 
     # Build list of (year, month) going back `months` months inclusive of current
     month_list: list[tuple[int, int]] = []
@@ -116,12 +116,12 @@ async def cash_flow(
     result_months: list[MonthCashFlow] = []
     for year, mon in month_list:
         month_str = f"{year:04d}-{mon:02d}"
-        first_day = datetime(year, mon, 1, tzinfo=timezone.utc)
+        first_day = datetime(year, mon, 1)  # tz-naive
         if mon == 12:
             next_year, next_mon = year + 1, 1
         else:
             next_year, next_mon = year, mon + 1
-        first_day_next = datetime(next_year, next_mon, 1, tzinfo=timezone.utc)
+        first_day_next = datetime(next_year, next_mon, 1)
 
         # Sum credit
         credit_result = await db.execute(

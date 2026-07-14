@@ -12,14 +12,14 @@ from src.api.schemas.categories import CategoryCreate, CategoryUpdate, CategoryO
 router = APIRouter()
 
 
-@router.get("/", response_model=list[CategoryOut])
+@router.get("", response_model=list[CategoryOut])
 async def list_categories(db: AsyncSession = Depends(get_db)):
     """Return all categories ordered by name ascending."""
     result = await db.execute(select(Category).order_by(Category.name.asc()))
     return result.scalars().all()
 
 
-@router.post("/", response_model=CategoryOut, status_code=201)
+@router.post("", response_model=CategoryOut, status_code=201)
 async def create_category(body: CategoryCreate, db: AsyncSession = Depends(get_db)):
     """Create a new category. Returns 409 if name already exists (case-insensitive)."""
     cat = Category(name=body.name, color=body.color)

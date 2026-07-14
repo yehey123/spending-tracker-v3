@@ -163,7 +163,7 @@ async def upload_statement(
     )
 
 
-@router.get("/", response_model=list[StatementOut])
+@router.get("", response_model=list[StatementOut])
 async def list_statements(
     offset: int = 0,
     limit: int = 20,

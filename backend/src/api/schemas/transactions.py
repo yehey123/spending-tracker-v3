@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_serializer
 from datetime import datetime
 from decimal import Decimal
 from typing import Literal
@@ -34,3 +34,8 @@ class TransactionOut(BaseModel):
     category: CategoryInline | None
     statement_id: int | None
     model_config = ConfigDict(from_attributes=True)
+
+    @field_serializer("amount")
+    def serialize_amount(self, v: Decimal) -> str:
+        """Return amount as a normalized decimal string (removes trailing zeros)."""
+        return str(v.normalize())

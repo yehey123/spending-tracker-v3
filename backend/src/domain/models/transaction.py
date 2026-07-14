@@ -20,7 +20,9 @@ class Transaction(Base):
     date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     description: Mapped[str] = mapped_column(String(500), nullable=False)
-    direction: Mapped[Direction] = mapped_column(Enum(Direction), nullable=False)
+    direction: Mapped[Direction] = mapped_column(
+        Enum("debit", "credit", name="transaction_direction"), nullable=False
+    )
 
     category_id: Mapped[int | None] = mapped_column(ForeignKey("categories.id"), nullable=True)
     statement_id: Mapped[int | None] = mapped_column(ForeignKey("statements.id"), nullable=True)

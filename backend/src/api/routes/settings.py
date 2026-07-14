@@ -31,14 +31,14 @@ def _to_out(row: AppSettings) -> SettingsOut:
     )
 
 
-@router.get("/", response_model=SettingsOut)
+@router.get("", response_model=SettingsOut)
 async def get_settings(db: AsyncSession = Depends(get_db)):
     """Return current OCR settings. API key values are never returned."""
     row = await _get_settings(db)
     return _to_out(row)
 
 
-@router.put("/", response_model=SettingsOut)
+@router.put("", response_model=SettingsOut)
 async def update_settings(body: SettingsPut, db: AsyncSession = Depends(get_db)):
     """Update OCR provider and/or API keys.
 

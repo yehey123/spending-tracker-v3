@@ -1,19 +1,18 @@
 import enum
-from datetime import datetime
+from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, Enum, String
+from sqlalchemy import DateTime, Enum, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.db.base import Base
 
 
 class StatementType(str, enum.Enum):
-    CREDIT_CARD_SCREENSHOT = "credit_card_screenshot"
-    BANK_PDF = "bank_pdf"
+    IMAGE = "image"
+    PDF = "pdf"
 
 
 class ParseStatus(str, enum.Enum):
-    PENDING = "pending"
     PROCESSING = "processing"
     DONE = "done"
     FAILED = "failed"
@@ -23,12 +22,18 @@ class Statement(Base):
     __tablename__ = "statements"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    filename: Mapped[str] = mapped_column(String(255), nullable=False)
-    file_path: Mapped[str] = mapped_column(String(512), nullable=False)
-    type: Mapped[StatementType] = mapped_column(Enum(StatementType), nullable=False)
-    status: Mapped[ParseStatus] = mapped_column(Enum(ParseStatus), default=ParseStatus.PENDING)
+    filename: Mapped[str] = mapped_column(String(255), nullable=True)
+    file_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    type: Mapped[StatementType | None] = mapped_column(
+        Enum("image", "pdf", name="statement_type"), nullable=True
+    )
+    status: Mapped[ParseStatus | None] = mapped_column(
+        Enum("processing", "done", "failed", name="statement_status"), nullable=True
+    )
     ocr_provider: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    error_message: Mapped[str | None] = mapped_column(String(1000), nullable=True)
-    uploaded_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    error_message: Mapped[str | None] = mapped_column(Text(), nullable=True)
+    uploaded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default="now()"
+    )
 
     transactions: Mapped[list["Transaction"]] = relationship(back_populates="statement")

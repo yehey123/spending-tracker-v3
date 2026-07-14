@@ -10,9 +10,13 @@ from sqlalchemy.orm import sessionmaker
 from src.main import app
 from src.db.session import get_db
 
-TEST_DB_URL = "postgresql+asyncpg://user:password@db:5432/spending_tracker_test"
-TEST_DB_RAW = "postgresql://user:password@db:5432/spending_tracker_test"
-TEST_DB_ASYNCPG = "postgresql+asyncpg://user:password@db:5432/spending_tracker_test"
+import os
+
+# Allow overriding host for CI (GitHub Actions uses localhost, Docker uses db)
+_DB_HOST = os.environ.get("TEST_DB_HOST", "db")
+TEST_DB_URL = f"postgresql+asyncpg://user:password@{_DB_HOST}:5432/spending_tracker_test"
+TEST_DB_RAW = f"postgresql://user:password@{_DB_HOST}:5432/spending_tracker_test"
+TEST_DB_ASYNCPG = f"postgresql+asyncpg://user:password@{_DB_HOST}:5432/spending_tracker_test"
 
 # Engine created lazily in setup_db to bind to the correct event loop
 _engine_test = None

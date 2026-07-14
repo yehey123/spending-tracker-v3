@@ -1,8 +1,7 @@
 """Transactions CRUD routes with filtering and pagination."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from calendar import monthrange
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,19 +17,19 @@ router = APIRouter()
 
 
 def _month_bounds(month: str) -> tuple[datetime, datetime]:
-    """Return (first_day, first_day_of_next_month) for a YYYY-MM string."""
+    """Return (first_day, first_day_of_next_month) for a YYYY-MM string (tz-naive)."""
     year, mon = int(month[:4]), int(month[5:7])
-    first_day = datetime(year, mon, 1, tzinfo=timezone.utc)
+    first_day = datetime(year, mon, 1)  # tz-naive to match TIMESTAMP WITHOUT TIME ZONE column
     # Advance to next month
     if mon == 12:
         next_year, next_mon = year + 1, 1
     else:
         next_year, next_mon = year, mon + 1
-    first_day_next = datetime(next_year, next_mon, 1, tzinfo=timezone.utc)
+    first_day_next = datetime(next_year, next_mon, 1)
     return first_day, first_day_next
 
 
-@router.get("/", response_model=list[TransactionOut])
+@router.get("", response_model=list[TransactionOut])
 async def list_transactions(
     month: str | None = Query(default=None, pattern=r"^\d{4}-\d{2}$"),
     category_id: int | None = Query(default=None),
@@ -59,7 +58,7 @@ async def list_transactions(
     return result.scalars().all()
 
 
-@router.post("/", response_model=TransactionOut, status_code=201)
+@router.post("", response_model=TransactionOut, status_code=201)
 async def create_transaction(body: TransactionCreate, db: AsyncSession = Depends(get_db)):
     """Create a manual transaction (no statement source)."""
     if body.category_id is not None:
