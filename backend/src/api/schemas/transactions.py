@@ -11,11 +11,13 @@ class TransactionCreate(BaseModel):
     description: str = Field(min_length=1, max_length=500)
     direction: Literal["debit", "credit"]
     category_id: int | None = None
+    currency: str | None = None
 
 
 class TransactionPatch(BaseModel):
     category_id: int | None = None
     description: str | None = Field(default=None, min_length=1, max_length=500)
+    currency: str | None = None
 
 
 class CategoryInline(BaseModel):
@@ -34,6 +36,7 @@ class TransactionOut(BaseModel):
     category_id: int | None
     category: CategoryInline | None
     statement_id: int | None
+    currency: str | None
     model_config = ConfigDict(from_attributes=True)
 
     @field_serializer("amount")

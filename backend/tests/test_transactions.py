@@ -97,3 +97,59 @@ async def test_delete_transaction(client):
     })).json()
     res = await client.delete(f"/transactions/{tx['id']}")
     assert res.status_code == 204
+
+
+@pytest.mark.asyncio
+async def test_create_transaction_with_currency(client):
+    res = await client.post("/transactions", json={
+        "date": "2026-05-15T00:00:00",
+        "amount": "100.00",
+        "description": "USD Purchase",
+        "direction": "debit",
+        "currency": "USD",
+    })
+    assert res.status_code == 201
+    assert res.json()["currency"] == "USD"
+
+
+@pytest.mark.asyncio
+async def test_list_transactions_returns_currency(client):
+    await client.post("/transactions", json={
+        "date": "2026-05-15T00:00:00",
+        "amount": "100.00",
+        "description": "USD Purchase",
+        "direction": "debit",
+        "currency": "USD",
+    })
+    res = await client.get("/transactions")
+    data = res.json()
+    assert len(data) == 1
+    assert data[0]["currency"] == "USD"
+
+
+@pytest.mark.asyncio
+async def test_patch_transaction_currency(client):
+    tx = (await client.post("/transactions", json={
+        "date": "2026-05-10T00:00:00",
+        "amount": "30.00",
+        "description": "Item",
+        "direction": "debit",
+        "currency": "USD",
+    })).json()
+    res = await client.patch(f"/transactions/{tx['id']}", json={"currency": "EUR"})
+    assert res.status_code == 200
+    assert res.json()["currency"] == "EUR"
+
+
+@pytest.mark.asyncio
+async def test_patch_transaction_currency_null_clears(client):
+    tx = (await client.post("/transactions", json={
+        "date": "2026-05-10T00:00:00",
+        "amount": "30.00",
+        "description": "Item",
+        "direction": "debit",
+        "currency": "USD",
+    })).json()
+    res = await client.patch(f"/transactions/{tx['id']}", json={"currency": None})
+    assert res.status_code == 200
+    assert res.json()["currency"] is None

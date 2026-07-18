@@ -7,9 +7,11 @@ class SettingsOut(BaseModel):
     ocr_provider: str
     anthropic_api_key_set: bool
     openai_api_key_set: bool
+    home_currency: str | None = None
 
 
 class SettingsPut(BaseModel):
     ocr_provider: Literal["tesseract", "claude", "openai"]
     anthropic_api_key: str | None = None
     openai_api_key: str | None = None
+    home_currency: str | None = None

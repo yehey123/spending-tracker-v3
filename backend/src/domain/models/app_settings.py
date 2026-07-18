@@ -13,3 +13,4 @@ class AppSettings(Base):
     ocr_provider: Mapped[str] = mapped_column(String(50), default="tesseract")
     anthropic_api_key: Mapped[str | None] = mapped_column(String(200), nullable=True)
     openai_api_key: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    home_currency: Mapped[str | None] = mapped_column(String(3), nullable=True)

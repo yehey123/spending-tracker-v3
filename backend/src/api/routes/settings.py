@@ -1,5 +1,7 @@
 """Settings routes: read and update OCR provider configuration."""
 
+import re
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,6 +31,7 @@ def _to_out(row: AppSettings) -> SettingsOut:
         ocr_provider=row.ocr_provider,
         anthropic_api_key_set=bool(row.anthropic_api_key),
         openai_api_key_set=bool(row.openai_api_key),
+        home_currency=row.home_currency,
     )
 
 
@@ -74,12 +77,22 @@ async def update_settings(body: SettingsPut, db: AsyncSession = Depends(get_db))
             detail="Provider 'openai' requires openai_api_key to be set.",
         )
 
+    # Validate home_currency if provided
+    if "home_currency" in fields_set and body.home_currency is not None:
+        if not re.fullmatch(r"[A-Z]{3}", body.home_currency):
+            raise HTTPException(
+                status_code=422,
+                detail="home_currency must be a 3-letter ISO 4217 code, e.g. 'PHP'",
+            )
+
     # Apply updates
     row.ocr_provider = body.ocr_provider
     if "anthropic_api_key" in fields_set:
         row.anthropic_api_key = body.anthropic_api_key
     if "openai_api_key" in fields_set:
         row.openai_api_key = body.openai_api_key
+    if "home_currency" in fields_set:
+        row.home_currency = body.home_currency
 
     await db.commit()
     await db.refresh(row)
