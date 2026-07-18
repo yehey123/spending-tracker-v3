@@ -1,7 +1,16 @@
-const getBaseUrl = (): string =>
-  (typeof window !== 'undefined' && localStorage.getItem('spending_tracker_backend_url')) ||
-  process.env.NEXT_PUBLIC_API_URL ||
-  'http://localhost:8000';
+function getBaseUrl(): string {
+  // Build-time env var (set by Docker --build-arg, default /api for production)
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+  // Dev/mobile override via localStorage (Story 4.1 — Capacitor builds)
+  if (typeof window !== 'undefined') {
+    const stored = localStorage.getItem('spending_tracker_backend_url');
+    if (stored) return stored;
+  }
+  // Fallback: same-origin /api (nginx gateway)
+  return '/api';
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${getBaseUrl()}${path}`, {
