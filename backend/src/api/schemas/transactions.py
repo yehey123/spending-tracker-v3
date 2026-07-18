@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_serializer
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
 
 
 class TransactionCreate(BaseModel):
@@ -11,11 +11,34 @@ class TransactionCreate(BaseModel):
     description: str = Field(min_length=1, max_length=500)
     direction: Literal["debit", "credit"]
     category_id: int | None = None
+    currency: str | None = None  # ISO-4217 3-letter code; null = home currency
 
 
 class TransactionPatch(BaseModel):
-    category_id: int | None = None
+    amount: Decimal | None = Field(default=None, gt=0)
+    date: datetime | None = None
     description: str | None = Field(default=None, min_length=1, max_length=500)
+    direction: Literal["debit", "credit"] | None = None
+    category_id: int | None = None
+    currency: str | None = None
+
+
+class ReverseRequest(BaseModel):
+    reason: str
+    notes: str | None = None
+
+    @field_validator('reason')
+    @classmethod
+    def reason_must_be_valid(cls, v: str) -> str:
+        valid = {'duplicate', 'bank_reversal', 'user_error',
+                 'receipt_superseded', 'user_correction', 'other'}
+        if v not in valid:
+            raise ValueError(f"reason must be one of {valid}")
+        return v
+
+
+class ParentPatch(BaseModel):
+    parent_transaction_id: int | None = None
 
 
 class CategoryInline(BaseModel):
@@ -34,9 +57,29 @@ class TransactionOut(BaseModel):
     category_id: int | None
     category: CategoryInline | None
     statement_id: int | None
+    currency: str | None = None
+    status: str | None = None
     model_config = ConfigDict(from_attributes=True)
 
     @field_serializer("amount")
     def serialize_amount(self, v: Decimal) -> str:
-        """Return amount as a normalized decimal string (removes trailing zeros)."""
         return str(v.normalize())
+
+
+class TransactionPatchResult(BaseModel):
+    id: int
+    re_categorized: int = 0
+    reversal_id: int | None = None
+    correction_id: int | None = None
+
+
+class AuditLogOut(BaseModel):
+    id: int
+    transaction_id: int
+    field: str
+    old_value: str | None
+    new_value: str | None
+    changed_at: datetime
+    changed_by: str
+    reason: str | None = None
+    model_config = ConfigDict(from_attributes=True)

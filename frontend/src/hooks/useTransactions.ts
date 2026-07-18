@@ -63,12 +63,15 @@ export function useTransactionMutations() {
 
   const patchMutation = useMutation({
     mutationFn: ({ id, patch }: { id: number; patch: TransactionPatch }) =>
-      api.patch<Transaction>(`/transactions/${id}`, patch),
+      api.patch<{ id: number; re_categorized: number; reversal_id?: number; correction_id?: number }>(
+        `/transactions/${id}`, patch
+      ),
     onSuccess: invalidate,
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => api.delete(`/transactions/${id}`),
+  const reverseMutation = useMutation({
+    mutationFn: ({ id, reason }: { id: number; reason: string }) =>
+      api.post(`/transactions/${id}/reverse`, { reason }),
     onSuccess: invalidate,
   });
 
@@ -77,7 +80,7 @@ export function useTransactionMutations() {
     onSuccess: invalidate,
   });
 
-  return { patchMutation, deleteMutation, createMutation };
+  return { patchMutation, reverseMutation, createMutation };
 }
 
 interface TransactionDraft {

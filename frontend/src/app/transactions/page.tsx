@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import type { Category } from '@/lib/types';
-import { Trash2, Tag, Plus, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Tag, Plus, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   useTransactionFilters,
   useTransactions,
@@ -15,7 +15,7 @@ export default function TransactionsPage() {
   const filters = useTransactionFilters();
   const { transactions, isLoading, page, hasMore, hasPrev, nextPage, prevPage } =
     useTransactions(filters);
-  const { patchMutation, deleteMutation, createMutation } = useTransactionMutations();
+  const { patchMutation, reverseMutation, createMutation } = useTransactionMutations();
   const form = useAddTransactionForm();
 
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -170,11 +170,6 @@ export default function TransactionsPage() {
                       onClick={() => { setEditingId(tx.id); setEditCategoryId(String(tx.category_id ?? '')); }}
                       className="text-gray-400 hover:text-indigo-600">
                       <Tag size={15} />
-                    </button>
-                    <button
-                      onClick={() => { if (confirm('Delete this transaction?')) deleteMutation.mutate(tx.id); }}
-                      className="text-gray-400 hover:text-red-500">
-                      <Trash2 size={15} />
                     </button>
                   </div>
                 </div>
