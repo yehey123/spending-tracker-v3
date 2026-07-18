@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import io
-import os
 import uuid
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -11,7 +10,6 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.schemas.statements import StatementOut
-from src.core.config import settings
 from src.db.session import get_db
 from src.domain.models.app_settings import AppSettings
 from src.domain.models.statement import Statement
@@ -19,6 +17,10 @@ from src.domain.models.transaction import Transaction
 from src.domain.services.pdf_parser import extract_pdf_text
 from src.domain.services.preprocessor import preprocess
 from src.domain.services.statement_parser import parse_statement
+from src.domain.services.storage import get_storage_backend
+
+import logging
+logger = logging.getLogger('statements')
 
 try:
     from PIL import Image as PILImage
@@ -26,12 +28,13 @@ except ImportError:  # pragma: no cover
     PILImage = None  # type: ignore[assignment]
 
 try:
-    from src.domain.services.ocr.claude import ClaudeProvider
+    from src.domain.services.ocr.claude import ClaudeVisionProvider
     from src.domain.services.ocr.openai_vision import OpenAIVisionProvider
     from src.domain.services.ocr.tesseract import TesseractProvider
-except ImportError:  # pragma: no cover
+except ImportError as e:  # pragma: no cover
+    logger.error('Error in importing: %s', e)
     TesseractProvider = None  # type: ignore[assignment]
-    ClaudeProvider = None  # type: ignore[assignment]
+    ClaudeVisionProvider = None  # type: ignore[assignment]
     OpenAIVisionProvider = None  # type: ignore[assignment]
 
 router = APIRouter()
@@ -49,7 +52,7 @@ def _resolve_ocr(settings_row: AppSettings) -> object:
                 status_code=422,
                 detail="API key not configured for claude.",
             )
-        return ClaudeProvider(api_key=settings_row.anthropic_api_key)
+        return ClaudeVisionProvider(api_key=settings_row.anthropic_api_key)
     elif provider == "openai":
         if not settings_row.openai_api_key:
             raise HTTPException(
@@ -92,18 +95,19 @@ async def upload_statement(
 
     ocr_provider = _resolve_ocr(settings_row)  # raises 422 if key missing
 
-    # --- Save file ---
+    # --- Save file via storage backend ---
     ext = "pdf" if inferred_type == "pdf" else ("png" if content_type == "image/png" else "jpg")
-    file_name = f"{uuid.uuid4()}.{ext}"
-    os.makedirs(settings.upload_dir, exist_ok=True)
-    file_path = os.path.join(settings.upload_dir, file_name)
-    with open(file_path, "wb") as fh:
-        fh.write(content)
+    key = f"{uuid.uuid4()}.{ext}"
+    storage = get_storage_backend()
+    try:
+        await storage.save(key, content)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Storage error: {e}") from e
 
     # --- Create Statement row ---
     statement = Statement(
-        filename=file.filename or file_name,
-        file_path=file_path,
+        filename=file.filename or key,
+        storage_key=key,
         type=inferred_type,
         status="processing",
         ocr_provider=settings_row.ocr_provider,
@@ -124,6 +128,7 @@ async def upload_statement(
             text = await ocr_provider.extract_text(img)  # type: ignore[attr-defined]
 
         parsed = parse_statement(text)
+        logger.error('Parsed outputs: %s', parsed)
 
         # --- Bulk insert transactions ---
         for p in parsed:
@@ -212,12 +217,12 @@ async def delete_statement(id: int, db: AsyncSession = Depends(get_db)) -> None:
     if statement is None:
         raise HTTPException(status_code=404, detail="Statement not found.")
 
-    # Delete file (ignore if missing)
-    try:
-        file_path = os.path.join(settings.upload_dir, statement.filename)
-        os.remove(file_path)
-    except FileNotFoundError:
-        pass
+    storage = get_storage_backend()
+    if statement.storage_key:
+        try:
+            await storage.delete(statement.storage_key)
+        except Exception:
+            pass  # silent — object may already be gone
 
     await db.delete(statement)
     await db.commit()

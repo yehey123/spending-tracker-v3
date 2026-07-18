@@ -31,6 +31,7 @@ export default function UploadPage() {
       form.append('file', file);
       const data = await api.upload<Statement>('/statements/upload', form);
       setResult(data);
+      console.log('data: ', data)
       setStatus('success');
       qc.invalidateQueries({ queryKey: ['statements'] });
       qc.invalidateQueries({ queryKey: ['transactions'] });

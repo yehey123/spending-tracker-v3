@@ -74,7 +74,6 @@ async def create_transaction(body: TransactionCreate, db: AsyncSession = Depends
         direction=body.direction,
         category_id=body.category_id,
         statement_id=None,
-        currency=body.currency,
     )
     db.add(tx)
     await db.commit()
@@ -107,9 +106,6 @@ async def patch_transaction(id: int, body: TransactionPatch, db: AsyncSession = 
 
     if body.description is not None:
         tx.description = body.description
-
-    if "currency" in body.model_fields_set:
-        tx.currency = body.currency
 
     await db.commit()
     await db.refresh(tx)

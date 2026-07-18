@@ -23,7 +23,7 @@ class Statement(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     filename: Mapped[str] = mapped_column(String(255), nullable=True)
-    file_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    storage_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
     type: Mapped[StatementType | None] = mapped_column(
         Enum("image", "pdf", name="statement_type"), nullable=True
     )

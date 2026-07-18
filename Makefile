@@ -1,4 +1,4 @@
-.PHONY: build up test migrate revision frontend-dev frontend-build
+.PHONY: build up down test migrate revision frontend-dev
 
 check-docker:
 	@echo "Checking Docker status..."
@@ -16,22 +16,22 @@ check-docker:
 	fi
 
 build: check-docker
-	docker-compose build
+	docker compose build
 
 up: check-docker
-	docker-compose up -d
+	docker compose up -d
+
+down:
+	docker compose down
 
 test:
-	docker-compose run --rm backend pytest
+	docker compose run --rm backend pytest
 
 migrate:
-	docker-compose run --rm backend alembic upgrade head
+	docker compose run --rm backend alembic upgrade head
 
 revision:
-	docker-compose run --rm backend alembic revision --autogenerate -m "$(msg)"
+	docker compose run --rm backend alembic revision --autogenerate -m "$(msg)"
 
 frontend-dev:
 	cd frontend && npm run dev
-
-frontend-build:
-	cd frontend && npm run build

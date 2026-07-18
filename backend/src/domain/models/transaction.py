@@ -23,7 +23,6 @@ class Transaction(Base):
     direction: Mapped[Direction] = mapped_column(
         Enum("debit", "credit", name="transaction_direction"), nullable=False
     )
-    currency: Mapped[str | None] = mapped_column(String(3), nullable=True)
 
     category_id: Mapped[int | None] = mapped_column(ForeignKey("categories.id"), nullable=True)
     statement_id: Mapped[int | None] = mapped_column(ForeignKey("statements.id"), nullable=True)

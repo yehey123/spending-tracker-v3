@@ -90,7 +90,7 @@ async def clean_tables():
             "TRUNCATE transactions, statements, categories RESTART IDENTITY CASCADE"
         )
         await conn.execute(
-            "UPDATE app_settings SET ocr_provider='tesseract', anthropic_api_key=NULL, openai_api_key=NULL, home_currency=NULL WHERE id=1"
+            "UPDATE app_settings SET ocr_provider='tesseract', anthropic_api_key=NULL, openai_api_key=NULL WHERE id=1"
         )
     finally:
         await conn.close()

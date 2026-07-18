@@ -36,17 +36,25 @@ def preprocess(image: Image.Image) -> Image.Image:
     arr = np.array(img_rgb)
     gray = cv2.cvtColor(arr, cv2.COLOR_RGB2GRAY)
 
-    # Step 2: Denoise
+    # Step 2: Upscale if the image is small — Tesseract needs ~300 DPI equivalent.
+    # Screenshots from mobile banking apps are typically 72–96 DPI; 2× upscale
+    # meaningfully improves character recognition without blowing up memory.
+    h, w = gray.shape[:2]
+    if max(h, w) < 2000:
+        gray = cv2.resize(gray, (w * 2, h * 2), interpolation=cv2.INTER_CUBIC)
+
+    # Step 3: Denoise
     denoised = cv2.fastNlMeansDenoising(gray, h=10)
 
-    # Step 3: Adaptive threshold
+    # Step 4: Adaptive threshold — use a larger blockSize after upscaling so the
+    # neighbourhood covers a similar physical area as before.
     thresholded = cv2.adaptiveThreshold(
         denoised,
         255,
         cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
         cv2.THRESH_BINARY,
-        blockSize=11,
-        C=2,
+        blockSize=21,
+        C=5,
     )
 
     # Step 4: Deskew

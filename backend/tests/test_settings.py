@@ -9,7 +9,6 @@ async def test_get_settings_default(client):
     assert data["ocr_provider"] == "tesseract"
     assert data["anthropic_api_key_set"] is False
     assert data["openai_api_key_set"] is False
-    assert data["home_currency"] is None
 
 
 @pytest.mark.asyncio
@@ -46,32 +45,3 @@ async def test_key_not_returned_in_get(client):
     res = await client.get("/settings")
     body = res.text
     assert "sk-ant-secret" not in body
-
-
-@pytest.mark.asyncio
-async def test_put_settings_home_currency(client):
-    res = await client.put("/settings", json={"ocr_provider": "tesseract", "home_currency": "PHP"})
-    assert res.status_code == 200
-    assert res.json()["home_currency"] == "PHP"
-
-
-@pytest.mark.asyncio
-async def test_get_settings_returns_home_currency_after_set(client):
-    await client.put("/settings", json={"ocr_provider": "tesseract", "home_currency": "PHP"})
-    res = await client.get("/settings")
-    assert res.status_code == 200
-    assert res.json()["home_currency"] == "PHP"
-
-
-@pytest.mark.asyncio
-async def test_put_settings_home_currency_lowercase_fails(client):
-    res = await client.put("/settings", json={"ocr_provider": "tesseract", "home_currency": "xyz"})
-    assert res.status_code == 422
-
-
-@pytest.mark.asyncio
-async def test_put_settings_home_currency_null_clears(client):
-    await client.put("/settings", json={"ocr_provider": "tesseract", "home_currency": "USD"})
-    res = await client.put("/settings", json={"ocr_provider": "tesseract", "home_currency": None})
-    assert res.status_code == 200
-    assert res.json()["home_currency"] is None

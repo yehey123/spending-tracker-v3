@@ -24,8 +24,11 @@ _PIPE_RE = re.compile(
     r"^\s*(?P<date>[^|]+?)\s*\|\s*(?P<desc>[^|]+?)\s*\|\s*(?P<amount>[^|]+?)\s*\|\s*(?P<dir>[^|]+?)\s*$",
     re.IGNORECASE,
 )
-_AMOUNT_RE = re.compile(r"\d{1,3}(?:,\d{3})*(?:\.\d{2})?")
+# Matches amounts like 1,234.56 or 1234.56, optionally followed by - (credit indicator)
+_AMOUNT_RE = re.compile(r"(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\s*(-)?")
 _DIR_RE = re.compile(r"\b(CR|CREDIT|DR|DEBIT)\b", re.IGNORECASE)
+# Trailing city/country noise common in Philippine bank statements: "MAKATI PH", "PASIG CITY PH"
+_LOCATION_NOISE_RE = re.compile(r"\s+[A-Z][A-Z\s]*\bPH\s*$")
 _SKIP_AMOUNT = Decimal("999999")
 
 
@@ -84,32 +87,49 @@ def parse_statement(text: str) -> list[ParsedTransaction]:
             )
             continue
 
-        # Regex fallback: find amount in line
-        amt_match = _AMOUNT_RE.search(line)
+        # Regex fallback: find amount in line (rightmost match — amount is last column)
+        amt_match = None
+        for m in _AMOUNT_RE.finditer(line):
+            amt_match = m
         if not amt_match:
             continue
-        amount = _parse_amount(amt_match.group())
+        amount = _parse_amount(amt_match.group(1))
         if amount is None or amount > _SKIP_AMOUNT:
             continue
 
-        # Find date at start of line
-        # Try up to first 15 chars as date
+        # Trailing - immediately after the amount → credit (payment)
+        trailing_minus = amt_match.group(2) == "-"
+
+        # Find date at start of line (try up to 20 chars)
         date = None
+        date_end = 0
         for end in range(min(len(line), 20), 5, -1):
             date = _parse_date(line[:end])
             if date:
+                date_end = end
                 break
         if date is None:
             continue
 
-        # Description: text between date and amount
-        pre_amt = line[: amt_match.start()].strip()
-        desc = re.sub(r"^\S+\s+", "", pre_amt).strip() or pre_amt
+        # Skip a second date immediately after the first (posting date column)
+        rest = line[date_end:].strip()
+        for end in range(min(len(rest), 10), 4, -1):
+            if _parse_date(rest[:end]) is not None:
+                rest = rest[end:].strip()
+                break
 
-        # Direction hint from suffix after amount
-        suffix = line[amt_match.end() :].strip()
-        dir_m = _DIR_RE.search(suffix)
-        direction = _direction_from_token(dir_m.group(1)) if dir_m else "debit"
+        # Description: text between (second) date and amount, minus location noise
+        pre_amt = rest[: rest.rfind(amt_match.group(1))].strip()
+        pre_amt = _LOCATION_NOISE_RE.sub("", pre_amt).strip()
+        desc = pre_amt or line
+
+        # Direction: trailing - beats explicit DEBIT/CREDIT keyword
+        if trailing_minus:
+            direction = "credit"
+        else:
+            suffix = line[amt_match.end():].strip()
+            dir_m = _DIR_RE.search(suffix)
+            direction = _direction_from_token(dir_m.group(1)) if dir_m else "debit"
 
         results.append(
             ParsedTransaction(

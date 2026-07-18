@@ -26,3 +26,14 @@ ls_data/
 
 # Exchange rate cache (CI artifact, not committed to source)
 exchange_rates.db
+
+# Frontend build artifacts
+frontend/.next/
+frontend/node_modules/
+frontend/tsconfig.tsbuildinfo
+
+# Runtime data
+uploads/
+
+# Worktree temporaries
+.claude/worktrees/
