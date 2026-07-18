@@ -86,7 +86,11 @@ async def test_patch_transaction_category(client):
     })).json()
     res = await client.patch(f"/transactions/{tx['id']}", json={"category_id": cat["id"]})
     assert res.status_code == 200
-    assert res.json()["category_id"] == cat["id"]
+    assert "id" in res.json()  # returns TransactionPatchResult, not TransactionOut
+    # Verify the category was actually applied
+    get_res = await client.get("/transactions")
+    updated = next(t for t in get_res.json() if t["id"] == tx["id"])
+    assert updated["category_id"] == cat["id"]
 
 
 @pytest.mark.asyncio
@@ -96,4 +100,4 @@ async def test_delete_transaction(client):
         "description": "ToDelete", "direction": "debit",
     })).json()
     res = await client.delete(f"/transactions/{tx['id']}")
-    assert res.status_code == 204
+    assert res.status_code == 405  # DELETE removed — use POST /transactions/{id}/reverse instead

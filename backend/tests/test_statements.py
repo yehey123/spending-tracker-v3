@@ -25,9 +25,9 @@ async def test_upload_statement_image(client):
     mock_ocr = AsyncMock(return_value="01/05/2026 | GRAB FOOD | 150.00 | DEBIT\n01/05/2026 | SALARY | 50000.00 | CREDIT")
     mock_pre = MagicMock(return_value=Image.new("L", (100, 100)))
     mock_store = _mock_storage()
-    with patch("src.api.routes.statements.preprocess", mock_pre), \
+    with patch("src.domain.services.preprocessor.preprocess", mock_pre), \
          patch("src.api.routes.statements.get_storage_backend", return_value=mock_store), \
-         patch("src.api.routes.statements.TesseractProvider") as MockProv:
+         patch("src.domain.services.statement_pipeline.TesseractProvider") as MockProv:
         instance = MockProv.return_value
         instance.extract_text = mock_ocr
         res = await client.post(
@@ -36,7 +36,7 @@ async def test_upload_statement_image(client):
         )
     assert res.status_code == 200
     data = res.json()
-    assert data["status"] == "done"
+    assert data["status"] in ("staged", "committed")
     assert data["transaction_count"] == 2
     assert data["filename"] == "bank.png"
     mock_store.save.assert_called_once()
@@ -68,9 +68,9 @@ async def test_list_statements(client):
     mock_ocr = AsyncMock(return_value="")
     mock_pre = MagicMock(return_value=Image.new("L", (100, 100)))
     mock_store = _mock_storage()
-    with patch("src.api.routes.statements.preprocess", mock_pre), \
+    with patch("src.domain.services.preprocessor.preprocess", mock_pre), \
          patch("src.api.routes.statements.get_storage_backend", return_value=mock_store), \
-         patch("src.api.routes.statements.TesseractProvider") as MockProv:
+         patch("src.domain.services.statement_pipeline.TesseractProvider") as MockProv:
         instance = MockProv.return_value
         instance.extract_text = mock_ocr
         await client.post("/statements/upload", files={"file": ("s.png", png, "image/png")})
@@ -85,9 +85,9 @@ async def test_delete_statement(client):
     mock_ocr = AsyncMock(return_value="")
     mock_pre = MagicMock(return_value=Image.new("L", (100, 100)))
     mock_store = _mock_storage()
-    with patch("src.api.routes.statements.preprocess", mock_pre), \
+    with patch("src.domain.services.preprocessor.preprocess", mock_pre), \
          patch("src.api.routes.statements.get_storage_backend", return_value=mock_store), \
-         patch("src.api.routes.statements.TesseractProvider") as MockProv:
+         patch("src.domain.services.statement_pipeline.TesseractProvider") as MockProv:
         instance = MockProv.return_value
         instance.extract_text = mock_ocr
         stmt = (await client.post("/statements/upload", files={"file": ("del.png", png, "image/png")})).json()
@@ -104,9 +104,9 @@ async def test_delete_calls_storage_with_storage_key(client):
     mock_ocr = AsyncMock(return_value="")
     mock_pre = MagicMock(return_value=Image.new("L", (100, 100)))
     mock_store = _mock_storage()
-    with patch("src.api.routes.statements.preprocess", mock_pre), \
+    with patch("src.domain.services.preprocessor.preprocess", mock_pre), \
          patch("src.api.routes.statements.get_storage_backend", return_value=mock_store), \
-         patch("src.api.routes.statements.TesseractProvider") as MockProv:
+         patch("src.domain.services.statement_pipeline.TesseractProvider") as MockProv:
         instance = MockProv.return_value
         instance.extract_text = mock_ocr
         stmt = (await client.post("/statements/upload", files={"file": ("receipt.png", png, "image/png")})).json()
