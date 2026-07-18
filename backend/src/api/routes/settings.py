@@ -1,4 +1,4 @@
-"""Settings routes: read and update OCR provider configuration."""
+"""Settings routes: read and update OCR provider and currency configuration."""
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
@@ -29,32 +29,25 @@ def _to_out(row: AppSettings) -> SettingsOut:
         ocr_provider=row.ocr_provider,
         anthropic_api_key_set=bool(row.anthropic_api_key),
         openai_api_key_set=bool(row.openai_api_key),
+        home_currency=row.home_currency,
+        review_before_commit=row.review_before_commit,
+        ai_category_confidence_auto=row.ai_category_confidence_auto,
+        ai_category_confidence_suggest=row.ai_category_confidence_suggest,
     )
 
 
 @router.get("", response_model=SettingsOut)
 async def get_settings(db: AsyncSession = Depends(get_db)):
-    """Return current OCR settings. API key values are never returned."""
+    """Return current settings. API key values are never returned."""
     row = await _get_settings(db)
     return _to_out(row)
 
 
 @router.put("", response_model=SettingsOut)
 async def update_settings(body: SettingsPut, db: AsyncSession = Depends(get_db)):
-    """Update OCR provider and/or API keys.
-
-    Rules:
-    - Omit a key field to leave it unchanged.
-    - Send ``null`` for a key to clear it.
-    - Switching to claude/openai requires the corresponding key in the request
-      or already stored in the DB.
-    """
+    """Update settings. Only provided fields are changed (use model_fields_set)."""
     row = await _get_settings(db)
 
-    # Determine effective key values after the update (before writing)
-    # body.anthropic_api_key == None → clear; field absent → leave unchanged
-    # Since Pydantic gives us None for both "omitted" and "null" in SettingsPut,
-    # we use model_fields_set to distinguish.
     fields_set = body.model_fields_set
 
     new_anthropic = (
@@ -62,7 +55,6 @@ async def update_settings(body: SettingsPut, db: AsyncSession = Depends(get_db))
     )
     new_openai = body.openai_api_key if "openai_api_key" in fields_set else row.openai_api_key
 
-    # Validate that the required key will be present after the update
     if body.ocr_provider == "claude" and not new_anthropic:
         raise HTTPException(
             status_code=422,
@@ -74,12 +66,22 @@ async def update_settings(body: SettingsPut, db: AsyncSession = Depends(get_db))
             detail="Provider 'openai' requires openai_api_key to be set.",
         )
 
-    # Apply updates
     row.ocr_provider = body.ocr_provider
     if "anthropic_api_key" in fields_set:
         row.anthropic_api_key = body.anthropic_api_key
     if "openai_api_key" in fields_set:
         row.openai_api_key = body.openai_api_key
+    if "home_currency" in fields_set:
+        row.home_currency = body.home_currency
+    if "review_before_commit" in fields_set and body.review_before_commit is not None:
+        row.review_before_commit = body.review_before_commit
+    if "ai_category_confidence_auto" in fields_set and body.ai_category_confidence_auto is not None:
+        row.ai_category_confidence_auto = body.ai_category_confidence_auto
+    if (
+        "ai_category_confidence_suggest" in fields_set
+        and body.ai_category_confidence_suggest is not None
+    ):
+        row.ai_category_confidence_suggest = body.ai_category_confidence_suggest
 
     await db.commit()
     await db.refresh(row)
