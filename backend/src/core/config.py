@@ -8,6 +8,9 @@ class Settings(BaseSettings):
 
     upload_dir: str = "/tmp/spending-tracker-uploads"
 
+    # Exchange rate SQLite cache
+    rates_db_path: str = "/data/rates/exchange_rates.db"
+
     # OCR defaults — overridable from the DB settings table at runtime
     ocr_provider: str = "tesseract"  # tesseract | claude | openai
     anthropic_api_key: str | None = None
