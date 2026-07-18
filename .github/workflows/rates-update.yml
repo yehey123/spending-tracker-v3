@@ -1,0 +1,50 @@
+name: Update Exchange Rates
+
+on:
+  schedule:
+    - cron: '0 3 * * *'   # 03:00 UTC daily
+  workflow_dispatch:
+    inputs:
+      backfill:
+        description: 'Full backfill from 1999-01-04 to today'
+        type: boolean
+        default: false
+
+jobs:
+  update-rates:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install httpx
+
+      - name: Download existing DB artifact
+        run: |
+          curl -fL \
+            https://github.com/${{ github.repository }}/releases/download/rates-latest/exchange_rates.db \
+            -o exchange_rates.db \
+            || echo "No existing artifact found — will start fresh."
+
+      - name: Update exchange rates
+        run: python .github/scripts/update_rates.py
+        env:
+          BACKFILL: ${{ github.event.inputs.backfill || 'false' }}
+
+      - name: Publish artifact to rates-latest release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: rates-latest
+          name: "Exchange Rate Cache (auto-updated daily)"
+          body: "Pre-seeded Frankfurter/ECB exchange rate cache. Updated daily by CI. Download and set RATES_DB_URL in your .env to bootstrap offline."
+          files: exchange_rates.db
+          prerelease: true
+          make_latest: false
