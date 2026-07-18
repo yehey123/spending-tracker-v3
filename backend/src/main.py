@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.db.session import engine
 from src.domain.services.exchange_rate import exchange_rate_service
+import src.domain.models  # noqa: F401 — registers all ORM models with SQLAlchemy
 
 
 @asynccontextmanager

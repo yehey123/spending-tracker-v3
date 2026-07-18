@@ -10,7 +10,10 @@ router = APIRouter()
 
 # Every table created by migrations must appear here.
 # A missing entry → 503, which means migrations haven't run.
-_REQUIRED_TABLES = {"app_settings", "categories", "statements", "transactions"}
+_REQUIRED_TABLES = {
+    "app_settings", "categories", "statements", "transactions",
+    "transaction_flags", "merchant_category_memory", "audit_log",
+}
 
 
 @router.get("/health")

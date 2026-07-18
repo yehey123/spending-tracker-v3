@@ -13,6 +13,9 @@ import src.domain.models.category  # noqa: F401
 import src.domain.models.statement  # noqa: F401
 import src.domain.models.transaction  # noqa: F401
 import src.domain.models.app_settings  # noqa: F401
+import src.domain.models.transaction_flag  # noqa: F401
+import src.domain.models.merchant_memory  # noqa: F401
+import src.domain.models.audit_log  # noqa: F401
 
 from src.core.config import settings
 

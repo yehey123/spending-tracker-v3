@@ -24,3 +24,22 @@ branch: initial_backend
 | 3 | docker-compose.yml (add frontend + nginx services) | PASS | docker compose config --quiet exits 0; frontend+nginx present 2026-07-18 |
 | 4 | .env.compose.* + .env.example (NGINX_PORT=80) | PASS | grep shows 3/3 matches 2026-07-18 |
 | V | docker compose build + up + smoke test + down | PASS | /health=healthy /api/health=healthy /=200 :3000=200; nginx -t ok; down clean 2026-07-18 |
+
+---
+task: Wave 0A — Schema Sprint
+date: 2026-07-18
+branch: initial_backend
+---
+
+## Steps
+
+| # | Description | Status | Evidence |
+|---|---|---|---|
+| 1 | Migration 0005: statements spine (6 cols + 9 ENUM values via autocommit_block) | PASS | alembic upgrade 0004→0005 succeeded 2026-07-18 |
+| 2 | Migration 0006: transactions spine (10 cols + updated_at trigger; currency skipped — already in 0004) | PASS | alembic upgrade 0005→0006 succeeded 2026-07-18 |
+| 3 | Migration 0007: app_settings spine (3 cols; home_currency skipped — already in 0004) | PASS | alembic upgrade 0006→0007 succeeded 2026-07-18 |
+| 4 | Migration 0008: categories spine (parent_id, slug, is_system + unique constraint) | PASS | alembic upgrade 0007→0008 succeeded 2026-07-18 |
+| 5 | Migration 0009: new tables (transaction_flags, merchant_category_memory, audit_log) + pg_trgm GIN index | PASS | alembic upgrade 0008→0009 succeeded 2026-07-18 |
+| 6 | Model updates: statement.py, transaction.py (incl. currency from 0004), app_settings.py (incl. home_currency from 0004), category.py; new: transaction_flag.py, merchant_memory.py, audit_log.py; models/__init__.py + env.py | PASS | Write/Edit succeeded 2026-07-18 |
+| 7 | health.py _REQUIRED_TABLES: added transaction_flags, merchant_category_memory, audit_log | PASS | Edit succeeded 2026-07-18 |
+| V | alembic current = 0009 (head); 60 pytest passed (excl. GCS/S3 — pre-existing missing SDK) | PASS | docker run dev image; 60 passed 0 failed 2026-07-18 |
