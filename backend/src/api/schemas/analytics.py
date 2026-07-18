@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import Optional
 
 from pydantic import BaseModel
 
@@ -15,6 +16,9 @@ class ByCategoryResponse(BaseModel):
     month: str
     total_debit: Decimal
     breakdown: list[CategoryBreakdown]
+    display_currency: str | None = None
+    unconverted_count: int = 0
+    totals_available: bool = True
 
 
 class MonthCashFlow(BaseModel):
@@ -26,3 +30,6 @@ class MonthCashFlow(BaseModel):
 
 class CashFlowResponse(BaseModel):
     months: list[MonthCashFlow]
+    display_currency: str | None = None
+    unconverted_count: int = 0
+    totals_available: bool = True
