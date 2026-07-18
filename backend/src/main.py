@@ -3,13 +3,16 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from src.db.session import engine
+from src.db.session import AsyncSessionLocal, engine
+from src.domain.services.category_seeder import seed_default_categories
 from src.domain.services.exchange_rate import exchange_rate_service
 import src.domain.models  # noqa: F401 — registers all ORM models with SQLAlchemy
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    async with AsyncSessionLocal() as db:
+        await seed_default_categories(db)
     await exchange_rate_service.init_db()
     yield
     await engine.dispose()
