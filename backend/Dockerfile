@@ -1,4 +1,7 @@
+# syntax=docker/dockerfile:1
 FROM python:3.14-slim
+
+ARG TARGET_ENV=production
 
 RUN apt-get update && apt-get install -y \
     tesseract-ocr \
@@ -8,7 +11,10 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 COPY requirements/base.txt requirements/dev.txt ./requirements/
-RUN pip install --no-cache-dir -r requirements/dev.txt
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -r requirements/base.txt
+RUN --mount=type=cache,target=/root/.cache/pip \
+    [ "$TARGET_ENV" = "development" ] && pip install -r requirements/dev.txt || true
 
 COPY . .
 
