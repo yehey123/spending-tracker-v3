@@ -43,3 +43,19 @@ branch: initial_backend
 | 6 | Model updates: statement.py, transaction.py (incl. currency from 0004), app_settings.py (incl. home_currency from 0004), category.py; new: transaction_flag.py, merchant_memory.py, audit_log.py; models/__init__.py + env.py | PASS | Write/Edit succeeded 2026-07-18 |
 | 7 | health.py _REQUIRED_TABLES: added transaction_flags, merchant_category_memory, audit_log | PASS | Edit succeeded 2026-07-18 |
 | V | alembic current = 0009 (head); 60 pytest passed (excl. GCS/S3 — pre-existing missing SDK) | PASS | docker run dev image; 60 passed 0 failed 2026-07-18 |
+
+---
+task: Wave 0B — Analytics Exclusion Filter
+date: 2026-07-18
+branch: initial_backend
+---
+
+## Steps
+
+| # | Description | Status | Evidence |
+|---|---|---|---|
+| 1 | analytics.py: add status=='active', reversed_by IS NULL, reversal_of IS NULL to by-category WHERE | PASS | Edit succeeded 2026-07-18 |
+| 2 | analytics.py: same 3 filters on cash-flow credit sub-query | PASS | Edit succeeded 2026-07-18 |
+| 3 | analytics.py: same 3 filters on cash-flow debit sub-query | PASS | Edit succeeded 2026-07-18 |
+| 4 | test_analytics_exclusion.py: 4 tests (reversed pair × 2 endpoints, staged × 2 endpoints) | PASS | Write succeeded 2026-07-18 |
+| V | 64 pytest passed (excl. GCS/S3 — pre-existing); new exclusion tests all green | PASS | docker run dev image; 64 passed 0 failed 2026-07-18 |

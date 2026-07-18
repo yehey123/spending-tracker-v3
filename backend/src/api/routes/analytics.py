@@ -49,6 +49,9 @@ async def by_category(
             Transaction.direction == "debit",
             Transaction.date >= first_day,
             Transaction.date < first_day_next,
+            Transaction.status == "active",
+            Transaction.reversed_by.is_(None),
+            Transaction.reversal_of.is_(None),
         )
         .group_by(Transaction.category_id)
     )
@@ -128,6 +131,9 @@ async def cash_flow(
                 Transaction.direction == "credit",
                 Transaction.date >= first_day,
                 Transaction.date < first_day_next,
+                Transaction.status == "active",
+                Transaction.reversed_by.is_(None),
+                Transaction.reversal_of.is_(None),
             )
         )
         total_credit = Decimal(str(credit_result.scalar()))
@@ -138,6 +144,9 @@ async def cash_flow(
                 Transaction.direction == "debit",
                 Transaction.date >= first_day,
                 Transaction.date < first_day_next,
+                Transaction.status == "active",
+                Transaction.reversed_by.is_(None),
+                Transaction.reversal_of.is_(None),
             )
         )
         total_debit = Decimal(str(debit_result.scalar()))
