@@ -1,13 +1,19 @@
 export interface Category {
   id: number;
   name: string;
-  color: string;
+  color: string | null;
   icon: string | null;
+  slug: string | null;
+  is_system: boolean;
+  parent_id: number | null;
+  children: Category[];
 }
 
 export interface CategoryCreate {
   name: string;
-  color: string;
+  color?: string | null;
+  icon?: string | null;
+  parent_id?: number | null;
 }
 
 export interface Statement {
