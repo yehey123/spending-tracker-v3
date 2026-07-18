@@ -4,10 +4,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.db.session import engine
+from src.domain.services.exchange_rate import exchange_rate_service
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    await exchange_rate_service.init_db()
     yield
     await engine.dispose()
 
@@ -24,6 +26,7 @@ app.add_middleware(
 from src.api.routes import (  # noqa: E402
     analytics,
     categories,
+    exchange_rates,
     health,
     settings,
     statements,
@@ -36,3 +39,4 @@ app.include_router(statements.router, prefix="/statements", tags=["statements"])
 app.include_router(transactions.router, prefix="/transactions", tags=["transactions"])
 app.include_router(analytics.router, prefix="/analytics", tags=["analytics"])
 app.include_router(settings.router, prefix="/settings", tags=["settings"])
+app.include_router(exchange_rates.router, prefix="/exchange-rates", tags=["exchange-rates"])

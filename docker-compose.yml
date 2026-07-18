@@ -7,8 +7,32 @@ services:
       - .env
     environment:
       DATABASE_URL: postgresql+asyncpg://user:password@db:5432/spending_tracker
+    volumes:
+      - exchange_rates_data:/data/rates
     depends_on:
-      - db
+      db:
+        condition: service_started
+      rates-init:
+        condition: service_completed_successfully
+
+  rates-init:
+    image: alpine/curl:8
+    volumes:
+      - exchange_rates_data:/data/rates
+    environment:
+      RATES_DB_URL: ${RATES_DB_URL:-}
+    entrypoint: >
+      sh -c "
+        if [ -n \"$$RATES_DB_URL\" ] && [ ! -s /data/rates/exchange_rates.db ]; then
+          echo 'Bootstrapping exchange rate DB...';
+          mkdir -p /data/rates;
+          curl -fL --retry 3 \"$$RATES_DB_URL\" -o /data/rates/exchange_rates.db && echo 'Done.' || echo 'Bootstrap download failed, starting empty.';
+        else
+          mkdir -p /data/rates;
+          echo 'Skipping bootstrap (RATES_DB_URL not set or DB already present).';
+        fi
+      "
+    restart: "no"
 
   db:
     image: postgres:16-alpine
@@ -23,3 +47,4 @@ services:
 
 volumes:
   postgres_data:
+  exchange_rates_data:
