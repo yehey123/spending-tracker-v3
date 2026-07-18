@@ -1,66 +1,26 @@
-"""Statements upload, list, and delete routes."""
+"""Statements upload, list, delete, and staged-review routes."""
 
 from __future__ import annotations
 
-import io
 import uuid
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.schemas.statements import StatementOut
 from src.db.session import get_db
-from src.domain.models.app_settings import AppSettings
 from src.domain.models.statement import Statement
 from src.domain.models.transaction import Transaction
-from src.domain.services.pdf_parser import extract_pdf_text
-from src.domain.services.preprocessor import preprocess
-from src.domain.services.statement_parser import parse_statement
 from src.domain.services.storage import get_storage_backend
 
 import logging
 logger = logging.getLogger('statements')
 
-try:
-    from PIL import Image as PILImage
-except ImportError:  # pragma: no cover
-    PILImage = None  # type: ignore[assignment]
-
-try:
-    from src.domain.services.ocr.claude import ClaudeVisionProvider
-    from src.domain.services.ocr.openai_vision import OpenAIVisionProvider
-    from src.domain.services.ocr.tesseract import TesseractProvider
-except ImportError as e:  # pragma: no cover
-    logger.error('Error in importing: %s', e)
-    TesseractProvider = None  # type: ignore[assignment]
-    ClaudeVisionProvider = None  # type: ignore[assignment]
-    OpenAIVisionProvider = None  # type: ignore[assignment]
-
 router = APIRouter()
 
 _ALLOWED_MIMES = {"image/png", "image/jpeg", "application/pdf"}
 _MAX_SIZE = 20 * 1024 * 1024  # 20 MB
-
-
-def _resolve_ocr(settings_row: AppSettings) -> object:
-    """Instantiate the correct OCR provider from the DB settings row."""
-    provider = settings_row.ocr_provider
-    if provider == "claude":
-        if not settings_row.anthropic_api_key:
-            raise HTTPException(
-                status_code=422,
-                detail="API key not configured for claude.",
-            )
-        return ClaudeVisionProvider(api_key=settings_row.anthropic_api_key)
-    elif provider == "openai":
-        if not settings_row.openai_api_key:
-            raise HTTPException(
-                status_code=422,
-                detail="API key not configured for openai.",
-            )
-        return OpenAIVisionProvider(api_key=settings_row.openai_api_key)
-    return TesseractProvider()
 
 
 @router.post("/upload", response_model=StatementOut, status_code=200)
@@ -70,32 +30,18 @@ async def upload_statement(
     db: AsyncSession = Depends(get_db),
 ) -> StatementOut:
     """Upload a bank statement image or PDF, run OCR pipeline, persist transactions."""
-    # --- MIME validation ---
+    # MIME + size validation
     content_type = file.content_type or ""
     if content_type not in _ALLOWED_MIMES:
         raise HTTPException(
             status_code=400,
             detail="Unsupported file type. Accepted: PNG, JPEG, PDF.",
         )
-
-    # --- Read + size validation ---
     content = await file.read()
     if len(content) > _MAX_SIZE:
         raise HTTPException(status_code=400, detail="File exceeds 20 MB limit.")
 
-    # --- Infer type ---
     inferred_type = "pdf" if content_type == "application/pdf" else "image"
-
-    # --- Fetch settings for OCR provider ---
-    settings_result = await db.execute(select(AppSettings).where(AppSettings.id == 1))
-    settings_row = settings_result.scalar_one_or_none()
-    if settings_row is None:
-        # Fallback defaults if seed row missing
-        settings_row = AppSettings(id=1, ocr_provider="tesseract")
-
-    ocr_provider = _resolve_ocr(settings_row)  # raises 422 if key missing
-
-    # --- Save file via storage backend ---
     ext = "pdf" if inferred_type == "pdf" else ("png" if content_type == "image/png" else "jpg")
     key = f"{uuid.uuid4()}.{ext}"
     storage = get_storage_backend()
@@ -104,49 +50,22 @@ async def upload_statement(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Storage error: {e}") from e
 
-    # --- Create Statement row ---
     statement = Statement(
         filename=file.filename or key,
         storage_key=key,
         type=inferred_type,
         status="processing",
-        ocr_provider=settings_row.ocr_provider,
+        ocr_provider="tesseract",  # will be updated by pipeline
     )
     db.add(statement)
     await db.commit()
     await db.refresh(statement)
 
-    # --- Run pipeline ---
     try:
-        if inferred_type == "pdf":
-            text = await extract_pdf_text(content, ocr_provider)
-        else:
-            if PILImage is None:
-                raise RuntimeError("Pillow is required for image processing.")
-            img = PILImage.open(io.BytesIO(content))
-            img = preprocess(img)
-            text = await ocr_provider.extract_text(img)  # type: ignore[attr-defined]
-
-        parsed = parse_statement(text)
-        logger.error('Parsed outputs: %s', parsed)
-
-        # --- Bulk insert transactions ---
-        for p in parsed:
-            txn = Transaction(
-                date=p.date,
-                description=p.description,
-                amount=p.amount,
-                direction=p.direction,
-                statement_id=statement.id,
-            )
-            db.add(txn)
-
-        await db.commit()
-
-        statement.status = "done"
+        from src.domain.services.statement_pipeline import statement_pipeline
+        transactions = await statement_pipeline.run(statement, content, content_type, db)
         await db.commit()
         await db.refresh(statement)
-
     except HTTPException:
         raise
     except Exception as e:
@@ -155,19 +74,15 @@ async def upload_statement(
         await db.commit()
         raise HTTPException(status_code=500, detail=f"Pipeline error: {e}") from e
 
-    status_str = (
-        str(statement.status.value) if hasattr(statement.status, "value") else str(statement.status)
-    )
-    type_str = (
-        str(statement.type.value) if hasattr(statement.type, "value") else str(statement.type)
-    )
+    status_str = str(statement.status.value) if hasattr(statement.status, "value") else str(statement.status)
+    type_str = str(statement.type.value) if hasattr(statement.type, "value") else str(statement.type)
     return StatementOut(
         id=statement.id,
         filename=statement.filename,
         type=type_str,
         status=status_str,
         ocr_provider=statement.ocr_provider,
-        transaction_count=len(parsed),
+        transaction_count=len(transactions),
         uploaded_at=statement.uploaded_at,
         error_message=statement.error_message,
     )
@@ -207,6 +122,78 @@ async def list_statements(
         )
         for row in rows
     ]
+
+
+@router.get("/{statement_id}/staged")
+async def get_staged_transactions(statement_id: int, db: AsyncSession = Depends(get_db)):
+    """Get all staged transactions for a statement pending review."""
+    stmt = await db.get(Statement, statement_id)
+    if stmt is None:
+        raise HTTPException(status_code=404, detail="Statement not found.")
+
+    result = await db.execute(
+        select(Transaction)
+        .where(Transaction.statement_id == statement_id, Transaction.status == 'staged')
+        .order_by(Transaction.date.asc())
+    )
+    transactions = result.scalars().all()
+
+    # Compute extracted total (sum of debit staged transactions)
+    debit_total = sum(tx.amount for tx in transactions if tx.direction in ('debit', 'DEBIT'))
+    debit_total_str = str(debit_total)
+
+    return {
+        "statement_id": statement_id,
+        "declared_total": str(stmt.declared_total) if stmt.declared_total else None,
+        "extracted_total": debit_total_str,
+        "total_match": stmt.declared_total is not None and abs(stmt.declared_total - debit_total) < 1,
+        "transactions": [
+            {
+                "id": tx.id,
+                "date": tx.date.isoformat() if tx.date else None,
+                "description": tx.description,
+                "amount": str(tx.amount),
+                "direction": tx.direction if isinstance(tx.direction, str) else tx.direction.value,
+                "category_id": tx.category_id,
+            }
+            for tx in transactions
+        ],
+    }
+
+
+@router.post("/{statement_id}/commit")
+async def commit_statement(statement_id: int, db: AsyncSession = Depends(get_db)):
+    """Promote all staged transactions to active."""
+    stmt = await db.get(Statement, statement_id)
+    status_val = stmt.status.value if hasattr(stmt.status, 'value') else stmt.status if stmt else None
+    if stmt is None or status_val != 'staged':
+        raise HTTPException(status_code=409, detail="Statement is not in staged state")
+
+    await db.execute(
+        update(Transaction)
+        .where(Transaction.statement_id == statement_id, Transaction.status == 'staged')
+        .values(status='active')
+    )
+    stmt.status = 'committed'
+    await db.commit()
+    return {"committed": statement_id}
+
+
+@router.post("/{statement_id}/discard")
+async def discard_statement(statement_id: int, db: AsyncSession = Depends(get_db)):
+    """Delete all staged transactions and mark statement as discarded."""
+    stmt = await db.get(Statement, statement_id)
+    status_val = stmt.status.value if hasattr(stmt.status, 'value') else stmt.status if stmt else None
+    if stmt is None or status_val != 'staged':
+        raise HTTPException(status_code=409, detail="Statement is not in staged state")
+
+    await db.execute(
+        delete(Transaction)
+        .where(Transaction.statement_id == statement_id, Transaction.status == 'staged')
+    )
+    stmt.status = 'discarded'
+    await db.commit()
+    return {"discarded": statement_id}
 
 
 @router.delete("/{id}", status_code=204)
