@@ -21,5 +21,8 @@ ls_data/
 
 # IDEs
 .vscode/
-.idea/.claude/task/
+.idea/
 .claude/task/
+
+# Exchange rate cache (CI artifact, not committed to source)
+exchange_rates.db
