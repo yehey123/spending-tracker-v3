@@ -155,6 +155,8 @@ export default function SettingsPage() {
           <option value="tesseract">Tesseract (local, private)</option>
           <option value="claude">Claude (Anthropic API)</option>
           <option value="openai">OpenAI Vision</option>
+          <option value="gemini">Gemini (Google AI Studio)</option>
+          <option value="vertex">Google Vertex AI</option>
         </select>
         {ocrProvider === 'claude' && (
           <input value={anthropicKey} onChange={(e) => setAnthropicKey(e.target.value)}
@@ -166,11 +168,28 @@ export default function SettingsPage() {
             placeholder={settings?.openai_api_key_set ? '••••••••• (set)' : 'OpenAI API key'}
             className="border rounded-lg px-3 py-2 text-sm w-full" type="password" />
         )}
+        {ocrProvider === 'gemini' && (
+          <input value={geminiKey} onChange={(e) => setGeminiKey(e.target.value)}
+            placeholder={settings?.gemini_api_key_set ? '••••••••• (set)' : 'Gemini API key (AIza...)'}
+            className="border rounded-lg px-3 py-2 text-sm w-full" type="password" />
+        )}
+        {ocrProvider === 'vertex' && (
+          <>
+            <input value={googleProjectId} onChange={(e) => setGoogleProjectId(e.target.value)}
+              placeholder="Google Cloud Project ID" className="border rounded-lg px-3 py-2 text-sm w-full" />
+            <input value={googleLocation} onChange={(e) => setGoogleLocation(e.target.value)}
+              placeholder="Region (e.g. us-central1)" className="border rounded-lg px-3 py-2 text-sm w-full" />
+            <p className="text-xs text-gray-500">Uses Application Default Credentials (GOOGLE_APPLICATION_CREDENTIALS env var).</p>
+          </>
+        )}
         <button
           onClick={() => settingsMutation.mutate({
             ocr_provider: ocrProvider,
-            ...(anthropicKey ? { anthropic_api_key: anthropicKey } : {}),
-            ...(openaiKey ? { openai_api_key: openaiKey } : {}),
+            ...(ocrProvider === 'claude' && anthropicKey ? { anthropic_api_key: anthropicKey } : {}),
+            ...(ocrProvider === 'openai' && openaiKey ? { openai_api_key: openaiKey } : {}),
+            ...(ocrProvider === 'gemini' && geminiKey ? { gemini_api_key: geminiKey } : {}),
+            ...(ocrProvider === 'vertex' && googleProjectId ? { google_project_id: googleProjectId } : {}),
+            ...(ocrProvider === 'vertex' && googleLocation ? { google_location: googleLocation } : {}),
           })}
           className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm"
         >

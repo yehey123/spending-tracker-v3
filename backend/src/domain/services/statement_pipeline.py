@@ -24,13 +24,17 @@ except ImportError:
 
 try:
     from src.domain.services.ocr.claude import ClaudeVisionProvider
+    from src.domain.services.ocr.gemini_vision import GeminiVisionProvider
     from src.domain.services.ocr.openai_vision import OpenAIVisionProvider
     from src.domain.services.ocr.tesseract import TesseractProvider
+    from src.domain.services.ocr.vertex_vision import VertexVisionProvider
 except ImportError as e:
     logger.error('Import error: %s', e)
     TesseractProvider = None  # type: ignore
     ClaudeVisionProvider = None  # type: ignore
     OpenAIVisionProvider = None  # type: ignore
+    GeminiVisionProvider = None  # type: ignore
+    VertexVisionProvider = None  # type: ignore
 
 
 import hashlib
@@ -148,6 +152,18 @@ def _resolve_ocr(settings_row: AppSettings):
         if not settings_row.openai_api_key:
             raise HTTPException(status_code=422, detail="API key not configured for openai.")
         return OpenAIVisionProvider(api_key=settings_row.openai_api_key)
+    elif provider == "gemini":
+        if not settings_row.gemini_api_key:
+            raise HTTPException(status_code=422, detail="Gemini API key not configured.")
+        model = getattr(settings_row, 'ai_model', None) or "gemini-2.0-flash"
+        return GeminiVisionProvider(api_key=settings_row.gemini_api_key, model=model)
+    elif provider == "vertex":
+        if not settings_row.google_project_id:
+            raise HTTPException(status_code=422, detail="Google Project ID not configured for Vertex AI.")
+        location = getattr(settings_row, 'google_location', None) or "us-central1"
+        model = getattr(settings_row, 'ai_model', None) or "google/gemini-2.0-flash-001"
+        return VertexVisionProvider(project_id=settings_row.google_project_id,
+                                    location=location, model=model)
     return TesseractProvider()
 
 

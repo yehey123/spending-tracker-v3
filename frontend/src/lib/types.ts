@@ -106,7 +106,7 @@ export interface CashFlowResponse {
 }
 
 export interface AppSettings {
-  ocr_provider: 'tesseract' | 'claude' | 'openai';
+  ocr_provider: 'tesseract' | 'claude' | 'openai' | 'gemini' | 'vertex';
   anthropic_api_key_set: boolean;
   openai_api_key_set: boolean;
   review_before_commit?: boolean;
@@ -122,7 +122,7 @@ export interface AppSettings {
 }
 
 export interface SettingsPut {
-  ocr_provider?: 'tesseract' | 'claude' | 'openai';
+  ocr_provider?: 'tesseract' | 'claude' | 'openai' | 'gemini' | 'vertex';
   anthropic_api_key?: string | null;
   openai_api_key?: string | null;
   review_before_commit?: boolean | null;
