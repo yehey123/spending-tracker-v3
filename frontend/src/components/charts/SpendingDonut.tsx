@@ -11,10 +11,10 @@ interface Props {
 
 export default function SpendingDonut({ breakdown, displayCurrency, unconvertedCount }: Props) {
   if (breakdown.length === 0) {
-    return <div className="text-center text-gray-400 py-12">No spending data</div>;
+    return <div data-testid="spending-donut" className="text-center text-gray-400 py-12">No spending data</div>;
   }
   return (
-    <div>
+    <div data-testid="spending-donut">
       <ResponsiveContainer width="100%" height={320}>
         <PieChart>
           <Pie

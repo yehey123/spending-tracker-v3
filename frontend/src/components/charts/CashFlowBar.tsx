@@ -12,7 +12,7 @@ interface Props {
 
 export default function CashFlowBar({ months, displayCurrency, unconvertedCount }: Props) {
   if (months.length === 0) {
-    return <div className="text-center text-gray-400 py-12">No cash flow data</div>;
+    return <div data-testid="cashflow-bar" className="text-center text-gray-400 py-12">No cash flow data</div>;
   }
   const data = months.map((m) => ({
     month: m.month,
@@ -21,6 +21,7 @@ export default function CashFlowBar({ months, displayCurrency, unconvertedCount 
     Net: Number(m.net),
   }));
   return (
+    <div data-testid="cashflow-bar">
     <ResponsiveContainer width="100%" height={300}>
       <BarChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" />
@@ -32,5 +33,6 @@ export default function CashFlowBar({ months, displayCurrency, unconvertedCount 
         <Bar dataKey="Debit" fill="#ef4444" />
       </BarChart>
     </ResponsiveContainer>
+    </div>
   );
 }
