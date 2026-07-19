@@ -37,6 +37,14 @@ export default function SettingsPage() {
   const [reviewBeforeCommit, setReviewBeforeCommit] = useState(true);
   const [homeCurrency, setHomeCurrency] = useState('');
 
+  // AI categorization provider
+  const [aiProvider, setAiProvider] = useState('anthropic');
+  const [aiModel, setAiModel] = useState('');
+  const [aiApiUrl, setAiApiUrl] = useState('');
+  const [geminiKey, setGeminiKey] = useState('');
+  const [googleProjectId, setGoogleProjectId] = useState('');
+  const [googleLocation, setGoogleLocation] = useState('us-central1');
+
   const { data: currenciesData } = useQuery({
     queryKey: ['currencies'],
     queryFn: () => api.get<{ currencies: Record<string, string> }>('/exchange-rates/supported'),
@@ -48,6 +56,11 @@ export default function SettingsPage() {
       setOcrProvider(settings.ocr_provider);
       if (settings.review_before_commit !== undefined) setReviewBeforeCommit(!!settings.review_before_commit);
       if (settings.home_currency) setHomeCurrency(settings.home_currency);
+      if (settings.ai_provider) setAiProvider(settings.ai_provider);
+      if (settings.ai_model) setAiModel(settings.ai_model);
+      if (settings.ai_api_url) setAiApiUrl(settings.ai_api_url);
+      if (settings.google_project_id) setGoogleProjectId(settings.google_project_id);
+      if (settings.google_location) setGoogleLocation(settings.google_location);
     }
   }, [settings]);
 
@@ -162,6 +175,68 @@ export default function SettingsPage() {
           className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm"
         >
           Save OCR Settings
+        </button>
+      </section>
+
+      {/* AI Categorization */}
+      <section className="bg-white rounded-xl p-5 shadow-sm space-y-3">
+        <h2 className="font-semibold">AI Categorization Provider</h2>
+        <select value={aiProvider} onChange={(e) => setAiProvider(e.target.value)}
+          className="border rounded-lg px-3 py-2 text-sm w-full">
+          <option value="anthropic">Claude (Anthropic)</option>
+          <option value="openai">GPT-4o-mini (OpenAI)</option>
+          <option value="gemini">Gemini (Google AI Studio)</option>
+          <option value="vertex">Google Vertex AI</option>
+          <option value="local">Local / Ollama</option>
+        </select>
+        {aiProvider === 'anthropic' && (
+          <input value={anthropicKey} onChange={(e) => setAnthropicKey(e.target.value)}
+            placeholder={settings?.anthropic_api_key_set ? '••••••••• (set)' : 'Anthropic API key (sk-ant-...)'}
+            className="border rounded-lg px-3 py-2 text-sm w-full" type="password" />
+        )}
+        {aiProvider === 'openai' && (
+          <input value={openaiKey} onChange={(e) => setOpenaiKey(e.target.value)}
+            placeholder={settings?.openai_api_key_set ? '••••••••• (set)' : 'OpenAI API key (sk-...)'}
+            className="border rounded-lg px-3 py-2 text-sm w-full" type="password" />
+        )}
+        {aiProvider === 'gemini' && (
+          <input value={geminiKey} onChange={(e) => setGeminiKey(e.target.value)}
+            placeholder={settings?.gemini_api_key_set ? '••••••••• (set)' : 'Gemini API key (AIza...)'}
+            className="border rounded-lg px-3 py-2 text-sm w-full" type="password" />
+        )}
+        {aiProvider === 'vertex' && (
+          <>
+            <input value={googleProjectId} onChange={(e) => setGoogleProjectId(e.target.value)}
+              placeholder="Google Cloud Project ID" className="border rounded-lg px-3 py-2 text-sm w-full" />
+            <input value={googleLocation} onChange={(e) => setGoogleLocation(e.target.value)}
+              placeholder="Region (e.g. us-central1)" className="border rounded-lg px-3 py-2 text-sm w-full" />
+            <p className="text-xs text-gray-500">Uses Application Default Credentials (GOOGLE_APPLICATION_CREDENTIALS env var).</p>
+          </>
+        )}
+        {aiProvider === 'local' && (
+          <>
+            <input value={aiApiUrl} onChange={(e) => setAiApiUrl(e.target.value)}
+              placeholder="API URL (e.g. http://localhost:11434/v1)"
+              className="border rounded-lg px-3 py-2 text-sm w-full" />
+            <input value={aiModel} onChange={(e) => setAiModel(e.target.value)}
+              placeholder="Model name (e.g. llama3, optional)"
+              className="border rounded-lg px-3 py-2 text-sm w-full" />
+          </>
+        )}
+        <button
+          onClick={() => settingsMutation.mutate({
+            ai_provider: aiProvider as SettingsPut['ai_provider'],
+            ...(aiModel ? { ai_model: aiModel } : {}),
+            ...(aiApiUrl ? { ai_api_url: aiApiUrl } : {}),
+            ...(geminiKey ? { gemini_api_key: geminiKey } : {}),
+            ...(googleProjectId ? { google_project_id: googleProjectId } : {}),
+            ...(googleLocation ? { google_location: googleLocation } : {}),
+            ...(aiProvider === 'anthropic' && anthropicKey ? { anthropic_api_key: anthropicKey } : {}),
+            ...(aiProvider === 'openai' && openaiKey ? { openai_api_key: openaiKey } : {}),
+          })}
+          className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm"
+        >
+          Save AI Settings
         </button>
       </section>
 

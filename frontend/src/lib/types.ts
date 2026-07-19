@@ -113,14 +113,26 @@ export interface AppSettings {
   home_currency?: string | null;
   ai_category_confidence_auto?: number;
   ai_category_confidence_suggest?: number;
+  ai_provider?: string;
+  ai_model?: string | null;
+  ai_api_url?: string | null;
+  gemini_api_key_set?: boolean;
+  google_project_id?: string | null;
+  google_location?: string | null;
 }
 
 export interface SettingsPut {
-  ocr_provider: 'tesseract' | 'claude' | 'openai';
+  ocr_provider?: 'tesseract' | 'claude' | 'openai';
   anthropic_api_key?: string | null;
   openai_api_key?: string | null;
   review_before_commit?: boolean | null;
   home_currency?: string | null;
+  ai_provider?: 'anthropic' | 'openai' | 'gemini' | 'vertex' | 'local' | null;
+  ai_model?: string | null;
+  ai_api_url?: string | null;
+  gemini_api_key?: string | null;
+  google_project_id?: string | null;
+  google_location?: string | null;
 }
 
 export interface StagedTransaction {

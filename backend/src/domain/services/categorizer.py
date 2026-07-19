@@ -1,4 +1,4 @@
-"""AI-powered transaction categorizer with merchant memory."""
+"""AI-powered transaction categorizer with multi-provider support."""
 
 from __future__ import annotations
 
@@ -25,11 +25,27 @@ try:
 except ImportError:
     _anthropic_lib = None  # type: ignore
 
+try:
+    import openai as _openai_lib
+except ImportError:
+    _openai_lib = None  # type: ignore
+
 
 def _normalize(desc: str) -> str:
     lowered = desc.lower()
     cleaned = re.sub(r'[^a-z0-9 ]', ' ', lowered)
     return re.sub(r'\s+', ' ', cleaned).strip()
+
+
+def _has_ai_credentials(settings: AppSettings) -> bool:
+    p = getattr(settings, 'ai_provider', 'anthropic')
+    return {
+        'anthropic': bool(getattr(settings, 'anthropic_api_key', None)),
+        'openai':    bool(getattr(settings, 'openai_api_key', None)),
+        'gemini':    bool(getattr(settings, 'gemini_api_key', None)),
+        'vertex':    bool(getattr(settings, 'google_project_id', None)),
+        'local':     bool(getattr(settings, 'ai_api_url', None)),
+    }.get(p, False)
 
 
 class CategorizerService:
@@ -57,9 +73,9 @@ class CategorizerService:
             else:
                 unknown.append((tx, key))
 
-        if unknown and settings.anthropic_api_key and _anthropic_lib is not None:
+        if unknown and _has_ai_credentials(settings):
             merchant_names = [key for _, key in unknown]
-            ai_results = await self._call_ai(merchant_names, categories, settings.anthropic_api_key)
+            ai_results = await self._call_ai(merchant_names, categories, settings)
 
             result_map: dict[str, dict] = {r['merchant']: r for r in ai_results}
 
@@ -92,12 +108,10 @@ class CategorizerService:
         self,
         merchants: list[str],
         categories: list[Category],
-        api_key: str,
+        settings: AppSettings,
     ) -> list[dict]:
-        if _anthropic_lib is None:
-            return []
+        provider = getattr(settings, 'ai_provider', 'anthropic')
         try:
-            client = _anthropic_lib.Anthropic(api_key=api_key)
             cat_list = [{'id': c.id, 'name': c.name} for c in categories]
             prompt = (
                 f"Given these categories: {json.dumps(cat_list)}\n\n"
@@ -107,15 +121,94 @@ class CategorizerService:
                 f"Merchants: {json.dumps(merchants)}\n\n"
                 "Return only the JSON array, no explanation."
             )
-            message = client.messages.create(
-                model='claude-haiku-4-5-20251001',
-                max_tokens=1024,
-                messages=[{'role': 'user', 'content': prompt}],
-            )
-            text = message.content[0].text.strip()
+
+            if provider == 'anthropic':
+                if _anthropic_lib is None:
+                    return []
+                api_key = getattr(settings, 'anthropic_api_key', None)
+                model = getattr(settings, 'ai_model', None) or 'claude-haiku-4-5-20251001'
+                client = _anthropic_lib.Anthropic(api_key=api_key)
+                message = client.messages.create(
+                    model=model,
+                    max_tokens=1024,
+                    messages=[{'role': 'user', 'content': prompt}],
+                )
+                text = message.content[0].text.strip()
+
+            elif provider == 'openai':
+                if _openai_lib is None:
+                    return []
+                api_key = getattr(settings, 'openai_api_key', None)
+                model = getattr(settings, 'ai_model', None) or 'gpt-4o-mini'
+                client = _openai_lib.OpenAI(api_key=api_key)
+                resp = client.chat.completions.create(
+                    model=model,
+                    messages=[{'role': 'user', 'content': prompt}],
+                    max_tokens=1024,
+                )
+                text = resp.choices[0].message.content.strip()
+
+            elif provider == 'gemini':
+                if _openai_lib is None:
+                    return []
+                api_key = getattr(settings, 'gemini_api_key', None)
+                model = getattr(settings, 'ai_model', None) or 'gemini-2.0-flash'
+                client = _openai_lib.OpenAI(
+                    api_key=api_key,
+                    base_url='https://generativelanguage.googleapis.com/v1beta/openai/',
+                )
+                resp = client.chat.completions.create(
+                    model=model,
+                    messages=[{'role': 'user', 'content': prompt}],
+                    max_tokens=1024,
+                )
+                text = resp.choices[0].message.content.strip()
+
+            elif provider == 'vertex':
+                if _openai_lib is None:
+                    return []
+                import google.auth
+                import google.auth.transport.requests as _google_requests
+                creds, _ = google.auth.default(
+                    scopes=['https://www.googleapis.com/auth/cloud-platform']
+                )
+                creds.refresh(_google_requests.Request())
+                project = getattr(settings, 'google_project_id', None)
+                location = getattr(settings, 'google_location', None) or 'us-central1'
+                base_url = (
+                    f'https://{location}-aiplatform.googleapis.com/v1beta1/projects/'
+                    f'{project}/locations/{location}/endpoints/openapi/'
+                )
+                model = getattr(settings, 'ai_model', None) or 'google/gemini-2.0-flash-001'
+                client = _openai_lib.OpenAI(api_key=creds.token, base_url=base_url)
+                resp = client.chat.completions.create(
+                    model=model,
+                    messages=[{'role': 'user', 'content': prompt}],
+                    max_tokens=1024,
+                )
+                text = resp.choices[0].message.content.strip()
+
+            elif provider == 'local':
+                if _openai_lib is None:
+                    return []
+                api_url = getattr(settings, 'ai_api_url', None)
+                model = getattr(settings, 'ai_model', None) or 'llama3'
+                client = _openai_lib.OpenAI(api_key='local', base_url=api_url)
+                resp = client.chat.completions.create(
+                    model=model,
+                    messages=[{'role': 'user', 'content': prompt}],
+                    max_tokens=1024,
+                )
+                text = resp.choices[0].message.content.strip()
+
+            else:
+                logger.warning('Unknown AI provider: %s', provider)
+                return []
+
             return json.loads(text)
+
         except Exception as exc:
-            logger.warning('Categorizer AI call failed: %s', exc)
+            logger.warning('Categorizer AI call failed (%s): %s', provider, exc)
             return []
 
     async def _upsert_memory(

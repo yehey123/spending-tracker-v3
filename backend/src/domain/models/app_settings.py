@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Float, String
+from sqlalchemy import Boolean, Float, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.db.base import Base
@@ -17,10 +17,18 @@ class AppSettings(Base):
     # Added in migration 0004
     home_currency: Mapped[str | None] = mapped_column(String(3), nullable=True)
 
-    # Added in migration 0007
     review_before_commit: Mapped[bool] = mapped_column(Boolean(), nullable=False,
                                                         server_default="true")
     ai_category_confidence_auto: Mapped[float] = mapped_column(Float(), nullable=False,
                                                                 server_default="0.85")
     ai_category_confidence_suggest: Mapped[float] = mapped_column(Float(), nullable=False,
                                                                    server_default="0.50")
+
+    # Added in migration 0002 (post-squash)
+    ai_provider: Mapped[str] = mapped_column(String(20), nullable=False,
+                                              server_default="anthropic")
+    ai_model: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    ai_api_url: Mapped[str | None] = mapped_column(Text(), nullable=True)
+    gemini_api_key: Mapped[str | None] = mapped_column(Text(), nullable=True)
+    google_project_id: Mapped[str | None] = mapped_column(Text(), nullable=True)
+    google_location: Mapped[str | None] = mapped_column(String(50), nullable=True)

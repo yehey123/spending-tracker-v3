@@ -33,6 +33,12 @@ def _to_out(row: AppSettings) -> SettingsOut:
         review_before_commit=row.review_before_commit,
         ai_category_confidence_auto=row.ai_category_confidence_auto,
         ai_category_confidence_suggest=row.ai_category_confidence_suggest,
+        ai_provider=row.ai_provider,
+        ai_model=row.ai_model,
+        ai_api_url=row.ai_api_url,
+        gemini_api_key_set=bool(row.gemini_api_key),
+        google_project_id=row.google_project_id,
+        google_location=row.google_location,
     )
 
 
@@ -55,18 +61,19 @@ async def update_settings(body: SettingsPut, db: AsyncSession = Depends(get_db))
     )
     new_openai = body.openai_api_key if "openai_api_key" in fields_set else row.openai_api_key
 
-    if body.ocr_provider == "claude" and not new_anthropic:
-        raise HTTPException(
-            status_code=422,
-            detail="Provider 'claude' requires anthropic_api_key to be set.",
-        )
-    if body.ocr_provider == "openai" and not new_openai:
-        raise HTTPException(
-            status_code=422,
-            detail="Provider 'openai' requires openai_api_key to be set.",
-        )
+    if "ocr_provider" in fields_set:
+        if body.ocr_provider == "claude" and not new_anthropic:
+            raise HTTPException(
+                status_code=422,
+                detail="Provider 'claude' requires anthropic_api_key to be set.",
+            )
+        if body.ocr_provider == "openai" and not new_openai:
+            raise HTTPException(
+                status_code=422,
+                detail="Provider 'openai' requires openai_api_key to be set.",
+            )
+        row.ocr_provider = body.ocr_provider
 
-    row.ocr_provider = body.ocr_provider
     if "anthropic_api_key" in fields_set:
         row.anthropic_api_key = body.anthropic_api_key
     if "openai_api_key" in fields_set:
@@ -82,6 +89,18 @@ async def update_settings(body: SettingsPut, db: AsyncSession = Depends(get_db))
         and body.ai_category_confidence_suggest is not None
     ):
         row.ai_category_confidence_suggest = body.ai_category_confidence_suggest
+    if "ai_provider" in fields_set and body.ai_provider is not None:
+        row.ai_provider = body.ai_provider
+    if "ai_model" in fields_set:
+        row.ai_model = body.ai_model
+    if "ai_api_url" in fields_set:
+        row.ai_api_url = body.ai_api_url
+    if "gemini_api_key" in fields_set:
+        row.gemini_api_key = body.gemini_api_key
+    if "google_project_id" in fields_set:
+        row.google_project_id = body.google_project_id
+    if "google_location" in fields_set:
+        row.google_location = body.google_location
 
     await db.commit()
     await db.refresh(row)
