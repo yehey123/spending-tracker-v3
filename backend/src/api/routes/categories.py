@@ -35,7 +35,7 @@ async def list_categories(db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(Category)
         .where(Category.parent_id.is_(None))
-        .options(selectinload(Category.children))
+        .options(selectinload(Category.children).selectinload(Category.children))
         .order_by(Category.name.asc())
     )
     parents = result.scalars().unique().all()
