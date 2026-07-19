@@ -134,16 +134,27 @@ export default function SettingsPage() {
         </div>
         <div className="flex flex-col gap-1">
           <label className="text-xs text-gray-500">Home currency</label>
-          <select
-            value={homeCurrency}
-            onChange={(e) => handleCurrencyChange(e.target.value)}
-            className="border rounded-lg px-3 py-2 text-sm w-full"
-          >
-            <option value="">No preference</option>
-            {supportedCurrencies.map(([code, name]) => (
-              <option key={code} value={code}>{code} — {name}</option>
-            ))}
-          </select>
+          {supportedCurrencies.length > 0 ? (
+            <select
+              value={homeCurrency}
+              onChange={(e) => handleCurrencyChange(e.target.value)}
+              className="border rounded-lg px-3 py-2 text-sm w-full"
+            >
+              <option value="">No preference</option>
+              {supportedCurrencies.map(([code, name]) => (
+                <option key={code} value={code}>{code} — {name}</option>
+              ))}
+            </select>
+          ) : (
+            <input
+              value={homeCurrency}
+              onChange={(e) => setHomeCurrency(e.target.value.toUpperCase().slice(0, 3))}
+              onBlur={(e) => handleCurrencyChange(e.target.value)}
+              placeholder="e.g. PHP, USD, EUR"
+              className="border rounded-lg px-3 py-2 text-sm w-full"
+              maxLength={3}
+            />
+          )}
         </div>
       </section>
 
