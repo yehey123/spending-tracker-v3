@@ -257,6 +257,12 @@ class StatementPipeline:
             await db.flush()
             return [], False
 
+        # Flip directions for credit card statements (bank says CREDIT = charge to you)
+        if getattr(statement, 'statement_kind', None) == 'credit_card':
+            _FLIP = {'debit': 'credit', 'credit': 'debit'}
+            for p in parsed_rows:
+                p.direction = _FLIP.get(p.direction, p.direction)
+
         # Insert transactions as 'staged'
         transactions = []
         for p in parsed_rows:

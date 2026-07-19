@@ -34,6 +34,11 @@ export default function StatementReviewPage() {
     onSuccess: () => router.push('/upload'),
   });
 
+  const flipDirections = useMutation({
+    mutationFn: () => api.post(`/statements/${id}/flip-directions`, {}),
+    onSuccess: () => refetch(),
+  });
+
   if (isLoading) {
     return <div className="text-center py-12 text-gray-400">Loading…</div>;
   }
@@ -83,6 +88,14 @@ export default function StatementReviewPage() {
           className="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50"
         >
           {commit.isPending ? 'Committing…' : `Commit ${data.transactions.length} transaction${data.transactions.length !== 1 ? 's' : ''}`}
+        </button>
+        <button
+          onClick={() => flipDirections.mutate()}
+          disabled={flipDirections.isPending}
+          className="px-4 py-3 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50 text-sm"
+          title="Flip DEBIT↔CREDIT (use if statement directions look wrong)"
+        >
+          {flipDirections.isPending ? '…' : '⇅ Flip'}
         </button>
         <button
           onClick={() => discard.mutate()}

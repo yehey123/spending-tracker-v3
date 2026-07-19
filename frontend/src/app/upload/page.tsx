@@ -15,6 +15,7 @@ export default function UploadPage() {
   const [result, setResult] = useState<Statement | null>(null);
   const [error, setError] = useState('');
   const [newAccountId, setNewAccountId] = useState<number | null>(null);
+  const [statementKind, setStatementKind] = useState<'bank_account' | 'credit_card'>('bank_account');
 
   const onDrop = useCallback((accepted: File[]) => {
     if (accepted[0]) { setFile(accepted[0]); setStatus('idle'); setResult(null); setError(''); }
@@ -32,6 +33,7 @@ export default function UploadPage() {
     try {
       const form = new FormData();
       form.append('file', file);
+      form.append('statement_kind', statementKind);
       const data = await api.upload<Statement>('/statements/upload', form);
       if (data.status === 'staged') {
         router.push(`/statements/${data.id}/review`);
@@ -74,6 +76,23 @@ export default function UploadPage() {
           </p>
         )}
       </div>
+
+      {file && (
+        <div className="flex rounded-xl overflow-hidden border border-gray-200 text-sm font-medium">
+          <button
+            onClick={() => setStatementKind('bank_account')}
+            className={`flex-1 py-2.5 transition-colors ${statementKind === 'bank_account' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+          >
+            Bank Account
+          </button>
+          <button
+            onClick={() => setStatementKind('credit_card')}
+            className={`flex-1 py-2.5 transition-colors ${statementKind === 'credit_card' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+          >
+            Credit Card
+          </button>
+        </div>
+      )}
 
       {file && status !== 'uploading' && (
         <button

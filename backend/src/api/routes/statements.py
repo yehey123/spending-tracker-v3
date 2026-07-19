@@ -27,6 +27,7 @@ _MAX_SIZE = 20 * 1024 * 1024  # 20 MB
 async def upload_statement(
     file: UploadFile = File(...),
     type: str | None = Form(default=None),
+    statement_kind: str = Form(default="bank_account"),
     db: AsyncSession = Depends(get_db),
 ) -> StatementOut:
     """Upload a bank statement image or PDF, run OCR pipeline, persist transactions."""
@@ -56,6 +57,7 @@ async def upload_statement(
         type=inferred_type,
         status="processing",
         ocr_provider="tesseract",  # will be updated by pipeline
+        statement_kind=statement_kind,
     )
     if type == 'receipt':
         statement.file_type = 'receipt'
@@ -198,6 +200,27 @@ async def discard_statement(statement_id: int, db: AsyncSession = Depends(get_db
     stmt.status = 'discarded'
     await db.commit()
     return {"discarded": statement_id}
+
+
+@router.post("/{statement_id}/flip-directions")
+async def flip_statement_directions(statement_id: int, db: AsyncSession = Depends(get_db)):
+    """Flip DEBIT↔CREDIT on all staged transactions for a statement."""
+    stmt = await db.get(Statement, statement_id)
+    status_val = stmt.status.value if hasattr(stmt.status, 'value') else stmt.status if stmt else None
+    if stmt is None or status_val != 'staged':
+        raise HTTPException(status_code=409, detail="Statement is not in staged state")
+
+    result = await db.execute(
+        select(Transaction)
+        .where(Transaction.statement_id == statement_id, Transaction.status == 'staged')
+    )
+    txns = result.scalars().all()
+    _FLIP = {'debit': 'credit', 'credit': 'debit'}
+    for tx in txns:
+        d = tx.direction.value if hasattr(tx.direction, 'value') else tx.direction
+        tx.direction = _FLIP.get(d, d)
+    await db.commit()
+    return {"flipped": len(txns)}
 
 
 @router.delete("/{id}", status_code=204)

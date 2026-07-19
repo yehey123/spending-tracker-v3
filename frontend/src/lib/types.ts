@@ -40,6 +40,7 @@ export interface Statement {
   error_message: string | null;
   account_id?: number | null;
   account_created?: boolean;
+  statement_kind?: string | null;
 }
 
 export interface Transaction {

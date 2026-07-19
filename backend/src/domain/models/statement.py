@@ -55,6 +55,9 @@ class Statement(Base):
     parse_errors: Mapped[dict | None] = mapped_column(JSONB(), nullable=True)
     categorization_confidence: Mapped[float | None] = mapped_column(Float(), nullable=True)
 
+    # Added in migration 0003
+    statement_kind: Mapped[str | None] = mapped_column(String(20), nullable=True, server_default="bank_account")
+
     # Added in migration 0010
     account_id: Mapped[int | None] = mapped_column(
         ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True)

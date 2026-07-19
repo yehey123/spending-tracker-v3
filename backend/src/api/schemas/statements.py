@@ -16,6 +16,7 @@ class StatementOut(BaseModel):
     declared_total: Decimal | None = None
     account_id: int | None = None
     account_created: bool = False
+    statement_kind: str | None = "bank_account"
     model_config = ConfigDict(from_attributes=True)
 
 
