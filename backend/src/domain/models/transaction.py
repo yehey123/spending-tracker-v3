@@ -51,6 +51,15 @@ class Transaction(Base):
     corrected_by: Mapped[int | None] = mapped_column(
         ForeignKey("transactions.id"), nullable=True)
 
+    # Added in migration 0010
+    account_id: Mapped[int | None] = mapped_column(
+        ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True)
+    transfer_peer_id: Mapped[int | None] = mapped_column(
+        ForeignKey("transactions.id"), nullable=True)
+    transfer_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    duplicate_status: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    deleted_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+
     category: Mapped["Category | None"] = relationship(back_populates="transactions")
     statement: Mapped["Statement | None"] = relationship(back_populates="transactions")
     flags: Mapped[list["TransactionFlag"]] = relationship(back_populates="transaction",
@@ -69,3 +78,5 @@ class Transaction(Base):
         back_populates="children",
         remote_side=[id],
     )
+    account: Mapped["Account | None"] = relationship(
+        "Account", back_populates="transactions", foreign_keys=[account_id])

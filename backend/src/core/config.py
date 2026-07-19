@@ -31,5 +31,8 @@ class Settings(BaseSettings):
     anthropic_api_key: str | None = None
     openai_api_key: str | None = None
 
+    # Account fingerprinting — must be ≥ 32 chars when account numbers are stored
+    app_secret: str = ""
+
 
 settings = Settings()

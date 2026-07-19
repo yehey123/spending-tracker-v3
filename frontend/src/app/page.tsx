@@ -58,13 +58,22 @@ export default function DashboardPage() {
       {/* Spending donut */}
       <div className="bg-white rounded-xl p-4 shadow-sm">
         <h2 className="text-base font-semibold mb-2">Spending by Category</h2>
-        <SpendingDonut breakdown={byCategory?.breakdown ?? []} />
+        <SpendingDonut
+          breakdown={byCategory?.breakdown ?? []}
+          displayCurrency={byCategory?.display_currency}
+          unconvertedCount={byCategory?.unconverted_count}
+          totalsAvailable={byCategory?.totals_available}
+        />
       </div>
 
       {/* Cash flow bar */}
       <div className="bg-white rounded-xl p-4 shadow-sm">
         <h2 className="text-base font-semibold mb-2">Cash Flow (6 months)</h2>
-        <CashFlowBar months={cashFlow?.months ?? []} />
+        <CashFlowBar
+          months={cashFlow?.months ?? []}
+          displayCurrency={cashFlow?.display_currency}
+          unconvertedCount={cashFlow?.unconverted_count}
+        />
       </div>
 
       {/* Recent transactions */}

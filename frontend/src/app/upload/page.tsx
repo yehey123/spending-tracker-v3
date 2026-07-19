@@ -2,16 +2,19 @@
 import { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import type { Statement } from '@/lib/types';
 import { Upload, FileText, CheckCircle, XCircle, Loader } from 'lucide-react';
 
 export default function UploadPage() {
   const qc = useQueryClient();
+  const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [status, setStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
   const [result, setResult] = useState<Statement | null>(null);
   const [error, setError] = useState('');
+  const [newAccountId, setNewAccountId] = useState<number | null>(null);
 
   const onDrop = useCallback((accepted: File[]) => {
     if (accepted[0]) { setFile(accepted[0]); setStatus('idle'); setResult(null); setError(''); }
@@ -30,11 +33,18 @@ export default function UploadPage() {
       const form = new FormData();
       form.append('file', file);
       const data = await api.upload<Statement>('/statements/upload', form);
+      if (data.status === 'staged') {
+        router.push(`/statements/${data.id}/review`);
+        return;
+      }
       setResult(data);
-      console.log('data: ', data)
       setStatus('success');
+      if (data.account_created && data.account_id != null) {
+        setNewAccountId(data.account_id);
+      }
       qc.invalidateQueries({ queryKey: ['statements'] });
       qc.invalidateQueries({ queryKey: ['transactions'] });
+      qc.invalidateQueries({ queryKey: ['accounts'] });
     } catch (e: any) {
       setError(e.message || 'Upload failed');
       setStatus('error');
@@ -82,14 +92,29 @@ export default function UploadPage() {
       )}
 
       {status === 'success' && result && (
-        <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-start gap-3">
-          <CheckCircle className="text-green-500 mt-0.5" size={20} />
-          <div>
-            <div className="font-semibold text-green-800">Processed successfully</div>
-            <div className="text-sm text-green-700 mt-1">
-              {result.transaction_count} transaction{result.transaction_count !== 1 ? 's' : ''} imported
+        <div className="space-y-3">
+          <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-start gap-3">
+            <CheckCircle className="text-green-500 mt-0.5" size={20} />
+            <div>
+              <div className="font-semibold text-green-800">Processed successfully</div>
+              <div className="text-sm text-green-700 mt-1">
+                {result.transaction_count} transaction{result.transaction_count !== 1 ? 's' : ''} imported
+              </div>
             </div>
           </div>
+          {newAccountId !== null && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center justify-between">
+              <span className="text-sm text-blue-800">
+                New account detected — tap to set name and opening balance.
+              </span>
+              <div className="flex gap-2 ml-3 shrink-0">
+                <a href="/accounts" className="text-xs font-medium text-blue-600 underline">
+                  Go to Accounts
+                </a>
+                <button onClick={() => setNewAccountId(null)} className="text-xs text-gray-400">✕</button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

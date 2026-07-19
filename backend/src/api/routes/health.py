@@ -13,6 +13,7 @@ router = APIRouter()
 _REQUIRED_TABLES = {
     "app_settings", "categories", "statements", "transactions",
     "transaction_flags", "merchant_category_memory", "audit_log",
+    "accounts", "investment_transactions",
 }
 
 

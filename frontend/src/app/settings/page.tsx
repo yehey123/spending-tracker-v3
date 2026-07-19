@@ -34,13 +34,37 @@ export default function SettingsPage() {
   const [ocrProvider, setOcrProvider] = useState<AppSettings['ocr_provider']>('tesseract');
   const [anthropicKey, setAnthropicKey] = useState('');
   const [openaiKey, setOpenaiKey] = useState('');
+  const [reviewBeforeCommit, setReviewBeforeCommit] = useState(true);
+  const [homeCurrency, setHomeCurrency] = useState('');
 
-  useEffect(() => { if (settings) setOcrProvider(settings.ocr_provider); }, [settings]);
+  const { data: currenciesData } = useQuery({
+    queryKey: ['currencies'],
+    queryFn: () => api.get<{ currencies: Record<string, string> }>('/exchange-rates/supported'),
+  });
+  const supportedCurrencies = Object.entries(currenciesData?.currencies ?? {});
+
+  useEffect(() => {
+    if (settings) {
+      setOcrProvider(settings.ocr_provider);
+      if (settings.review_before_commit !== undefined) setReviewBeforeCommit(!!settings.review_before_commit);
+      if (settings.home_currency) setHomeCurrency(settings.home_currency);
+    }
+  }, [settings]);
 
   const settingsMutation = useMutation({
     mutationFn: (body: SettingsPut) => api.put<AppSettings>('/settings', body),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['settings'] }),
   });
+
+  const handleReviewToggle = (v: boolean) => {
+    setReviewBeforeCommit(v);
+    settingsMutation.mutate({ ocr_provider: ocrProvider, review_before_commit: v });
+  };
+
+  const handleCurrencyChange = (v: string) => {
+    setHomeCurrency(v);
+    settingsMutation.mutate({ ocr_provider: ocrProvider, home_currency: v || null });
+  };
 
   // Categories
   const { data: categories = [] } = useQuery({
@@ -83,6 +107,33 @@ export default function SettingsPage() {
         {urlStatus === 'error' && <p className="text-red-600 text-xs flex items-center gap-1"><XCircle size={13} /> Could not connect</p>}
       </section>
 
+      {/* Import Settings */}
+      <section className="bg-white rounded-xl p-5 shadow-sm space-y-3">
+        <h2 className="font-semibold">Import Settings</h2>
+        <div className="flex items-center justify-between">
+          <label className="text-sm">Review before committing</label>
+          <input
+            type="checkbox"
+            checked={reviewBeforeCommit}
+            onChange={(e) => handleReviewToggle(e.target.checked)}
+            className="w-4 h-4 accent-indigo-600"
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-gray-500">Home currency</label>
+          <select
+            value={homeCurrency}
+            onChange={(e) => handleCurrencyChange(e.target.value)}
+            className="border rounded-lg px-3 py-2 text-sm w-full"
+          >
+            <option value="">No preference</option>
+            {supportedCurrencies.map(([code, name]) => (
+              <option key={code} value={code}>{code} — {name}</option>
+            ))}
+          </select>
+        </div>
+      </section>
+
       {/* OCR provider */}
       <section className="bg-white rounded-xl p-5 shadow-sm space-y-3">
         <h2 className="font-semibold">OCR Provider</h2>
@@ -121,7 +172,7 @@ export default function SettingsPage() {
           {categories.map((c) => (
             <li key={c.id} className="flex items-center justify-between py-2">
               <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full inline-block" style={{ backgroundColor: c.color }} />
+                <span className="w-3 h-3 rounded-full inline-block" style={{ backgroundColor: c.color ?? undefined }} />
                 <span className="text-sm">{c.name}</span>
               </div>
               <button onClick={() => { if (confirm(`Delete "${c.name}"?`)) deleteCategory.mutate(c.id); }}

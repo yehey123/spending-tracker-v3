@@ -7,7 +7,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.schemas.analytics import (
@@ -92,6 +92,11 @@ async def by_category(
             Transaction.status == "active",
             Transaction.reversed_by.is_(None),
             Transaction.reversal_of.is_(None),
+            Transaction.deleted_at.is_(None),
+            or_(
+                Transaction.transfer_status.is_(None),
+                Transaction.transfer_status != 'confirmed',
+            ),
         )
     )
     rows = rows_result.all()
@@ -201,6 +206,11 @@ async def cash_flow(
                 Transaction.status == "active",
                 Transaction.reversed_by.is_(None),
                 Transaction.reversal_of.is_(None),
+                Transaction.deleted_at.is_(None),
+                or_(
+                    Transaction.transfer_status.is_(None),
+                    Transaction.transfer_status != 'confirmed',
+                ),
             )
         )
         rows = rows_result.all()

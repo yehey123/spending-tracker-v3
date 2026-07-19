@@ -1,8 +1,27 @@
-import pytest
+import sys
 from unittest.mock import MagicMock, patch
+import pytest
 
-from src.domain.services.storage.s3 import S3Backend
-from src.domain.services.storage.base import StorageError
+
+# Fake botocore exception class (SDK not installed in dev image)
+class _FakeClientError(Exception):
+    def __init__(self, error_response: dict, operation_name: str):
+        self.response = error_response
+        super().__init__(str(error_response))
+
+
+_fake_botocore_exc = MagicMock()
+_fake_botocore_exc.ClientError = _FakeClientError
+
+_fake_botocore = MagicMock()
+_fake_botocore.exceptions = _fake_botocore_exc
+
+sys.modules.setdefault('boto3', MagicMock())
+sys.modules['botocore'] = _fake_botocore
+sys.modules['botocore.exceptions'] = _fake_botocore_exc
+
+from src.domain.services.storage.s3 import S3Backend  # noqa: E402
+from src.domain.services.storage.base import StorageError  # noqa: E402
 
 
 def _make_backend():
@@ -10,9 +29,8 @@ def _make_backend():
 
 
 def _make_client_error(code: str):
-    import botocore.exceptions
     error_response = {"Error": {"Code": code, "Message": "msg"}}
-    return botocore.exceptions.ClientError(error_response, "op")
+    return _FakeClientError(error_response, "op")
 
 
 @pytest.mark.asyncio

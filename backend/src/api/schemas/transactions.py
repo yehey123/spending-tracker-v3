@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Literal
 
@@ -13,10 +13,26 @@ class TransactionCreate(BaseModel):
     category_id: int | None = None
     currency: str | None = None  # ISO-4217 3-letter code; null = home currency
 
+    @field_validator('date')
+    @classmethod
+    def make_date_naive(cls, v: datetime) -> datetime:
+        if v.tzinfo is not None:
+            return v.astimezone(timezone.utc).replace(tzinfo=None)
+        return v
+
 
 class TransactionPatch(BaseModel):
     amount: Decimal | None = Field(default=None, gt=0)
     date: datetime | None = None
+
+    @field_validator('date')
+    @classmethod
+    def make_date_naive(cls, v: datetime | None) -> datetime | None:
+        if v is None:
+            return v
+        if v.tzinfo is not None:
+            return v.astimezone(timezone.utc).replace(tzinfo=None)
+        return v
     description: str | None = Field(default=None, min_length=1, max_length=500)
     direction: Literal["debit", "credit"] | None = None
     category_id: int | None = None

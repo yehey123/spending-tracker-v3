@@ -2,7 +2,7 @@ import enum
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, Enum, Float, Numeric, String, Text
+from sqlalchemy import DateTime, Enum, Float, ForeignKey, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -55,4 +55,9 @@ class Statement(Base):
     parse_errors: Mapped[dict | None] = mapped_column(JSONB(), nullable=True)
     categorization_confidence: Mapped[float | None] = mapped_column(Float(), nullable=True)
 
+    # Added in migration 0010
+    account_id: Mapped[int | None] = mapped_column(
+        ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True)
+
     transactions: Mapped[list["Transaction"]] = relationship(back_populates="statement")
+    account: Mapped["Account | None"] = relationship("Account", back_populates="statements")

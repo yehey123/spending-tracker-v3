@@ -57,13 +57,15 @@ async def upload_statement(
         status="processing",
         ocr_provider="tesseract",  # will be updated by pipeline
     )
+    if type == 'receipt':
+        statement.file_type = 'receipt'
     db.add(statement)
     await db.commit()
     await db.refresh(statement)
 
     try:
         from src.domain.services.statement_pipeline import statement_pipeline
-        transactions = await statement_pipeline.run(statement, content, content_type, db)
+        transactions, account_created = await statement_pipeline.run(statement, content, content_type, db)
         await db.commit()
         await db.refresh(statement)
     except HTTPException:
@@ -85,6 +87,8 @@ async def upload_statement(
         transaction_count=len(transactions),
         uploaded_at=statement.uploaded_at,
         error_message=statement.error_message,
+        account_id=statement.account_id,
+        account_created=account_created,
     )
 
 

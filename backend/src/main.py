@@ -35,10 +35,15 @@ app.add_middleware(
 )
 
 from src.api.routes import (  # noqa: E402
+    accounts,
     analytics,
     categories,
     exchange_rates,
+    flags,
     health,
+    investment_transactions,
+    portfolio,
+    receipts,
     settings,
     staged_transactions,
     statements,
@@ -46,6 +51,7 @@ from src.api.routes import (  # noqa: E402
 )
 
 app.include_router(health.router)
+app.include_router(accounts.router, prefix="/accounts", tags=["accounts"])
 app.include_router(categories.router, prefix="/categories", tags=["categories"])
 app.include_router(statements.router, prefix="/statements", tags=["statements"])
 app.include_router(transactions.router, prefix="/transactions", tags=["transactions"])
@@ -53,3 +59,15 @@ app.include_router(staged_transactions.router, prefix="/staged-transactions", ta
 app.include_router(analytics.router, prefix="/analytics", tags=["analytics"])
 app.include_router(settings.router, prefix="/settings", tags=["settings"])
 app.include_router(exchange_rates.router, prefix="/exchange-rates", tags=["exchange-rates"])
+app.include_router(receipts.router, prefix="/receipts", tags=["receipts"])
+app.include_router(flags.router, prefix="/flags", tags=["flags"])
+app.include_router(
+    investment_transactions.router,
+    prefix="/accounts/{account_id}/investment-transactions",
+    tags=["investment-transactions"],
+)
+app.include_router(
+    portfolio.router,
+    prefix="/accounts/{account_id}/portfolio",
+    tags=["portfolio"],
+)

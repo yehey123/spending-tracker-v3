@@ -14,4 +14,16 @@ class StatementOut(BaseModel):
     uploaded_at: datetime
     error_message: str | None = None
     declared_total: Decimal | None = None
+    account_id: int | None = None
+    account_created: bool = False
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ReceiptOut(BaseModel):
+    id: int
+    filename: str
+    status: str
+    uploaded_at: datetime
+    declared_total: Decimal | None = None
+    suggested_parent_ids: list[int] = []
     model_config = ConfigDict(from_attributes=True)

@@ -1,3 +1,5 @@
+from src.domain.models.account import Account
+from src.domain.models.investment_transaction import InvestmentTransaction
 from src.domain.models.category import Category
 from src.domain.models.statement import Statement
 from src.domain.models.transaction import Transaction
@@ -7,6 +9,8 @@ from src.domain.models.merchant_memory import MerchantCategoryMemory
 from src.domain.models.audit_log import AuditLog
 
 __all__ = [
+    "Account",
+    "InvestmentTransaction",
     "Category",
     "Statement",
     "Transaction",

@@ -1,4 +1,5 @@
 import asyncio
+import os
 import subprocess
 import pytest
 import pytest_asyncio
@@ -6,6 +7,9 @@ import asyncpg
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
+
+# Must be set before src.main is imported (Settings() runs at import time)
+os.environ.setdefault("APP_SECRET", "test-secret-key-that-is-at-least-32-chars!")
 
 from src.main import app
 from src.db.session import get_db
@@ -87,7 +91,7 @@ async def clean_tables():
     conn = await asyncpg.connect(TEST_DB_RAW)
     try:
         await conn.execute(
-            "TRUNCATE transactions, statements, categories RESTART IDENTITY CASCADE"
+            "TRUNCATE accounts, investment_transactions, transactions, statements, categories RESTART IDENTITY CASCADE"
         )
         await conn.execute(
             "UPDATE app_settings SET ocr_provider='tesseract', anthropic_api_key=NULL, openai_api_key=NULL WHERE id=1"
@@ -108,3 +112,9 @@ app.dependency_overrides[get_db] = override_get_db
 async def client():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c
+
+
+@pytest_asyncio.fixture
+async def db_session() -> AsyncSession:
+    async with _TestingSessionLocal() as session:
+        yield session

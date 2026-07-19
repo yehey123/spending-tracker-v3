@@ -1,8 +1,29 @@
-import pytest
+import sys
 from unittest.mock import MagicMock, patch
+import pytest
 
-from src.domain.services.storage.gcs import GCSBackend
-from src.domain.services.storage.base import StorageError
+
+# Fake Google SDK exception classes (SDK not installed in dev image)
+class _FakeNotFound(Exception):
+    pass
+
+
+class _FakeGoogleAPIError(Exception):
+    pass
+
+
+_fake_gcp_exc = MagicMock()
+_fake_gcp_exc.NotFound = _FakeNotFound
+_fake_gcp_exc.GoogleAPIError = _FakeGoogleAPIError
+
+for _mod in ['google', 'google.cloud', 'google.cloud.storage',
+             'google.oauth2', 'google.oauth2.service_account',
+             'google.api_core', 'google.api_core.exceptions']:
+    sys.modules.setdefault(_mod, MagicMock())
+sys.modules['google.api_core.exceptions'] = _fake_gcp_exc
+
+from src.domain.services.storage.gcs import GCSBackend  # noqa: E402
+from src.domain.services.storage.base import StorageError  # noqa: E402
 
 
 def _make_backend():
@@ -10,8 +31,7 @@ def _make_backend():
 
 
 def _make_not_found():
-    from google.api_core.exceptions import NotFound
-    return NotFound("not found")
+    return _FakeNotFound("not found")
 
 
 @pytest.mark.asyncio
@@ -69,10 +89,9 @@ async def test_delete_not_found_silent():
 
 @pytest.mark.asyncio
 async def test_save_api_error_raises_storage_error():
-    from google.api_core.exceptions import GoogleAPIError
     backend = _make_backend()
     mock_blob = MagicMock()
-    mock_blob.upload_from_string.side_effect = GoogleAPIError("denied")
+    mock_blob.upload_from_string.side_effect = _FakeGoogleAPIError("denied")
     mock_bucket = MagicMock()
     mock_bucket.blob.return_value = mock_blob
     mock_gcs_client = MagicMock()

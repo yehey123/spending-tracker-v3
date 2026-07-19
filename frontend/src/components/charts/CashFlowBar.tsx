@@ -6,9 +6,11 @@ import type { MonthCashFlow } from '@/lib/types';
 
 interface Props {
   months: MonthCashFlow[];
+  displayCurrency?: string | null;
+  unconvertedCount?: number;
 }
 
-export default function CashFlowBar({ months }: Props) {
+export default function CashFlowBar({ months, displayCurrency, unconvertedCount }: Props) {
   if (months.length === 0) {
     return <div className="text-center text-gray-400 py-12">No cash flow data</div>;
   }
@@ -23,8 +25,8 @@ export default function CashFlowBar({ months }: Props) {
       <BarChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" />
         <XAxis dataKey="month" />
-        <YAxis tickFormatter={(v) => `$${v}`} />
-        <Tooltip formatter={(v: number) => `$${v.toFixed(2)}`} />
+        <YAxis tickFormatter={(v) => `${displayCurrency ?? '$'}${v}`} />
+        <Tooltip formatter={(v: number) => `${displayCurrency ?? '$'}${v.toFixed(2)}`} />
         <Legend />
         <Bar dataKey="Credit" fill="#22c55e" />
         <Bar dataKey="Debit" fill="#ef4444" />

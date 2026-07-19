@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import base64
+import json
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
+from sqlalchemy import func, or_, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -73,6 +75,48 @@ async def list_transactions(
     if direction is not None:
         stmt = stmt.where(Transaction.direction == direction)
 
+    result = await db.execute(stmt)
+    return result.scalars().all()
+
+
+@router.get("/search", response_model=list[TransactionOut])
+async def search_transactions(
+    q: str = Query(..., min_length=1),
+    limit: int = Query(default=20, ge=1, le=100),
+    cursor: str | None = Query(default=None),
+    linkable_only: bool = Query(default=False),
+    db: AsyncSession = Depends(get_db),
+):
+    """Full-text search over transaction descriptions using pg_trgm similarity."""
+    stmt = (
+        select(Transaction)
+        .options(selectinload(Transaction.category))
+        .where(
+            Transaction.status == 'active',
+            Transaction.reversed_by.is_(None),
+            Transaction.reversal_of.is_(None),
+            or_(
+                func.similarity(Transaction.description, q) > 0.3,
+                Transaction.description.ilike(f'%{q}%'),
+            ),
+        )
+    )
+
+    if linkable_only:
+        stmt = stmt.where(Transaction.parent_transaction_id.is_(None))
+
+    if cursor is not None:
+        try:
+            payload = json.loads(base64.b64decode(cursor).decode())
+            cursor_date = datetime.fromisoformat(payload['date'])
+            cursor_id = int(payload['id'])
+            stmt = stmt.where(
+                tuple_(Transaction.date, Transaction.id) < tuple_(cursor_date, cursor_id)
+            )
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid cursor")
+
+    stmt = stmt.order_by(Transaction.date.desc(), Transaction.id.desc()).limit(limit)
     result = await db.execute(stmt)
     return result.scalars().all()
 

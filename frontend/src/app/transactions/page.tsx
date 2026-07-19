@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { Category } from '@/lib/types';
+import type { Category, AppSettings } from '@/lib/types';
 import { Tag, Plus, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   useTransactionFilters,
@@ -24,6 +24,11 @@ export default function TransactionsPage() {
   const { data: categories = [] } = useQuery({
     queryKey: ['categories'],
     queryFn: () => api.get<Category[]>('/categories'),
+  });
+
+  const { data: settings } = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => api.get<AppSettings>('/settings'),
   });
 
   const handleCreate = () => {
@@ -166,6 +171,11 @@ export default function TransactionsPage() {
                     <span className={`font-bold ${tx.direction === 'debit' ? 'text-red-600' : 'text-green-600'}`}>
                       {tx.direction === 'debit' ? '-' : '+'}${Number(tx.amount).toFixed(2)}
                     </span>
+                    {tx.currency && settings?.home_currency && tx.currency !== settings.home_currency && (
+                      <span className="text-xs bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-medium">
+                        {tx.currency}
+                      </span>
+                    )}
                     <button
                       onClick={() => { setEditingId(tx.id); setEditCategoryId(String(tx.category_id ?? '')); }}
                       className="text-gray-400 hover:text-indigo-600">

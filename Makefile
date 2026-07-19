@@ -51,3 +51,12 @@ shell-db:
 
 shell-backend:
 	docker compose exec backend bash
+
+cap-sync:
+	cd frontend && npx cap sync
+
+cap-ios:
+	cd frontend && CAPACITOR_BUILD=1 npm run build && npx cap sync ios && npx cap open ios
+
+cap-android:
+	cd frontend && CAPACITOR_BUILD=1 npm run build && npx cap sync android && npx cap open android

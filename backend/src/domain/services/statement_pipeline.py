@@ -33,6 +33,110 @@ except ImportError as e:
     OpenAIVisionProvider = None  # type: ignore
 
 
+import hashlib
+import hmac
+import re
+from datetime import timedelta
+
+CC_NUMBER_RE = re.compile(r'\d{4}[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?\d{4}')
+BANK_ACCT_RE = re.compile(r'\b\d{10,14}\b')
+
+
+async def detect_account(raw_text: str, db: AsyncSession):
+    """
+    Best-effort: extract account number from OCR text, fingerprint-match or auto-create.
+    Returns Account or None (non-fatal — upload proceeds without account_id).
+    """
+    from datetime import date as date_type
+    from sqlalchemy import select
+    from src.domain.models.account import Account
+    from src.core.config import settings as cfg
+
+    digits_only = re.sub(r'[\s\-]', '', raw_text)
+    cc_match = CC_NUMBER_RE.search(digits_only)
+    number: str | None = None
+    if cc_match:
+        number = re.sub(r'[\s\-]', '', cc_match.group())
+    else:
+        bank_match = BANK_ACCT_RE.search(raw_text)
+        if bank_match:
+            number = bank_match.group()
+
+    if not number:
+        return None
+
+    secret = cfg.app_secret
+    if not secret or len(secret) < 32:
+        return None
+
+    last_four = number[-4:]
+    fingerprint = hmac.new(
+        secret.encode(), number.encode(), hashlib.sha256
+    ).hexdigest()
+
+    result = await db.execute(
+        select(Account).where(
+            Account.fingerprint == fingerprint,
+            Account.is_active == True,
+        )
+    )
+    existing = result.scalar_one_or_none()
+    if existing:
+        return existing
+
+    new_account = Account(
+        name=f"****{last_four}",
+        type='credit_card',
+        currency='PHP',
+        last_four=last_four,
+        fingerprint=fingerprint,
+        opening_balance=0,
+        opening_date=date_type.today(),
+    )
+    db.add(new_account)
+    await db.flush()
+    return new_account
+
+
+async def _detect_duplicates(
+    new_transactions: list[Transaction], account_id: int, db: AsyncSession
+) -> None:
+    """Flag suspected duplicates: same account + amount + direction within ±3 days."""
+    from sqlalchemy import select
+    from src.domain.models.transaction_flag import TransactionFlag
+
+    for tx in new_transactions:
+        tx_date = tx.date.replace(tzinfo=None) if tx.date.tzinfo else tx.date
+        window_low = tx_date - timedelta(days=3)
+        window_high = tx_date + timedelta(days=3)
+        result = await db.execute(
+            select(Transaction).where(
+                Transaction.account_id == account_id,
+                Transaction.amount == tx.amount,
+                Transaction.direction == tx.direction,
+                Transaction.id != tx.id,
+                Transaction.status == 'active',
+                Transaction.deleted_at.is_(None),
+                Transaction.date >= window_low,
+                Transaction.date <= window_high,
+            )
+        )
+        duplicates = result.scalars().all()
+        for dup in duplicates:
+            tx.duplicate_status = 'suspected'
+            db.add(TransactionFlag(
+                transaction_id=tx.id,
+                flag_type='suspected_duplicate',
+                status='open',
+                flag_metadata={
+                    "peer_id": dup.id,
+                    "days_apart": abs((tx.date - dup.date).days),
+                    "amount": str(tx.amount),
+                    "account_id": account_id,
+                },
+            ))
+
+
 def _resolve_ocr(settings_row: AppSettings):
     from fastapi import HTTPException
     provider = settings_row.ocr_provider
@@ -51,8 +155,8 @@ class StatementPipeline:
     """Multi-stage statement processing pipeline."""
 
     async def run(self, statement: Statement, content: bytes, content_type: str,
-                  db: AsyncSession) -> list[Transaction]:
-        """Run OCR → parse → (categorize) → staged insert. Returns list of transactions."""
+                  db: AsyncSession) -> tuple[list[Transaction], bool]:
+        """Run OCR → parse → (categorize) → staged insert. Returns (transactions, account_created)."""
         from src.domain.services.pdf_parser import extract_pdf_text
         from src.domain.services.preprocessor import preprocess
         from src.domain.services.statement_parser import parse_statement
@@ -82,7 +186,46 @@ class StatementPipeline:
             statement.status = 'ocr_failed'
             statement.error_message = str(e)
             await db.flush()
-            return []
+            return [], False
+
+        # Stage 1.5 — Account detection (non-fatal)
+        account_created = False
+        try:
+            account = await detect_account(raw_text, db)
+            account_id = account.id if account else None
+            if account_id is not None:
+                account_created = account.name.startswith('****')
+                statement.account_id = account_id
+        except Exception as e:
+            logger.warning('Account detection failed: %s', e)
+            account = None
+            account_id = None
+
+        # Stage 1.6 — Broker branch: investment statement parsing (returns early)
+        if account and account.type == 'broker':
+            from src.domain.services.investment_parser import parse_investment_rows
+            from src.domain.models.investment_transaction import InvestmentTransaction
+            from datetime import date as date_type
+
+            parsed_rows, parse_errors = parse_investment_rows(raw_text)
+            for row in parsed_rows:
+                inv = InvestmentTransaction(
+                    account_id=account.id,
+                    statement_id=statement.id,
+                    date=date_type.today(),
+                    symbol=row.symbol,
+                    shares=row.shares,
+                    price_per_share=row.price,
+                    amount=row.amount,
+                    direction=row.direction,
+                    commission=row.commission,
+                )
+                db.add(inv)
+
+            statement.parse_errors = parse_errors if parse_errors else None
+            statement.status = 'committed'
+            await db.flush()
+            return [], account_created
 
         # Stage 2 — Parse
         try:
@@ -92,7 +235,7 @@ class StatementPipeline:
             statement.status = 'parse_failed'
             statement.error_message = str(e)
             await db.flush()
-            return []
+            return [], False
 
         # Insert transactions as 'staged'
         transactions = []
@@ -103,6 +246,7 @@ class StatementPipeline:
                 amount=p.amount,
                 direction=p.direction,
                 statement_id=statement.id,
+                account_id=account_id,
                 status='staged',
                 transaction_origin='uploaded',
             )
@@ -111,7 +255,21 @@ class StatementPipeline:
 
         await db.flush()  # get IDs
 
-        # Stage 3 — AI categorization (stub — runs only if API key present)
+        # Stage 3.5 — Duplicate detection (if account detected)
+        if account_id is not None:
+            try:
+                await _detect_duplicates(transactions, account_id, db)
+            except Exception as e:
+                logger.warning('Duplicate detection failed: %s', e)
+
+        # Stage 3 — AI categorization (runs only if Anthropic API key present)
+        if settings.anthropic_api_key:
+            try:
+                from src.domain.services.categorizer import categorizer_service
+                await categorizer_service.categorize_statement(statement.id, transactions, db, settings)
+            except Exception as e:
+                logger.warning('Categorizer failed: %s', e)
+
         # Stage 4 — Final state
         review_before_commit = getattr(settings, 'review_before_commit', True)
         if review_before_commit:
@@ -122,7 +280,7 @@ class StatementPipeline:
                 tx.status = 'active'
 
         await db.flush()
-        return transactions
+        return transactions, account_created
 
 
 statement_pipeline = StatementPipeline()
