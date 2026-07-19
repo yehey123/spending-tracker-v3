@@ -161,7 +161,7 @@ def _resolve_ocr(settings_row: AppSettings):
         if not settings_row.google_project_id:
             raise HTTPException(status_code=422, detail="Google Project ID not configured for Vertex AI.")
         location = getattr(settings_row, 'google_location', None) or "us-central1"
-        model = getattr(settings_row, 'ai_model', None) or "google/gemini-2.0-flash-001"
+        model = getattr(settings_row, 'ai_model', None) or "google/gemini-2.5-flash"
         return VertexVisionProvider(project_id=settings_row.google_project_id,
                                     location=location, model=model)
     return TesseractProvider()
@@ -183,6 +183,7 @@ class StatementPipeline:
             settings = AS(id=1, ocr_provider="tesseract")
 
         ocr_provider = _resolve_ocr(settings)
+        statement.ocr_provider = settings.ocr_provider
         inferred_type = "pdf" if content_type == "application/pdf" else "image"
 
         # Stage 1 — OCR
