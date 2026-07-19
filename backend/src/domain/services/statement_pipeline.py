@@ -194,7 +194,10 @@ class StatementPipeline:
                 if PILImage is None:
                     raise RuntimeError("Pillow is required for image processing.")
                 img = PILImage.open(io.BytesIO(content))
-                img = preprocess(img)
+                # Preprocessing (grayscale + threshold) helps Tesseract but hurts
+                # AI vision models — send the original color image to those.
+                if settings.ocr_provider == "tesseract":
+                    img = preprocess(img)
                 raw_text = await ocr_provider.extract_text(img)  # type: ignore
 
             statement.raw_ocr_text = raw_text
