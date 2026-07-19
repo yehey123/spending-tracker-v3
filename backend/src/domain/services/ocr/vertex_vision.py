@@ -16,7 +16,7 @@ _PROMPT = (
 
 class VertexVisionProvider(OCRProvider):
     def __init__(self, project_id: str, location: str = "us-central1",
-                 model: str = "google/gemini-2.0-flash-001"):
+                 model: str = "google/gemini-2.5-flash"):
         self.project_id = project_id
         self.location = location
         self.model = model

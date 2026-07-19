@@ -179,7 +179,7 @@ class CategorizerService:
                     f'https://{location}-aiplatform.googleapis.com/v1beta1/projects/'
                     f'{project}/locations/{location}/endpoints/openapi/'
                 )
-                model = getattr(settings, 'ai_model', None) or 'google/gemini-2.0-flash-001'
+                model = getattr(settings, 'ai_model', None) or 'google/gemini-2.5-flash'
                 client = _openai_lib.OpenAI(api_key=creds.token, base_url=base_url)
                 resp = client.chat.completions.create(
                     model=model,
