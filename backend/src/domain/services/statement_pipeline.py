@@ -221,6 +221,10 @@ class StatementPipeline:
             account = None
             account_id = None
 
+        # If linked account is a credit card, upgrade statement_kind automatically
+        if account and getattr(account, 'type', None) == 'credit_card':
+            statement.statement_kind = 'credit_card'
+
         # Stage 1.6 — Broker branch: investment statement parsing (returns early)
         if account and account.type == 'broker':
             from src.domain.services.investment_parser import parse_investment_rows

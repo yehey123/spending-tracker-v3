@@ -210,17 +210,20 @@ async def flip_statement_directions(statement_id: int, db: AsyncSession = Depend
     if stmt is None or status_val != 'staged':
         raise HTTPException(status_code=409, detail="Statement is not in staged state")
 
+    from sqlalchemy import case, literal
+    from sqlalchemy.dialects.postgresql import VARCHAR
     result = await db.execute(
-        select(Transaction)
+        update(Transaction)
         .where(Transaction.statement_id == statement_id, Transaction.status == 'staged')
+        .values(direction=case(
+            (Transaction.direction == 'debit', literal('credit')),
+            else_=literal('debit'),
+        ))
+        .returning(Transaction.id)
     )
-    txns = result.scalars().all()
-    _FLIP = {'debit': 'credit', 'credit': 'debit'}
-    for tx in txns:
-        d = tx.direction.value if hasattr(tx.direction, 'value') else tx.direction
-        tx.direction = _FLIP.get(d, d)
+    flipped = len(result.all())
     await db.commit()
-    return {"flipped": len(txns)}
+    return {"flipped": flipped}
 
 
 @router.delete("/{id}", status_code=204)
