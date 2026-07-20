@@ -45,7 +45,7 @@ export default function DashboardPage() {
           <div className="bg-white rounded-xl p-4 shadow-sm">
             <div className="text-xs text-gray-500 uppercase tracking-wide">Total Spent</div>
             <div className="text-2xl font-bold text-red-600">
-              ${Number(byCategory.total_debit).toFixed(2)}
+              {byCategory.display_currency ?? ''} {Number(byCategory.total_debit).toFixed(2)}
             </div>
           </div>
           <div className="bg-white rounded-xl p-4 shadow-sm">
@@ -90,7 +90,7 @@ export default function DashboardPage() {
                   <div className="text-gray-400 text-xs">{tx.date.slice(0, 10)} · {tx.category?.name ?? 'Uncategorized'}</div>
                 </div>
                 <div className={tx.direction === 'debit' ? 'text-red-600 font-semibold' : 'text-green-600 font-semibold'}>
-                  {tx.direction === 'debit' ? '-' : '+'}${Number(tx.amount).toFixed(2)}
+                  {tx.direction === 'debit' ? '-' : '+'}{tx.currency ?? byCategory?.display_currency ?? ''} {Number(tx.amount).toFixed(2)}
                 </div>
               </li>
             ))}
