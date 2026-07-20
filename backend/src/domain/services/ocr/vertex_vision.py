@@ -19,11 +19,12 @@ _PROMPT = (
 
 class VertexVisionProvider(OCRProvider):
     def __init__(self, project_id: str, location: str = "us-central1",
-                 model: str = "google/gemini-2.5-flash"):
+                 model: str = "google/gemini-2.5-flash", max_tokens: int = 8192):
         self.project_id = project_id
         self.location = location
         # Vertex OpenAI-compat endpoint requires "<publisher>/<model>" format
         self.model = model if "/" in model else f"google/{model}"
+        self.max_tokens = max_tokens
 
     async def extract_text(self, image: Image.Image) -> str:
         import google.auth
@@ -52,7 +53,7 @@ class VertexVisionProvider(OCRProvider):
 
         response = client.chat.completions.create(
             model=self.model,
-            max_tokens=8192,
+            max_tokens=self.max_tokens,
             messages=[
                 {
                     "role": "user",
