@@ -144,26 +144,29 @@ async def _detect_duplicates(
 def _resolve_ocr(settings_row: AppSettings):
     from fastapi import HTTPException
     provider = settings_row.ocr_provider
+    _max = settings_row.max_output_tokens
     if provider == "claude":
         if not settings_row.anthropic_api_key:
             raise HTTPException(status_code=422, detail="API key not configured for claude.")
-        return ClaudeVisionProvider(api_key=settings_row.anthropic_api_key)
+        model = getattr(settings_row, 'ai_model', None) or "claude-sonnet-4-6"
+        return ClaudeVisionProvider(api_key=settings_row.anthropic_api_key, model=model, max_tokens=_max or 4096)
     elif provider == "openai":
         if not settings_row.openai_api_key:
             raise HTTPException(status_code=422, detail="API key not configured for openai.")
-        return OpenAIVisionProvider(api_key=settings_row.openai_api_key)
+        model = getattr(settings_row, 'ai_model', None) or "gpt-4o"
+        return OpenAIVisionProvider(api_key=settings_row.openai_api_key, model=model, max_tokens=_max or 4096)
     elif provider == "gemini":
         if not settings_row.gemini_api_key:
             raise HTTPException(status_code=422, detail="Gemini API key not configured.")
         model = getattr(settings_row, 'ai_model', None) or "gemini-2.0-flash"
-        return GeminiVisionProvider(api_key=settings_row.gemini_api_key, model=model)
+        return GeminiVisionProvider(api_key=settings_row.gemini_api_key, model=model, max_tokens=_max or 8192)
     elif provider == "vertex":
         if not settings_row.google_project_id:
             raise HTTPException(status_code=422, detail="Google Project ID not configured for Vertex AI.")
         location = getattr(settings_row, 'google_location', None) or "us-central1"
         model = getattr(settings_row, 'ai_model', None) or "google/gemini-2.5-flash"
         return VertexVisionProvider(project_id=settings_row.google_project_id,
-                                    location=location, model=model)
+                                    location=location, model=model, max_tokens=_max or 8192)
     return TesseractProvider()
 
 
@@ -186,31 +189,60 @@ class StatementPipeline:
         statement.ocr_provider = settings.ocr_provider
         inferred_type = "pdf" if content_type == "application/pdf" else "image"
 
-        # Stage 1 — OCR
-        try:
-            if inferred_type == "pdf":
-                raw_text = await extract_pdf_text(content, ocr_provider)
-            else:
-                if PILImage is None:
-                    raise RuntimeError("Pillow is required for image processing.")
-                img = PILImage.open(io.BytesIO(content))
-                # Preprocessing (grayscale + threshold) helps Tesseract but hurts
-                # AI vision models — send the original color image to those.
-                if settings.ocr_provider == "tesseract":
-                    img = preprocess(img)
-                raw_text = await ocr_provider.extract_text(img)  # type: ignore
+        file_hash = hashlib.sha256(content).hexdigest()
+        statement.file_hash = file_hash
 
-            statement.raw_ocr_text = raw_text
-            logger.info(
-                "OCR complete [provider=%s] [chars=%d]\n--- OCR OUTPUT ---\n%s\n--- END OCR ---",
-                settings.ocr_provider, len(raw_text or ""), raw_text or "(empty)"
+        from sqlalchemy import select as _sel
+        prior = (await db.execute(
+            _sel(Statement)
+            .where(
+                Statement.file_hash == file_hash,
+                Statement.id != statement.id,
+                Statement.status.notin_(["ocr_failed", "parse_failed", "failed", "discarded"]),
             )
+            .order_by(Statement.id.desc())
+            .limit(1)
+        )).scalar_one_or_none()
+
+        raw_text: str | None = None
+        if prior and prior.raw_ocr_text:
+            logger.info("OCR cache hit file_hash=%s (reusing statement %d)", file_hash, prior.id)
+            raw_text = prior.raw_ocr_text
+            statement.raw_ocr_text = raw_text
             await db.flush()
-        except Exception as e:
-            statement.status = 'ocr_failed'
-            statement.error_message = str(e)
-            await db.flush()
-            return [], False
+
+        # Stage 1 — OCR
+        if raw_text is None:
+            try:
+                if inferred_type == "pdf":
+                    raw_text = await extract_pdf_text(content, ocr_provider)
+                else:
+                    if PILImage is None:
+                        raise RuntimeError("Pillow is required for image processing.")
+                    img = PILImage.open(io.BytesIO(content))
+                    # Preprocessing (grayscale + threshold) helps Tesseract but hurts
+                    # AI vision models — send the original color image to those.
+                    if settings.ocr_provider == "tesseract":
+                        img = preprocess(img)
+                    MAX_SIDE = 1536
+                    if settings.ocr_provider != "tesseract":
+                        w, h = img.size
+                        if max(w, h) > MAX_SIDE:
+                            scale = MAX_SIDE / max(w, h)
+                            img = img.resize((int(w * scale), int(h * scale)), PILImage.LANCZOS)
+                    raw_text = await ocr_provider.extract_text(img)  # type: ignore
+
+                statement.raw_ocr_text = raw_text
+                logger.info(
+                    "OCR complete [provider=%s] [chars=%d]\n--- OCR OUTPUT ---\n%s\n--- END OCR ---",
+                    settings.ocr_provider, len(raw_text or ""), raw_text or "(empty)"
+                )
+                await db.flush()
+            except Exception as e:
+                statement.status = 'ocr_failed'
+                statement.error_message = str(e)
+                await db.flush()
+                return [], False
 
         # Stage 1.5 — Account detection (non-fatal)
         account_created = False
@@ -298,7 +330,10 @@ class StatementPipeline:
                 logger.warning('Duplicate detection failed: %s', e)
 
         # Stage 3 — AI categorization (runs only if Anthropic API key present)
-        if settings.anthropic_api_key:
+        dev_mode = getattr(settings, 'dev_mode', False)
+        if dev_mode:
+            logger.info("dev_mode=True — skipping AI categorisation")
+        if settings.anthropic_api_key and not dev_mode:
             try:
                 from src.domain.services.categorizer import categorizer_service
                 await categorizer_service.categorize_statement(
