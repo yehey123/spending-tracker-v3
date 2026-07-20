@@ -55,6 +55,7 @@ class CategorizerService:
         transactions: list[Transaction],
         db: AsyncSession,
         settings: AppSettings,
+        account_type: str | None = None,
     ) -> None:
         auto_threshold = getattr(settings, 'ai_category_confidence_auto', 0.85) or 0.85
         suggest_threshold = getattr(settings, 'ai_category_confidence_suggest', 0.6) or 0.6
@@ -75,7 +76,7 @@ class CategorizerService:
 
         if unknown and _has_ai_credentials(settings):
             merchant_names = [key for _, key in unknown]
-            ai_results = await self._call_ai(merchant_names, categories, settings)
+            ai_results = await self._call_ai(merchant_names, categories, settings, account_type)
 
             result_map: dict[str, dict] = {r['merchant']: r for r in ai_results}
 
@@ -109,12 +110,15 @@ class CategorizerService:
         merchants: list[str],
         categories: list[Category],
         settings: AppSettings,
+        account_type: str | None = None,
     ) -> list[dict]:
         provider = getattr(settings, 'ai_provider', 'anthropic')
         try:
             cat_list = [{'id': c.id, 'name': c.name} for c in categories]
+            _acct_line = f"Account type: {account_type}\n\n" if account_type else ""
             prompt = (
                 f"Given these categories: {json.dumps(cat_list)}\n\n"
+                f"{_acct_line}"
                 f"Classify each merchant into the best category. "
                 f"Return a JSON array: "
                 f'[{{"merchant": "...", "category_id": <int or null>, "confidence": <0-1>}}]\n\n'
