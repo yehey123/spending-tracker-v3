@@ -187,3 +187,59 @@ def test_vertex_provider_path():
         assert "aiplatform.googleapis.com" in call_kwargs["base_url"]
         assert call_kwargs["api_key"] == "ya29.test-token"
         assert result[0]["category_id"] == 2
+
+
+def test_account_type_included_in_prompt():
+    """account_type is injected into the prompt string when provided."""
+    import asyncio
+    import json
+    captured = {}
+
+    mock_resp = MagicMock()
+    mock_resp.choices[0].message.content = json.dumps([])
+    mock_client = MagicMock()
+
+    def capture_create(**kwargs):
+        captured['prompt'] = kwargs['messages'][0]['content']
+        return mock_resp
+
+    mock_client.chat.completions.create.side_effect = capture_create
+
+    with patch("src.domain.services.categorizer._openai_lib") as mock_openai:
+        mock_openai.OpenAI.return_value = mock_client
+        s = _MockSettings()
+        s.ai_provider = "openai"
+        s.openai_api_key = "sk-test"
+        asyncio.get_event_loop().run_until_complete(
+            categorizer_service._call_ai(["some merchant"], [], s, account_type="credit_card")
+        )
+
+    assert "Account type: credit_card" in captured['prompt']
+
+
+def test_no_account_type_omits_account_line():
+    """When account_type is None, no 'Account type' line appears in the prompt."""
+    import asyncio
+    import json
+    captured = {}
+
+    mock_resp = MagicMock()
+    mock_resp.choices[0].message.content = json.dumps([])
+    mock_client = MagicMock()
+
+    def capture_create(**kwargs):
+        captured['prompt'] = kwargs['messages'][0]['content']
+        return mock_resp
+
+    mock_client.chat.completions.create.side_effect = capture_create
+
+    with patch("src.domain.services.categorizer._openai_lib") as mock_openai:
+        mock_openai.OpenAI.return_value = mock_client
+        s = _MockSettings()
+        s.ai_provider = "openai"
+        s.openai_api_key = "sk-test"
+        asyncio.get_event_loop().run_until_complete(
+            categorizer_service._call_ai(["some merchant"], [], s, account_type=None)
+        )
+
+    assert "Account type" not in captured['prompt']

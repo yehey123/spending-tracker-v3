@@ -301,7 +301,10 @@ class StatementPipeline:
         if settings.anthropic_api_key:
             try:
                 from src.domain.services.categorizer import categorizer_service
-                await categorizer_service.categorize_statement(statement.id, transactions, db, settings)
+                await categorizer_service.categorize_statement(
+                    statement.id, transactions, db, settings,
+                    account_type=account.type if account else None,
+                )
             except Exception as e:
                 logger.warning('Categorizer failed: %s', e)
 
