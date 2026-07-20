@@ -61,7 +61,7 @@ async def sync_gemini(db, settings: AppSettings) -> int:
         return await _seed_provider(db, "gemini")
     try:
         now = datetime.now(timezone.utc)
-        async with httpx.AsyncClient(timeout=10) as client:
+        async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
             resp = await client.get(
                 "https://generativelanguage.googleapis.com/v1beta/models",
                 params={"key": api_key},
@@ -99,7 +99,7 @@ async def sync_vertex(db, settings: AppSettings) -> int:
         )
         creds.refresh(_greq.Request())
         now = datetime.now(timezone.utc)
-        async with httpx.AsyncClient(timeout=10) as client:
+        async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
             resp = await client.get(
                 "https://generativelanguage.googleapis.com/v1beta/models",
                 headers={"Authorization": f"Bearer {creds.token}"},

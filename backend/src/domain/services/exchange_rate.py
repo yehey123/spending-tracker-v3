@@ -70,7 +70,7 @@ class ExchangeRateService:
         # Fetch from Frankfurter
         url = f"{_FRANKFURTER_BASE}/{date}?from={base}&to={quote}"
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
+            async with httpx.AsyncClient(timeout=5.0, follow_redirects=True) as client:
                 resp = await client.get(url)
         except httpx.RequestError as exc:
             logger.warning("Frankfurter network error for %s/%s on %s: %s", base, quote, date, exc)
@@ -120,7 +120,7 @@ class ExchangeRateService:
             return dict(_currencies_cache)
 
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
+            async with httpx.AsyncClient(timeout=5.0, follow_redirects=True) as client:
                 resp = await client.get(f"{_FRANKFURTER_BASE}/currencies")
             resp.raise_for_status()
             result: dict[str, str] = resp.json()
@@ -150,7 +150,7 @@ class ExchangeRateService:
         """
         url = f"{_FRANKFURTER_BASE}/{start}..{end}?from={base}&to={quote}"
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
                 resp = await client.get(url)
             resp.raise_for_status()
         except (httpx.RequestError, httpx.HTTPStatusError) as exc:
