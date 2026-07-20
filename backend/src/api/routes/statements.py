@@ -210,14 +210,14 @@ async def flip_statement_directions(statement_id: int, db: AsyncSession = Depend
     if stmt is None or status_val != 'staged':
         raise HTTPException(status_code=409, detail="Statement is not in staged state")
 
-    from sqlalchemy import case, literal
-    from sqlalchemy.dialects.postgresql import VARCHAR
+    from sqlalchemy import Enum, case, cast, literal
+    _dir_enum = Enum("debit", "credit", name="transaction_direction")
     result = await db.execute(
         update(Transaction)
         .where(Transaction.statement_id == statement_id, Transaction.status == 'staged')
         .values(direction=case(
-            (Transaction.direction == 'debit', literal('credit')),
-            else_=literal('debit'),
+            (Transaction.direction == 'debit', cast(literal('credit'), _dir_enum)),
+            else_=cast(literal('debit'), _dir_enum),
         ))
         .returning(Transaction.id)
     )

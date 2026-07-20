@@ -193,6 +193,16 @@ export default function SettingsPage() {
             <p className="text-xs text-gray-500">Uses Application Default Credentials (GOOGLE_APPLICATION_CREDENTIALS env var).</p>
           </>
         )}
+        {ocrProvider !== 'tesseract' && (
+          <input value={aiModel} onChange={(e) => setAiModel(e.target.value)}
+            placeholder={
+              ocrProvider === 'gemini' ? 'Model (e.g. gemini-2.5-flash)' :
+              ocrProvider === 'vertex' ? 'Model (e.g. google/gemini-2.5-flash)' :
+              ocrProvider === 'claude' ? 'Model (e.g. claude-sonnet-4-6)' :
+              'Model (e.g. gpt-4o)'
+            }
+            className="border rounded-lg px-3 py-2 text-sm w-full" />
+        )}
         <button
           onClick={() => settingsMutation.mutate({
             ocr_provider: ocrProvider,
@@ -201,6 +211,7 @@ export default function SettingsPage() {
             ...(ocrProvider === 'gemini' && geminiKey ? { gemini_api_key: geminiKey } : {}),
             ...(ocrProvider === 'vertex' && googleProjectId ? { google_project_id: googleProjectId } : {}),
             ...(ocrProvider === 'vertex' && googleLocation ? { google_location: googleLocation } : {}),
+            ...(aiModel ? { ai_model: aiModel } : {}),
           })}
           className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm"
         >
@@ -244,15 +255,19 @@ export default function SettingsPage() {
           </>
         )}
         {aiProvider === 'local' && (
-          <>
-            <input value={aiApiUrl} onChange={(e) => setAiApiUrl(e.target.value)}
-              placeholder="API URL (e.g. http://localhost:11434/v1)"
-              className="border rounded-lg px-3 py-2 text-sm w-full" />
-            <input value={aiModel} onChange={(e) => setAiModel(e.target.value)}
-              placeholder="Model name (e.g. llama3, optional)"
-              className="border rounded-lg px-3 py-2 text-sm w-full" />
-          </>
+          <input value={aiApiUrl} onChange={(e) => setAiApiUrl(e.target.value)}
+            placeholder="API URL (e.g. http://localhost:11434/v1)"
+            className="border rounded-lg px-3 py-2 text-sm w-full" />
         )}
+        <input value={aiModel} onChange={(e) => setAiModel(e.target.value)}
+          placeholder={
+            aiProvider === 'anthropic' ? 'Model (e.g. claude-sonnet-4-6)' :
+            aiProvider === 'openai' ? 'Model (e.g. gpt-4o-mini)' :
+            aiProvider === 'gemini' ? 'Model (e.g. gemini-2.5-flash)' :
+            aiProvider === 'vertex' ? 'Model (e.g. google/gemini-2.5-flash)' :
+            'Model name (e.g. llama3)'
+          }
+          className="border rounded-lg px-3 py-2 text-sm w-full" />
         <button
           onClick={() => settingsMutation.mutate({
             ai_provider: aiProvider as SettingsPut['ai_provider'],

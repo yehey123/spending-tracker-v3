@@ -201,6 +201,10 @@ class StatementPipeline:
                 raw_text = await ocr_provider.extract_text(img)  # type: ignore
 
             statement.raw_ocr_text = raw_text
+            logger.info(
+                "OCR complete [provider=%s] [chars=%d]\n--- OCR OUTPUT ---\n%s\n--- END OCR ---",
+                settings.ocr_provider, len(raw_text or ""), raw_text or "(empty)"
+            )
             await db.flush()
         except Exception as e:
             statement.status = 'ocr_failed'
@@ -254,6 +258,7 @@ class StatementPipeline:
         # Stage 2 — Parse
         try:
             parsed_rows = parse_statement(raw_text)
+            logger.info("Parse complete: %d rows from %d OCR chars", len(parsed_rows), len(raw_text or ""))
             statement.parse_errors = None
         except Exception as e:
             statement.status = 'parse_failed'

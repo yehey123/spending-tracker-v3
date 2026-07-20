@@ -22,7 +22,8 @@ class VertexVisionProvider(OCRProvider):
                  model: str = "google/gemini-2.5-flash"):
         self.project_id = project_id
         self.location = location
-        self.model = model
+        # Vertex OpenAI-compat endpoint requires "<publisher>/<model>" format
+        self.model = model if "/" in model else f"google/{model}"
 
     async def extract_text(self, image: Image.Image) -> str:
         import google.auth
@@ -44,9 +45,14 @@ class VertexVisionProvider(OCRProvider):
         image.save(buf, format="PNG")
         encoded = base64.b64encode(buf.getvalue()).decode()
 
+        import logging
+        _log = logging.getLogger(__name__)
+        _log.info("Vertex OCR: model=%s image=%dx%d encoded_bytes=%d",
+                  self.model, image.width, image.height, len(encoded))
+
         response = client.chat.completions.create(
             model=self.model,
-            max_tokens=4096,
+            max_tokens=8192,
             messages=[
                 {
                     "role": "user",
@@ -61,4 +67,8 @@ class VertexVisionProvider(OCRProvider):
             ],
         )
 
-        return response.choices[0].message.content
+        choice = response.choices[0]
+        _log.info("Vertex OCR: finish_reason=%s output_tokens=%s",
+                  choice.finish_reason,
+                  getattr(response.usage, 'completion_tokens', '?'))
+        return choice.message.content
