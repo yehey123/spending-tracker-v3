@@ -227,6 +227,16 @@ export default function SettingsPage() {
         )}
         {ocrProvider !== 'tesseract' && (
           <>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-700">Model</span>
+              <button
+                onClick={() => api.post('/settings/models/refresh', {}).then(() => qc.invalidateQueries({ queryKey: ['models'] }))}
+                className="text-xs text-indigo-500 hover:underline"
+                type="button"
+              >
+                ↻ Refresh list
+              </button>
+            </div>
             <select
               value={aiModel}
               onChange={(e) => {
@@ -245,12 +255,6 @@ export default function SettingsPage() {
               ))}
             </select>
             <input
-              value={aiModel}
-              onChange={(e) => setAiModel(e.target.value)}
-              placeholder="Or type a custom model ID"
-              className="border rounded-lg px-3 py-2 text-sm w-full"
-            />
-            <input
               type="number"
               min={256}
               value={maxOutputTokens}
@@ -258,13 +262,6 @@ export default function SettingsPage() {
               placeholder="Max output tokens (e.g. 8192)"
               className="border rounded-lg px-3 py-2 text-sm w-full"
             />
-            <button
-              onClick={() => api.post('/settings/models/refresh', {}).then(() => qc.invalidateQueries({ queryKey: ['models'] }))}
-              className="text-xs text-indigo-500 underline self-start"
-              type="button"
-            >
-              Refresh model list
-            </button>
           </>
         )}
         <button
@@ -324,6 +321,16 @@ export default function SettingsPage() {
             placeholder="API URL (e.g. http://localhost:11434/v1)"
             className="border rounded-lg px-3 py-2 text-sm w-full" />
         )}
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium text-gray-700">Model</span>
+          <button
+            onClick={() => api.post('/settings/models/refresh', {}).then(() => qc.invalidateQueries({ queryKey: ['models'] }))}
+            className="text-xs text-indigo-500 hover:underline"
+            type="button"
+          >
+            ↻ Refresh list
+          </button>
+        </div>
         <select
           value={aiModel}
           onChange={(e) => {
@@ -342,12 +349,6 @@ export default function SettingsPage() {
           ))}
         </select>
         <input
-          value={aiModel}
-          onChange={(e) => setAiModel(e.target.value)}
-          placeholder="Or type a custom model ID"
-          className="border rounded-lg px-3 py-2 text-sm w-full"
-        />
-        <input
           type="number"
           min={256}
           value={maxOutputTokens}
@@ -355,13 +356,6 @@ export default function SettingsPage() {
           placeholder="Max output tokens (e.g. 8192)"
           className="border rounded-lg px-3 py-2 text-sm w-full"
         />
-        <button
-          onClick={() => api.post('/settings/models/refresh', {}).then(() => qc.invalidateQueries({ queryKey: ['models'] }))}
-          className="text-xs text-indigo-500 underline self-start"
-          type="button"
-        >
-          Refresh model list
-        </button>
         <button
           onClick={() => settingsMutation.mutate({
             ai_provider: aiProvider as SettingsPut['ai_provider'],
