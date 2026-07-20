@@ -7,6 +7,7 @@ from src.domain.models.app_settings import AppSettings
 from src.domain.models.transaction_flag import TransactionFlag
 from src.domain.models.merchant_memory import MerchantCategoryMemory
 from src.domain.models.audit_log import AuditLog
+from src.domain.models.model_cache import ModelCache  # noqa: F401
 
 __all__ = [
     "Account",
@@ -18,4 +19,5 @@ __all__ = [
     "TransactionFlag",
     "MerchantCategoryMemory",
     "AuditLog",
+    "ModelCache",
 ]

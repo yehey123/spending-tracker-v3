@@ -113,6 +113,7 @@ class CategorizerService:
         account_type: str | None = None,
     ) -> list[dict]:
         provider = getattr(settings, 'ai_provider', 'anthropic')
+        _max_tokens = getattr(settings, 'max_output_tokens', None) or 1024
         try:
             cat_list = [{'id': c.id, 'name': c.name} for c in categories]
             _acct_line = f"Account type: {account_type}\n\n" if account_type else ""
@@ -134,7 +135,7 @@ class CategorizerService:
                 client = _anthropic_lib.Anthropic(api_key=api_key)
                 message = client.messages.create(
                     model=model,
-                    max_tokens=1024,
+                    max_tokens=_max_tokens,
                     messages=[{'role': 'user', 'content': prompt}],
                 )
                 text = message.content[0].text.strip()
@@ -148,7 +149,7 @@ class CategorizerService:
                 resp = client.chat.completions.create(
                     model=model,
                     messages=[{'role': 'user', 'content': prompt}],
-                    max_tokens=1024,
+                    max_tokens=_max_tokens,
                 )
                 text = resp.choices[0].message.content.strip()
 
@@ -164,7 +165,7 @@ class CategorizerService:
                 resp = client.chat.completions.create(
                     model=model,
                     messages=[{'role': 'user', 'content': prompt}],
-                    max_tokens=1024,
+                    max_tokens=_max_tokens,
                 )
                 text = resp.choices[0].message.content.strip()
 
@@ -189,7 +190,7 @@ class CategorizerService:
                 resp = client.chat.completions.create(
                     model=model,
                     messages=[{'role': 'user', 'content': prompt}],
-                    max_tokens=1024,
+                    max_tokens=_max_tokens,
                 )
                 text = resp.choices[0].message.content.strip()
 
@@ -202,7 +203,7 @@ class CategorizerService:
                 resp = client.chat.completions.create(
                     model=model,
                     messages=[{'role': 'user', 'content': prompt}],
-                    max_tokens=1024,
+                    max_tokens=_max_tokens,
                 )
                 text = resp.choices[0].message.content.strip()
 

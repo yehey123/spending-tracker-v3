@@ -50,13 +50,13 @@ export default function SettingsPage() {
 
   const { data: ocrModels } = useQuery({
     queryKey: ['models', ocrProvider],
-    queryFn: () => api.get<ModelsResponse>(`/settings/models?provider=${ocrProvider}`).then(r => r.data),
+    queryFn: () => api.get<ModelsResponse>(`/settings/models?provider=${ocrProvider}`),
     enabled: ocrProvider !== 'tesseract',
   });
 
   const { data: aiModels } = useQuery({
     queryKey: ['models', aiProvider],
-    queryFn: () => api.get<ModelsResponse>(`/settings/models?provider=${aiProvider}`).then(r => r.data),
+    queryFn: () => api.get<ModelsResponse>(`/settings/models?provider=${aiProvider}`),
     enabled: true,
   });
 

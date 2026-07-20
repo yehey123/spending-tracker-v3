@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Float, String, Text
+from sqlalchemy import Boolean, Float, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.db.base import Base
@@ -32,3 +32,5 @@ class AppSettings(Base):
     gemini_api_key: Mapped[str | None] = mapped_column(Text(), nullable=True)
     google_project_id: Mapped[str | None] = mapped_column(Text(), nullable=True)
     google_location: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    max_output_tokens: Mapped[int | None] = mapped_column(Integer(), nullable=True)
+    dev_mode: Mapped[bool] = mapped_column(Boolean(), nullable=False, server_default="false")

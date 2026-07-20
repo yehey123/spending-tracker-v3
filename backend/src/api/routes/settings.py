@@ -39,6 +39,8 @@ def _to_out(row: AppSettings) -> SettingsOut:
         gemini_api_key_set=bool(row.gemini_api_key),
         google_project_id=row.google_project_id,
         google_location=row.google_location,
+        max_output_tokens=row.max_output_tokens,
+        dev_mode=row.dev_mode,
     )
 
 
@@ -102,6 +104,66 @@ async def update_settings(body: SettingsPut, db: AsyncSession = Depends(get_db))
     if "google_location" in fields_set:
         row.google_location = body.google_location
 
+    if "max_output_tokens" in fields_set:
+        if body.max_output_tokens is not None:
+            from src.domain.services.model_registry import get_limit
+            model_name = body.ai_model or row.ai_model
+            if model_name:
+                known = get_limit(model_name)
+                if known is not None and body.max_output_tokens > known:
+                    raise HTTPException(
+                        status_code=422,
+                        detail=f"'{model_name}' supports at most {known:,} output tokens.",
+                    )
+        row.max_output_tokens = body.max_output_tokens
+
+    if "dev_mode" in fields_set and body.dev_mode is not None:
+        row.dev_mode = body.dev_mode
+
     await db.commit()
     await db.refresh(row)
     return _to_out(row)
+
+
+from sqlalchemy import select as _sa_select
+
+
+@router.get("/models")
+async def list_models(provider: str | None = None, db: AsyncSession = Depends(get_db)):
+    from datetime import datetime, timedelta, timezone
+    from src.domain.models.model_cache import ModelCache
+    q = _sa_select(ModelCache)
+    if provider:
+        q = q.where(ModelCache.provider == provider)
+    q = q.order_by(ModelCache.provider, ModelCache.model_id)
+    rows = (await db.execute(q)).scalars().all()
+
+    if rows:
+        oldest = min(r.refreshed_at for r in rows)
+        if oldest.tzinfo is None:
+            oldest = oldest.replace(tzinfo=timezone.utc)
+        if datetime.now(timezone.utc) - oldest > timedelta(days=7):
+            import asyncio
+            from src.domain.services.model_sync import sync_all
+            asyncio.create_task(sync_all())
+
+    return {
+        "provider": provider,
+        "models": [
+            {
+                "model_id": r.model_id,
+                "display_name": r.display_name,
+                "max_output_tokens": r.max_output_tokens,
+                "source": r.source,
+                "provider": r.provider,
+            }
+            for r in rows
+        ],
+    }
+
+
+@router.post("/models/refresh")
+async def refresh_models():
+    from src.domain.services.model_sync import sync_all
+    counts = await sync_all()
+    return {"synced": counts}

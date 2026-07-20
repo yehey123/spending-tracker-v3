@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -15,9 +16,14 @@ from src.domain.services.exchange_rate import exchange_rate_service
 import src.domain.models  # noqa: F401 — registers all ORM models with SQLAlchemy
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from src.tasks.ttl_cleanup import run_ttl_cleanup
+from src.domain.services.model_sync import sync_all as sync_models
 
 _scheduler = AsyncIOScheduler()
 _scheduler.add_job(run_ttl_cleanup, 'cron', hour=2)
+_scheduler.add_job(
+    lambda: asyncio.ensure_future(sync_models()),
+    'cron', hour=3, minute=0,
+)
 
 
 @asynccontextmanager
@@ -26,6 +32,7 @@ async def lifespan(app: FastAPI):
         await seed_default_categories(db)
     _scheduler.start()
     await exchange_rate_service.init_db()
+    asyncio.create_task(sync_models())
     yield
     _scheduler.shutdown(wait=False)
     await engine.dispose()

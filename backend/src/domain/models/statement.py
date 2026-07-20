@@ -57,6 +57,7 @@ class Statement(Base):
 
     # Added in migration 0003
     statement_kind: Mapped[str | None] = mapped_column(String(20), nullable=True, server_default="bank_account")
+    file_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     # Added in migration 0010
     account_id: Mapped[int | None] = mapped_column(

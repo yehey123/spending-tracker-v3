@@ -21,9 +21,10 @@ _GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 
 
 class GeminiVisionProvider(OCRProvider):
-    def __init__(self, api_key: str, model: str = "gemini-2.0-flash"):
+    def __init__(self, api_key: str, model: str = "gemini-2.0-flash", max_tokens: int = 8192):
         self.client = OpenAI(api_key=api_key, base_url=_GEMINI_BASE_URL)
         self.model = model
+        self.max_tokens = max_tokens
 
     async def extract_text(self, image: Image.Image) -> str:
         buf = io.BytesIO()
@@ -32,7 +33,7 @@ class GeminiVisionProvider(OCRProvider):
 
         response = self.client.chat.completions.create(
             model=self.model,
-            max_tokens=4096,
+            max_tokens=self.max_tokens,
             messages=[
                 {
                     "role": "user",

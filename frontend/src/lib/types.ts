@@ -120,6 +120,8 @@ export interface AppSettings {
   gemini_api_key_set?: boolean;
   google_project_id?: string | null;
   google_location?: string | null;
+  max_output_tokens?: number | null;
+  dev_mode?: boolean;
 }
 
 export interface SettingsPut {
@@ -134,6 +136,8 @@ export interface SettingsPut {
   gemini_api_key?: string | null;
   google_project_id?: string | null;
   google_location?: string | null;
+  max_output_tokens?: number | null;
+  dev_mode?: boolean | null;
 }
 
 export interface StagedTransaction {
@@ -178,4 +182,17 @@ export interface PortfolioResponse {
   account_id: number;
   holdings: PortfolioHolding[];
   last_price_note: string;
+}
+
+export interface ModelInfo {
+  model_id: string;
+  display_name: string | null;
+  max_output_tokens: number | null;
+  source: 'api' | 'seed';
+  provider: string;
+}
+
+export interface ModelsResponse {
+  provider: string | null;
+  models: ModelInfo[];
 }

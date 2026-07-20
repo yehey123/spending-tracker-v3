@@ -19,7 +19,10 @@ _PROMPT = (
 
 
 class ClaudeVisionProvider(OCRProvider):
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str, model: str = "claude-sonnet-4-6", max_tokens: int = 4096):
+        self.api_key = api_key
+        self.model = model
+        self.max_tokens = max_tokens
         self.client = anthropic.Anthropic(api_key=api_key)
 
     async def extract_text(self, image: Image.Image) -> str:
@@ -28,8 +31,8 @@ class ClaudeVisionProvider(OCRProvider):
         encoded = base64.b64encode(buf.getvalue()).decode()
 
         message = self.client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=4096,
+            model=self.model,
+            max_tokens=self.max_tokens,
             messages=[
                 {
                     "role": "user",

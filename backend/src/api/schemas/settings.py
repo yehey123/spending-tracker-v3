@@ -17,6 +17,8 @@ class SettingsOut(BaseModel):
     gemini_api_key_set: bool = False
     google_project_id: str | None = None
     google_location: str | None = None
+    max_output_tokens: int | None = None
+    dev_mode: bool = False
 
 
 class SettingsPut(BaseModel):
@@ -33,3 +35,5 @@ class SettingsPut(BaseModel):
     gemini_api_key: str | None = None
     google_project_id: str | None = None
     google_location: str | None = None
+    max_output_tokens: int | None = Field(default=None, ge=256)
+    dev_mode: bool | None = None
