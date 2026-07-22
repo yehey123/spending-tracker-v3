@@ -89,6 +89,7 @@ interface TransactionDraft {
   description: string;
   direction: 'debit' | 'credit';
   category_id: string;
+  currency: string;
 }
 
 const emptyDraft = (): TransactionDraft => ({
@@ -97,6 +98,7 @@ const emptyDraft = (): TransactionDraft => ({
   description: '',
   direction: 'debit',
   category_id: '',
+  currency: '',
 });
 
 export function useAddTransactionForm() {
@@ -111,6 +113,7 @@ export function useAddTransactionForm() {
       ...draft,
       category_id: draft.category_id ? Number(draft.category_id) : null,
       date: new Date(draft.date).toISOString(),
+      currency: draft.currency || null,
     };
   };
 

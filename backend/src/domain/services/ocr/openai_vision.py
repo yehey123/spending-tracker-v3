@@ -4,28 +4,19 @@ import io
 from openai import OpenAI
 from PIL import Image
 
-from .base import OCRProvider
-
-_PROMPT = (
-    "Extract EVERY transaction from this bank or credit card statement image. "
-    "Do not stop early — list every single visible row from top to bottom without skipping any. "
-    "Return one transaction per line in this exact format:\n"
-    "DATE | DESCRIPTION | AMOUNT | DEBIT or CREDIT\n\n"
-    "Use MM/DD/YYYY for dates. Amounts are numbers only, no currency symbols, no commas. "
-    "If an amount has a trailing minus sign (e.g. 22000.00-), mark it as CREDIT. "
-    "Output only transaction lines. No headers, no totals, no commentary. "
-    "Continue until the very last visible transaction has been listed."
-)
+from .base import OCRProvider, _build_prompt
 
 
 class OpenAIVisionProvider(OCRProvider):
+    supports_categories = True
+
     def __init__(self, api_key: str, model: str = "gpt-4o", max_tokens: int = 4096):
         self.api_key = api_key
         self.model = model
         self.max_tokens = max_tokens
         self.client = OpenAI(api_key=api_key)
 
-    async def extract_text(self, image: Image.Image) -> str:
+    async def _call(self, image: Image.Image, prompt: str) -> str:
         buf = io.BytesIO()
         image.save(buf, format="PNG")
         encoded = base64.b64encode(buf.getvalue()).decode()
@@ -41,10 +32,15 @@ class OpenAIVisionProvider(OCRProvider):
                             "type": "image_url",
                             "image_url": {"url": f"data:image/png;base64,{encoded}"},
                         },
-                        {"type": "text", "text": _PROMPT},
+                        {"type": "text", "text": prompt},
                     ],
                 }
             ],
         )
-
         return response.choices[0].message.content
+
+    async def extract_text(self, image: Image.Image) -> str:
+        return await self._call(image, _build_prompt())
+
+    async def extract_with_categories(self, image: Image.Image, categories: list[dict]) -> str:
+        return await self._call(image, _build_prompt(categories))

@@ -145,7 +145,7 @@ def _resolve_ocr(settings_row: AppSettings):
     from fastapi import HTTPException
     provider = settings_row.ocr_provider
     _max = settings_row.max_output_tokens
-    if provider == "claude":
+    if provider == "anthropic":
         if not settings_row.anthropic_api_key:
             raise HTTPException(status_code=422, detail="API key not configured for claude.")
         model = getattr(settings_row, 'ai_model', None) or "claude-sonnet-4-6"
@@ -188,11 +188,13 @@ class StatementPipeline:
         ocr_provider = _resolve_ocr(settings)
         statement.ocr_provider = settings.ocr_provider
         inferred_type = "pdf" if content_type == "application/pdf" else "image"
+        dev_mode = getattr(settings, 'dev_mode', False)
 
         file_hash = hashlib.sha256(content).hexdigest()
         statement.file_hash = file_hash
 
         from sqlalchemy import select as _sel
+        from src.domain.models.category import Category as _Category
         prior = (await db.execute(
             _sel(Statement)
             .where(
@@ -203,6 +205,18 @@ class StatementPipeline:
             .order_by(Statement.id.desc())
             .limit(1)
         )).scalar_one_or_none()
+
+        # Load categories once — passed to AI OCR providers for bundled categorization
+        cat_rows = (await db.execute(_sel(_Category))).scalars().all()
+        categories_list = [{"id": c.id, "name": c.name} for c in cat_rows]
+        cat_by_name = {c.name.lower(): c.id for c in cat_rows}
+
+        # Whether to bundle categorization into the OCR call
+        bundle_categories = (
+            ocr_provider.supports_categories
+            and not dev_mode
+            and bool(categories_list)
+        )
 
         raw_text: str | None = None
         if prior and prior.raw_ocr_text:
@@ -215,7 +229,10 @@ class StatementPipeline:
         if raw_text is None:
             try:
                 if inferred_type == "pdf":
-                    raw_text = await extract_pdf_text(content, ocr_provider)
+                    raw_text = await extract_pdf_text(
+                        content, ocr_provider,
+                        categories=categories_list if bundle_categories else None,
+                    )
                 else:
                     if PILImage is None:
                         raise RuntimeError("Pillow is required for image processing.")
@@ -230,12 +247,15 @@ class StatementPipeline:
                         if max(w, h) > MAX_SIDE:
                             scale = MAX_SIDE / max(w, h)
                             img = img.resize((int(w * scale), int(h * scale)), PILImage.LANCZOS)
-                    raw_text = await ocr_provider.extract_text(img)  # type: ignore
+                    if bundle_categories:
+                        raw_text = await ocr_provider.extract_with_categories(img, categories_list)  # type: ignore
+                    else:
+                        raw_text = await ocr_provider.extract_text(img)  # type: ignore
 
                 statement.raw_ocr_text = raw_text
                 logger.info(
-                    "OCR complete [provider=%s] [chars=%d]\n--- OCR OUTPUT ---\n%s\n--- END OCR ---",
-                    settings.ocr_provider, len(raw_text or ""), raw_text or "(empty)"
+                    "OCR complete [provider=%s] [bundled_categories=%s] [chars=%d]\n--- OCR OUTPUT ---\n%s\n--- END OCR ---",
+                    settings.ocr_provider, bundle_categories, len(raw_text or ""), raw_text or "(empty)"
                 )
                 await db.flush()
             except Exception as e:
@@ -317,6 +337,11 @@ class StatementPipeline:
                 status='staged',
                 transaction_origin='uploaded',
             )
+            # Apply category assigned by the bundled OCR call (if any)
+            if bundle_categories and p.category_name:
+                cid = cat_by_name.get(p.category_name.lower())
+                if cid:
+                    tx.category_id = cid
             db.add(tx)
             transactions.append(tx)
 
@@ -329,19 +354,20 @@ class StatementPipeline:
             except Exception as e:
                 logger.warning('Duplicate detection failed: %s', e)
 
-        # Stage 3 — AI categorization (runs only if Anthropic API key present)
-        dev_mode = getattr(settings, 'dev_mode', False)
+        # Stage 3 — AI categorization for any transactions not already categorized by OCR
         if dev_mode:
             logger.info("dev_mode=True — skipping AI categorisation")
-        if settings.anthropic_api_key and not dev_mode:
-            try:
-                from src.domain.services.categorizer import categorizer_service
-                await categorizer_service.categorize_statement(
-                    statement.id, transactions, db, settings,
-                    account_type=account.type if account else None,
-                )
-            except Exception as e:
-                logger.warning('Categorizer failed: %s', e)
+        else:
+            from src.domain.services.categorizer import _has_ai_credentials, categorizer_service
+            uncategorized = [tx for tx in transactions if tx.category_id is None]
+            if uncategorized and _has_ai_credentials(settings):
+                try:
+                    await categorizer_service.categorize_statement(
+                        statement.id, uncategorized, db, settings,
+                        account_type=account.type if account else None,
+                    )
+                except Exception as e:
+                    logger.warning('Categorizer failed: %s', e)
 
         # Stage 4 — Final state
         review_before_commit = getattr(settings, 'review_before_commit', True)

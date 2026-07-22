@@ -16,12 +16,16 @@ except ImportError:  # pragma: no cover
 from src.domain.services.preprocessor import preprocess
 
 
-async def extract_pdf_text(content: bytes, ocr_provider: object) -> str:
+async def extract_pdf_text(
+    content: bytes, ocr_provider: object, categories: list[dict] | None = None
+) -> str:
     """Extract text from a PDF, falling back to OCR if the PDF is image-based.
 
     Args:
         content: Raw PDF file bytes.
         ocr_provider: Duck-typed object with ``async extract_text(image) -> str``.
+        categories: Optional list of {id, name} dicts; passed to AI providers so they
+            can embed category names in the output in a single call.
 
     Returns:
         The full extracted text, page texts joined by newline.
@@ -56,7 +60,7 @@ async def extract_pdf_text(content: bytes, ocr_provider: object) -> str:
             for page in pdf.pages:
                 pil_img = page.to_image(resolution=150).original
                 preprocessed = preprocess(pil_img)
-                text = await ocr_provider.extract_text(preprocessed)  # type: ignore[attr-defined]
+                text = await ocr_provider.extract_with_categories(preprocessed, categories or [])  # type: ignore[attr-defined]
                 ocr_texts.append(text)
             full_text = "\n".join(ocr_texts)
 

@@ -25,7 +25,7 @@ export default function SettingsPage() {
     } catch { setUrlStatus('error'); }
   };
 
-  // OCR settings
+  // Settings
   const { data: settings } = useQuery({
     queryKey: ['settings'],
     queryFn: () => api.get<AppSettings>('/settings'),
@@ -36,14 +36,9 @@ export default function SettingsPage() {
   const [openaiKey, setOpenaiKey] = useState('');
   const [reviewBeforeCommit, setReviewBeforeCommit] = useState(true);
   const [homeCurrency, setHomeCurrency] = useState('');
-
   const [maxOutputTokens, setMaxOutputTokens] = useState<string>('');
   const [devMode, setDevMode] = useState(false);
-
-  // AI categorization provider
-  const [aiProvider, setAiProvider] = useState('anthropic');
   const [aiModel, setAiModel] = useState('');
-  const [aiApiUrl, setAiApiUrl] = useState('');
   const [geminiKey, setGeminiKey] = useState('');
   const [googleProjectId, setGoogleProjectId] = useState('');
   const [googleLocation, setGoogleLocation] = useState('us-central1');
@@ -52,12 +47,6 @@ export default function SettingsPage() {
     queryKey: ['models', ocrProvider],
     queryFn: () => api.get<ModelsResponse>(`/settings/models?provider=${ocrProvider}`),
     enabled: ocrProvider !== 'tesseract',
-  });
-
-  const { data: aiModels } = useQuery({
-    queryKey: ['models', aiProvider],
-    queryFn: () => api.get<ModelsResponse>(`/settings/models?provider=${aiProvider}`),
-    enabled: true,
   });
 
   const { data: currenciesData } = useQuery({
@@ -71,9 +60,7 @@ export default function SettingsPage() {
       setOcrProvider(settings.ocr_provider);
       if (settings.review_before_commit !== undefined) setReviewBeforeCommit(!!settings.review_before_commit);
       if (settings.home_currency) setHomeCurrency(settings.home_currency);
-      if (settings.ai_provider) setAiProvider(settings.ai_provider);
       if (settings.ai_model) setAiModel(settings.ai_model);
-      if (settings.ai_api_url) setAiApiUrl(settings.ai_api_url);
       if (settings.google_project_id) setGoogleProjectId(settings.google_project_id);
       if (settings.google_location) setGoogleLocation(settings.google_location);
       if (settings.max_output_tokens) setMaxOutputTokens(String(settings.max_output_tokens));
@@ -140,21 +127,23 @@ export default function SettingsPage() {
       {/* Import Settings */}
       <section className="bg-white rounded-xl p-5 shadow-sm space-y-3">
         <h2 className="font-semibold">Import Settings</h2>
-        <div className="flex items-center justify-between">
-          <div>
-            <label className="text-sm font-medium">Development mode</label>
-            <p className="text-xs text-gray-400 mt-0.5">Skips AI categorisation to save tokens while testing</p>
+        {settings?.dev_mode_available !== false && (
+          <div className="flex items-center justify-between">
+            <div>
+              <label className="text-sm font-medium">Development mode</label>
+              <p className="text-xs text-gray-400 mt-0.5">Skips AI categorisation to save tokens while testing</p>
+            </div>
+            <input
+              type="checkbox"
+              checked={devMode}
+              onChange={(e) => {
+                setDevMode(e.target.checked);
+                settingsMutation.mutate({ dev_mode: e.target.checked });
+              }}
+              className="w-4 h-4 accent-indigo-600"
+            />
           </div>
-          <input
-            type="checkbox"
-            checked={devMode}
-            onChange={(e) => {
-              setDevMode(e.target.checked);
-              settingsMutation.mutate({ dev_mode: e.target.checked });
-            }}
-            className="w-4 h-4 accent-indigo-600"
-          />
-        </div>
+        )}
         <div className="flex items-center justify-between">
           <label className="text-sm">Review before committing</label>
           <input
@@ -190,18 +179,21 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      {/* OCR provider */}
+      {/* OCR / AI Provider */}
       <section className="bg-white rounded-xl p-5 shadow-sm space-y-3">
         <h2 className="font-semibold">OCR Provider</h2>
+        <p className="text-xs text-gray-500">
+          AI providers handle both OCR and transaction categorisation in a single call.
+        </p>
         <select value={ocrProvider} onChange={(e) => setOcrProvider(e.target.value as AppSettings['ocr_provider'])}
           className="border rounded-lg px-3 py-2 text-sm w-full">
-          <option value="tesseract">Tesseract (local, private)</option>
-          <option value="claude">Claude (Anthropic API)</option>
+          <option value="tesseract">Tesseract (local, no AI categorisation)</option>
+          <option value="anthropic">Claude (Anthropic)</option>
           <option value="openai">OpenAI Vision</option>
           <option value="gemini">Gemini (Google AI Studio)</option>
           <option value="vertex">Google Vertex AI</option>
         </select>
-        {ocrProvider === 'claude' && (
+        {ocrProvider === 'anthropic' && (
           <input value={anthropicKey} onChange={(e) => setAnthropicKey(e.target.value)}
             placeholder={settings?.anthropic_api_key_set ? '••••••••• (set)' : 'Anthropic API key'}
             className="border rounded-lg px-3 py-2 text-sm w-full" type="password" />
@@ -267,7 +259,7 @@ export default function SettingsPage() {
         <button
           onClick={() => settingsMutation.mutate({
             ocr_provider: ocrProvider,
-            ...(ocrProvider === 'claude' && anthropicKey ? { anthropic_api_key: anthropicKey } : {}),
+            ...(ocrProvider === 'anthropic' && anthropicKey ? { anthropic_api_key: anthropicKey } : {}),
             ...(ocrProvider === 'openai' && openaiKey ? { openai_api_key: openaiKey } : {}),
             ...(ocrProvider === 'gemini' && geminiKey ? { gemini_api_key: geminiKey } : {}),
             ...(ocrProvider === 'vertex' && googleProjectId ? { google_project_id: googleProjectId } : {}),
@@ -277,100 +269,7 @@ export default function SettingsPage() {
           })}
           className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm"
         >
-          Save OCR Settings
-        </button>
-      </section>
-
-      {/* AI Categorization */}
-      <section className="bg-white rounded-xl p-5 shadow-sm space-y-3">
-        <h2 className="font-semibold">AI Categorization Provider</h2>
-        <select value={aiProvider} onChange={(e) => setAiProvider(e.target.value)}
-          className="border rounded-lg px-3 py-2 text-sm w-full">
-          <option value="anthropic">Claude (Anthropic)</option>
-          <option value="openai">GPT-4o-mini (OpenAI)</option>
-          <option value="gemini">Gemini (Google AI Studio)</option>
-          <option value="vertex">Google Vertex AI</option>
-          <option value="local">Local / Ollama</option>
-        </select>
-        {aiProvider === 'anthropic' && (
-          <input value={anthropicKey} onChange={(e) => setAnthropicKey(e.target.value)}
-            placeholder={settings?.anthropic_api_key_set ? '••••••••• (set)' : 'Anthropic API key (sk-ant-...)'}
-            className="border rounded-lg px-3 py-2 text-sm w-full" type="password" />
-        )}
-        {aiProvider === 'openai' && (
-          <input value={openaiKey} onChange={(e) => setOpenaiKey(e.target.value)}
-            placeholder={settings?.openai_api_key_set ? '••••••••• (set)' : 'OpenAI API key (sk-...)'}
-            className="border rounded-lg px-3 py-2 text-sm w-full" type="password" />
-        )}
-        {aiProvider === 'gemini' && (
-          <input value={geminiKey} onChange={(e) => setGeminiKey(e.target.value)}
-            placeholder={settings?.gemini_api_key_set ? '••••••••• (set)' : 'Gemini API key (AIza...)'}
-            className="border rounded-lg px-3 py-2 text-sm w-full" type="password" />
-        )}
-        {aiProvider === 'vertex' && (
-          <>
-            <input value={googleProjectId} onChange={(e) => setGoogleProjectId(e.target.value)}
-              placeholder="Google Cloud Project ID" className="border rounded-lg px-3 py-2 text-sm w-full" />
-            <input value={googleLocation} onChange={(e) => setGoogleLocation(e.target.value)}
-              placeholder="Region (e.g. us-central1)" className="border rounded-lg px-3 py-2 text-sm w-full" />
-            <p className="text-xs text-gray-500">Uses Application Default Credentials (GOOGLE_APPLICATION_CREDENTIALS env var).</p>
-          </>
-        )}
-        {aiProvider === 'local' && (
-          <input value={aiApiUrl} onChange={(e) => setAiApiUrl(e.target.value)}
-            placeholder="API URL (e.g. http://localhost:11434/v1)"
-            className="border rounded-lg px-3 py-2 text-sm w-full" />
-        )}
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-gray-700">Model</span>
-          <button
-            onClick={() => api.post('/settings/models/refresh', {}).then(() => qc.invalidateQueries({ queryKey: ['models'] }))}
-            className="text-xs text-indigo-500 hover:underline"
-            type="button"
-          >
-            ↻ Refresh list
-          </button>
-        </div>
-        <select
-          value={aiModel}
-          onChange={(e) => {
-            setAiModel(e.target.value);
-            const found = aiModels?.models?.find(m => m.model_id === e.target.value);
-            if (found?.max_output_tokens) setMaxOutputTokens(String(found.max_output_tokens));
-          }}
-          className="border rounded-lg px-3 py-2 text-sm w-full"
-        >
-          <option value="">— select a model —</option>
-          {aiModels?.models?.map(m => (
-            <option key={m.model_id} value={m.model_id}>
-              {m.display_name ?? m.model_id}
-              {m.max_output_tokens ? ` — ${m.max_output_tokens.toLocaleString()} tokens` : ' — limit unknown'}
-            </option>
-          ))}
-        </select>
-        <input
-          type="number"
-          min={256}
-          value={maxOutputTokens}
-          onChange={(e) => setMaxOutputTokens(e.target.value)}
-          placeholder="Max output tokens (e.g. 8192)"
-          className="border rounded-lg px-3 py-2 text-sm w-full"
-        />
-        <button
-          onClick={() => settingsMutation.mutate({
-            ai_provider: aiProvider as SettingsPut['ai_provider'],
-            ...(aiModel ? { ai_model: aiModel } : {}),
-            ...(aiApiUrl ? { ai_api_url: aiApiUrl } : {}),
-            ...(geminiKey ? { gemini_api_key: geminiKey } : {}),
-            ...(googleProjectId ? { google_project_id: googleProjectId } : {}),
-            ...(googleLocation ? { google_location: googleLocation } : {}),
-            ...(aiProvider === 'anthropic' && anthropicKey ? { anthropic_api_key: anthropicKey } : {}),
-            ...(aiProvider === 'openai' && openaiKey ? { openai_api_key: openaiKey } : {}),
-            ...(maxOutputTokens ? { max_output_tokens: Number(maxOutputTokens) } : {}),
-          })}
-          className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm"
-        >
-          Save AI Settings
+          Save
         </button>
       </section>
 

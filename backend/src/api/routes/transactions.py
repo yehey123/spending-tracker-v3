@@ -187,8 +187,10 @@ async def patch_transaction(id: int, body: TransactionPatch, db: AsyncSession = 
     correction = None
     if financial_changes:
         tx_direction = tx.direction.value if hasattr(tx.direction, 'value') else tx.direction
+        # Strip timezone info: asyncpg may return tz-aware datetimes for TIMESTAMP WITHOUT TIME ZONE
+        tx_date = tx.date.replace(tzinfo=None) if tx.date and tx.date.tzinfo else tx.date
         reversal = Transaction(
-            date=tx.date,
+            date=tx_date,
             amount=tx.amount,
             description=tx.description,
             direction='credit' if tx_direction == 'debit' else 'debit',
@@ -204,7 +206,7 @@ async def patch_transaction(id: int, body: TransactionPatch, db: AsyncSession = 
         await db.flush()
 
         correction_data = {
-            'date': tx.date,
+            'date': tx_date,
             'amount': tx.amount,
             'description': tx.description,
             'direction': tx.direction,
@@ -266,8 +268,9 @@ async def reverse_transaction(
         raise HTTPException(status_code=409, detail="Cannot reverse a reversal row")
 
     tx_direction = tx.direction.value if hasattr(tx.direction, 'value') else tx.direction
+    tx_date = tx.date.replace(tzinfo=None) if tx.date and tx.date.tzinfo else tx.date
     reversal = Transaction(
-        date=tx.date,
+        date=tx_date,
         amount=tx.amount,
         description=tx.description,
         direction='credit' if tx_direction == 'debit' else 'debit',

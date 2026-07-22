@@ -65,6 +65,7 @@ async def _convert_amount(
 async def by_category(
     month: str = Query(..., pattern=r"^\d{4}-\d{2}$"),
     display_currency: str | None = Query(default=None),
+    breakdown: str = Query(default="parent"),
     db: AsyncSession = Depends(get_db),
 ):
     """Spending (debits only) grouped by category for the given month.
@@ -72,6 +73,9 @@ async def by_category(
     If display_currency is provided, converts all amounts. If home_currency
     is set in settings, uses that as default. If neither, returns amounts
     in original currencies with totals_available=False.
+
+    breakdown="parent" (default) rolls sub-categories up to their parent.
+    breakdown="subcategory" groups by the leaf category as stored.
     """
     first_day, first_day_next = _month_bounds(month)
     home_currency = await _get_home_currency(db)
@@ -101,6 +105,15 @@ async def by_category(
     )
     rows = rows_result.all()
 
+    # In parent mode, pre-load leaf categories to resolve bucket IDs
+    leaf_to_bucket: dict[int, int] = {}
+    if breakdown == "parent":
+        leaf_ids = {row.category_id for row in rows if row.category_id is not None}
+        if leaf_ids:
+            res = await db.execute(select(Category).where(Category.id.in_(leaf_ids)))
+            for cat in res.scalars().all():
+                leaf_to_bucket[cat.id] = cat.parent_id if cat.parent_id is not None else cat.id
+
     # Aggregate with optional currency conversion
     category_totals: dict[int | None, Decimal] = defaultdict(lambda: Decimal("0"))
     unconverted_ref = [0]  # mutable reference for counter
@@ -114,7 +127,11 @@ async def by_category(
             )
         else:
             amount = row.amount
-        category_totals[row.category_id] += amount
+        if breakdown == "parent" and row.category_id is not None:
+            bucket: int | None = leaf_to_bucket.get(row.category_id, row.category_id)
+        else:
+            bucket = row.category_id
+        category_totals[bucket] += amount
 
     total_debit = sum(category_totals.values(), Decimal("0"))
     unconverted_count = unconverted_ref[0]

@@ -1,32 +1,25 @@
 import base64
 import io
+import logging
 
 from PIL import Image
 
-from .base import OCRProvider
+from .base import OCRProvider, _build_prompt
 
-_PROMPT = (
-    "Extract EVERY transaction from this bank or credit card statement image. "
-    "Do not stop early — list every single visible row from top to bottom without skipping any. "
-    "Return one transaction per line in this exact format:\n"
-    "DATE | DESCRIPTION | AMOUNT | DEBIT or CREDIT\n\n"
-    "Use MM/DD/YYYY for dates. Amounts are numbers only, no currency symbols, no commas. "
-    "If an amount has a trailing minus sign (e.g. 22000.00-), mark it as CREDIT. "
-    "Output only transaction lines. No headers, no totals, no commentary. "
-    "Continue until the very last visible transaction has been listed."
-)
+_log = logging.getLogger(__name__)
 
 
 class VertexVisionProvider(OCRProvider):
+    supports_categories = True
+
     def __init__(self, project_id: str, location: str = "us-central1",
                  model: str = "google/gemini-2.5-flash", max_tokens: int = 8192):
         self.project_id = project_id
         self.location = location
-        # Vertex OpenAI-compat endpoint requires "<publisher>/<model>" format
         self.model = model if "/" in model else f"google/{model}"
         self.max_tokens = max_tokens
 
-    async def extract_text(self, image: Image.Image) -> str:
+    async def _call(self, image: Image.Image, prompt: str) -> str:
         import google.auth
         import google.auth.transport.requests
         from openai import OpenAI
@@ -46,10 +39,7 @@ class VertexVisionProvider(OCRProvider):
         image.save(buf, format="PNG")
         encoded = base64.b64encode(buf.getvalue()).decode()
 
-        import logging
-        _log = logging.getLogger(__name__)
-        _log.info("Vertex OCR: model=%s image=%dx%d encoded_bytes=%d",
-                  self.model, image.width, image.height, len(encoded))
+        _log.info("Vertex OCR: model=%s image=%dx%d", self.model, image.width, image.height)
 
         response = client.chat.completions.create(
             model=self.model,
@@ -62,14 +52,19 @@ class VertexVisionProvider(OCRProvider):
                             "type": "image_url",
                             "image_url": {"url": f"data:image/png;base64,{encoded}"},
                         },
-                        {"type": "text", "text": _PROMPT},
+                        {"type": "text", "text": prompt},
                     ],
                 }
             ],
         )
-
         choice = response.choices[0]
         _log.info("Vertex OCR: finish_reason=%s output_tokens=%s",
                   choice.finish_reason,
-                  getattr(response.usage, 'completion_tokens', '?'))
+                  getattr(response.usage, "completion_tokens", "?"))
         return choice.message.content
+
+    async def extract_text(self, image: Image.Image) -> str:
+        return await self._call(image, _build_prompt())
+
+    async def extract_with_categories(self, image: Image.Image, categories: list[dict]) -> str:
+        return await self._call(image, _build_prompt(categories))

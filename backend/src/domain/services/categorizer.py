@@ -38,7 +38,9 @@ def _normalize(desc: str) -> str:
 
 
 def _has_ai_credentials(settings: AppSettings) -> bool:
-    p = getattr(settings, 'ai_provider', 'anthropic')
+    p = getattr(settings, 'ocr_provider', 'tesseract')
+    if p == 'tesseract':
+        return False
     return {
         'anthropic': bool(getattr(settings, 'anthropic_api_key', None)),
         'openai':    bool(getattr(settings, 'openai_api_key', None)),
@@ -112,7 +114,7 @@ class CategorizerService:
         settings: AppSettings,
         account_type: str | None = None,
     ) -> list[dict]:
-        provider = getattr(settings, 'ai_provider', 'anthropic')
+        provider = getattr(settings, 'ocr_provider', 'tesseract')
         _max_tokens = getattr(settings, 'max_output_tokens', None) or 1024
         try:
             cat_list = [{'id': c.id, 'name': c.name} for c in categories]
@@ -169,6 +171,19 @@ class CategorizerService:
                 )
                 text = resp.choices[0].message.content.strip()
 
+            elif provider == 'local':
+                if _openai_lib is None:
+                    return []
+                base_url = getattr(settings, 'ai_api_url', None)
+                model = getattr(settings, 'ai_model', None) or 'llama3'
+                client = _openai_lib.OpenAI(api_key='local', base_url=base_url)
+                resp = client.chat.completions.create(
+                    model=model,
+                    messages=[{'role': 'user', 'content': prompt}],
+                    max_tokens=_max_tokens,
+                )
+                text = resp.choices[0].message.content.strip()
+
             elif provider == 'vertex':
                 if _openai_lib is None:
                     return []
@@ -187,19 +202,6 @@ class CategorizerService:
                 _raw_model = getattr(settings, 'ai_model', None) or 'google/gemini-2.5-flash'
                 model = _raw_model if '/' in _raw_model else f'google/{_raw_model}'
                 client = _openai_lib.OpenAI(api_key=creds.token, base_url=base_url)
-                resp = client.chat.completions.create(
-                    model=model,
-                    messages=[{'role': 'user', 'content': prompt}],
-                    max_tokens=_max_tokens,
-                )
-                text = resp.choices[0].message.content.strip()
-
-            elif provider == 'local':
-                if _openai_lib is None:
-                    return []
-                api_url = getattr(settings, 'ai_api_url', None)
-                model = getattr(settings, 'ai_model', None) or 'llama3'
-                client = _openai_lib.OpenAI(api_key='local', base_url=api_url)
                 resp = client.chat.completions.create(
                     model=model,
                     messages=[{'role': 'user', 'content': prompt}],

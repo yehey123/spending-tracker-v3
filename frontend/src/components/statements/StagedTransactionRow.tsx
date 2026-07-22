@@ -18,6 +18,7 @@ export function StagedTransactionRow({ tx, categories, onUpdated }: Props) {
   const [amount, setAmount] = useState(tx.amount);
   const [direction, setDirection] = useState<'debit' | 'credit'>(tx.direction);
   const [categoryId, setCategoryId] = useState<string>(tx.category_id?.toString() ?? '');
+  const [currency, setCurrency] = useState<string>(tx.currency ?? '');
 
   const patch = useMutation({
     mutationFn: (body: Record<string, unknown>) =>
@@ -35,6 +36,7 @@ export function StagedTransactionRow({ tx, categories, onUpdated }: Props) {
       amount: parseFloat(amount),
       direction,
       category_id: categoryId ? parseInt(categoryId) : null,
+      ...(currency ? { currency: currency.toUpperCase() } : {}),
     });
   };
 
@@ -55,7 +57,7 @@ export function StagedTransactionRow({ tx, categories, onUpdated }: Props) {
           <div className="text-xs text-gray-400 mt-0.5">{tx.date}</div>
         </div>
         <div className="flex items-center gap-3 ml-2 shrink-0">
-          <span className="text-sm font-medium">${tx.amount}</span>
+          <span className="text-sm font-medium">{tx.currency ?? ''} {tx.amount}</span>
           <button onClick={() => setEditing(true)} className="text-gray-400 hover:text-indigo-600">
             <Pencil size={14} />
           </button>
@@ -80,6 +82,14 @@ export function StagedTransactionRow({ tx, categories, onUpdated }: Props) {
           onChange={(e) => setAmount(e.target.value)}
           className="border rounded px-2 py-1 text-sm w-28"
           placeholder="Amount"
+        />
+        <input
+          type="text"
+          maxLength={3}
+          value={currency}
+          onChange={(e) => setCurrency(e.target.value.toUpperCase())}
+          className="border rounded px-2 py-1 text-sm w-16 uppercase"
+          placeholder="CCY"
         />
         <select
           value={direction}

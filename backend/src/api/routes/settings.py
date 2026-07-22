@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.schemas.settings import SettingsOut, SettingsPut
+from src.core.config import settings as app_config
 from src.db.session import get_db
 from src.domain.models.app_settings import AppSettings
 
@@ -16,7 +17,6 @@ async def _get_settings(db: AsyncSession) -> AppSettings:
     result = await db.execute(select(AppSettings).where(AppSettings.id == 1))
     row = result.scalar_one_or_none()
     if row is None:
-        # Seed the row if it somehow doesn't exist (migration should have created it)
         row = AppSettings(id=1, ocr_provider="tesseract")
         db.add(row)
         await db.commit()
@@ -33,14 +33,13 @@ def _to_out(row: AppSettings) -> SettingsOut:
         review_before_commit=row.review_before_commit,
         ai_category_confidence_auto=row.ai_category_confidence_auto,
         ai_category_confidence_suggest=row.ai_category_confidence_suggest,
-        ai_provider=row.ai_provider,
         ai_model=row.ai_model,
-        ai_api_url=row.ai_api_url,
         gemini_api_key_set=bool(row.gemini_api_key),
         google_project_id=row.google_project_id,
         google_location=row.google_location,
         max_output_tokens=row.max_output_tokens,
         dev_mode=row.dev_mode,
+        dev_mode_available=app_config.app_env != "production",
     )
 
 
@@ -64,6 +63,11 @@ async def update_settings(body: SettingsPut, db: AsyncSession = Depends(get_db))
     new_openai = body.openai_api_key if "openai_api_key" in fields_set else row.openai_api_key
 
     if "ocr_provider" in fields_set:
+        if body.ocr_provider == "anthropic" and not new_anthropic:
+            raise HTTPException(
+                status_code=422,
+                detail="Provider 'anthropic' requires anthropic_api_key to be set.",
+            )
         if body.ocr_provider == "claude" and not new_anthropic:
             raise HTTPException(
                 status_code=422,
@@ -91,12 +95,8 @@ async def update_settings(body: SettingsPut, db: AsyncSession = Depends(get_db))
         and body.ai_category_confidence_suggest is not None
     ):
         row.ai_category_confidence_suggest = body.ai_category_confidence_suggest
-    if "ai_provider" in fields_set and body.ai_provider is not None:
-        row.ai_provider = body.ai_provider
     if "ai_model" in fields_set:
         row.ai_model = body.ai_model
-    if "ai_api_url" in fields_set:
-        row.ai_api_url = body.ai_api_url
     if "gemini_api_key" in fields_set:
         row.gemini_api_key = body.gemini_api_key
     if "google_project_id" in fields_set:
@@ -118,6 +118,8 @@ async def update_settings(body: SettingsPut, db: AsyncSession = Depends(get_db))
         row.max_output_tokens = body.max_output_tokens
 
     if "dev_mode" in fields_set and body.dev_mode is not None:
+        if body.dev_mode and app_config.app_env == "production":
+            raise HTTPException(status_code=403, detail="dev_mode is not available in production.")
         row.dev_mode = body.dev_mode
 
     await db.commit()

@@ -21,7 +21,7 @@ SEED: dict[str, list[tuple[str, str, int | None]]] = {
         ("o3",           "o3",          100000),
         ("o4-mini",      "o4-mini",     100000),
     ],
-    "claude": [
+    "anthropic": [
         ("claude-opus-4-8",           "Claude Opus 4.8",   32000),
         ("claude-sonnet-4-6",         "Claude Sonnet 4.6", 64000),
         ("claude-haiku-4-5-20251001", "Claude Haiku 4.5",  64000),

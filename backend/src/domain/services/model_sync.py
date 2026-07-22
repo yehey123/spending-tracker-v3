@@ -152,10 +152,10 @@ async def sync_openai(db, settings: AppSettings) -> int:
         return await _seed_provider(db, "openai")
 
 
-async def sync_claude(db, settings: AppSettings) -> int:
+async def sync_anthropic(db, settings: AppSettings) -> int:
     api_key = getattr(settings, "anthropic_api_key", None)
     if not api_key:
-        return await _seed_provider(db, "claude")
+        return await _seed_provider(db, "anthropic")
     try:
         import anthropic
         client = anthropic.Anthropic(api_key=api_key)
@@ -163,7 +163,7 @@ async def sync_claude(db, settings: AppSettings) -> int:
         models = client.models.list()
         rows = [
             {
-                "provider": "claude",
+                "provider": "anthropic",
                 "model_id": m.id,
                 "display_name": getattr(m, "display_name", m.id),
                 "max_output_tokens": get_limit(m.id),
@@ -174,8 +174,8 @@ async def sync_claude(db, settings: AppSettings) -> int:
         ]
         return await _upsert(db, rows)
     except Exception as exc:
-        logger.warning("sync_claude failed (%s); seeding fallback", exc)
-        return await _seed_provider(db, "claude")
+        logger.warning("sync_anthropic failed (%s); seeding fallback", exc)
+        return await _seed_provider(db, "anthropic")
 
 
 async def sync_all() -> dict[str, int]:
@@ -188,13 +188,13 @@ async def sync_all() -> dict[str, int]:
             sync_gemini(db, settings),
             sync_vertex(db, settings),
             sync_openai(db, settings),
-            sync_claude(db, settings),
+            sync_anthropic(db, settings),
             return_exceptions=True,
         )
 
         await db.commit()
 
     counts = {}
-    for provider, result in zip(["gemini", "vertex", "openai", "claude"], results):
+    for provider, result in zip(["gemini", "vertex", "openai", "anthropic"], results):
         counts[provider] = result if isinstance(result, int) else 0
     return counts

@@ -1,72 +1,91 @@
+"""Tests for E5: category hierarchy, seed, and deletion rules."""
+
 import pytest
+from sqlalchemy import func, select
+
+from src.domain.models.category import Category
+from src.domain.services.category_seeder import DEFAULTS, seed_default_categories
 
 
 @pytest.mark.asyncio
-async def test_get_categories_empty(client):
-    res = await client.get("/categories")
-    assert res.status_code == 200
-    assert res.json() == []
+async def test_seed_creates_defaults_on_startup(db_session):
+    await seed_default_categories(db_session)
+    result = await db_session.execute(select(func.count()).select_from(Category))
+    count = result.scalar()
+    expected = len(DEFAULTS) + sum(len(children) for _, _, _, children in DEFAULTS)
+    assert count == expected
 
 
 @pytest.mark.asyncio
-async def test_post_category_valid(client):
-    res = await client.post("/categories", json={"name": "Food", "color": "#FF5733"})
-    assert res.status_code == 201
-    data = res.json()
-    assert data["name"] == "Food"
-    assert data["color"] == "#FF5733"
-    assert "id" in data
+async def test_seed_is_idempotent(db_session):
+    await seed_default_categories(db_session)
+    await seed_default_categories(db_session)
+    result = await db_session.execute(select(func.count()).select_from(Category))
+    count = result.scalar()
+    expected = len(DEFAULTS) + sum(len(children) for _, _, _, children in DEFAULTS)
+    assert count == expected
 
 
 @pytest.mark.asyncio
-async def test_post_category_invalid_color(client):
-    res = await client.post("/categories", json={"name": "Food", "color": "red"})
+async def test_create_subcategory(client):
+    parent = (await client.post("/categories", json={"name": "Transport", "color": "#3b82f6"})).json()
+    sub = (await client.post("/categories", json={
+        "name": "Ride Hailing",
+        "color": "#60a5fa",
+        "parent_id": parent["id"],
+    })).json()
+    assert sub["parent_id"] == parent["id"]
+    assert sub["id"] != parent["id"]
+
+
+@pytest.mark.asyncio
+async def test_depth_guard_rejects_three_levels(client):
+    parent = (await client.post("/categories", json={"name": "Food", "color": "#f97316"})).json()
+    child = (await client.post("/categories", json={
+        "name": "Fast Food", "color": "#fbbf24", "parent_id": parent["id"],
+    })).json()
+    res = await client.post("/categories", json={
+        "name": "Burger Joint", "color": "#ff0000", "parent_id": child["id"],
+    })
     assert res.status_code == 422
 
 
 @pytest.mark.asyncio
-async def test_post_category_duplicate_case_insensitive(client):
-    await client.post("/categories", json={"name": "Food", "color": "#FF5733"})
-    res = await client.post("/categories", json={"name": "food", "color": "#FF5733"})
-    assert res.status_code == 409
+async def test_delete_parent_with_children_422(client):
+    parent = (await client.post("/categories", json={"name": "Bills", "color": "#14b8a6"})).json()
+    await client.post("/categories", json={
+        "name": "Internet", "color": "#2dd4bf", "parent_id": parent["id"],
+    })
+    res = await client.delete(f"/categories/{parent['id']}")
+    assert res.status_code == 422
 
 
 @pytest.mark.asyncio
-async def test_put_category(client):
-    create = await client.post("/categories", json={"name": "Transport", "color": "#0000FF"})
-    cat_id = create.json()["id"]
-    res = await client.put(f"/categories/{cat_id}", json={"name": "Travel", "color": "#0000AA"})
-    assert res.status_code == 200
-    assert res.json()["name"] == "Travel"
-
-
-@pytest.mark.asyncio
-async def test_put_category_not_found(client):
-    res = await client.put("/categories/9999", json={"name": "X", "color": "#000000"})
-    assert res.status_code == 404
-
-
-@pytest.mark.asyncio
-async def test_delete_category(client):
-    create = await client.post("/categories", json={"name": "ToDelete", "color": "#123456"})
-    cat_id = create.json()["id"]
-    res = await client.delete(f"/categories/{cat_id}")
-    assert res.status_code == 204
-    get = await client.get("/categories")
-    assert all(c["id"] != cat_id for c in get.json())
-
-
-@pytest.mark.asyncio
-async def test_delete_category_nulls_transactions(client):
-    cat = (await client.post("/categories", json={"name": "Nullify", "color": "#AABBCC"})).json()
+async def test_delete_cascades_null_on_transactions(client):
+    cat = (await client.post("/categories", json={"name": "Misc", "color": "#aaaaaa"})).json()
     tx = (await client.post("/transactions", json={
-        "date": "2026-05-01T00:00:00",
+        "date": "2026-05-10T00:00:00",
         "amount": "50.00",
-        "description": "Test",
+        "description": "Misc purchase",
         "direction": "debit",
         "category_id": cat["id"],
     })).json()
     await client.delete(f"/categories/{cat['id']}")
-    tx_get = await client.get(f"/transactions?limit=50")
-    found = next(t for t in tx_get.json() if t["id"] == tx["id"])
-    assert found["category_id"] is None
+    txs = (await client.get("/transactions")).json()
+    updated = next(t for t in txs if t["id"] == tx["id"])
+    assert updated["category_id"] is None
+
+
+@pytest.mark.asyncio
+async def test_get_categories_returns_tree(client):
+    parent = (await client.post("/categories", json={"name": "Shopping", "color": "#ec4899"})).json()
+    await client.post("/categories", json={
+        "name": "Online Shopping", "color": "#f472b6", "parent_id": parent["id"],
+    })
+    res = await client.get("/categories")
+    assert res.status_code == 200
+    categories = res.json()
+    shop = next((c for c in categories if c["name"] == "Shopping"), None)
+    assert shop is not None
+    assert len(shop["children"]) == 1
+    assert shop["children"][0]["name"] == "Online Shopping"

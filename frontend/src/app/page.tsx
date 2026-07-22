@@ -11,10 +11,11 @@ export default function DashboardPage() {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
+  const [catBreakdown, setCatBreakdown] = useState<'parent' | 'subcategory'>('parent');
 
   const { data: byCategory } = useQuery({
-    queryKey: ['analytics', 'by-category', month],
-    queryFn: () => api.get<ByCategoryResponse>(`/analytics/by-category?month=${month}`),
+    queryKey: ['analytics', 'by-category', month, catBreakdown],
+    queryFn: () => api.get<ByCategoryResponse>(`/analytics/by-category?month=${month}&breakdown=${catBreakdown}`),
   });
 
   const { data: cashFlow } = useQuery({
@@ -57,7 +58,23 @@ export default function DashboardPage() {
 
       {/* Spending donut */}
       <div className="bg-white rounded-xl p-4 shadow-sm">
-        <h2 className="text-base font-semibold mb-2">Spending by Category</h2>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-base font-semibold">Spending by Category</h2>
+          <div className="flex text-xs overflow-hidden rounded-lg border border-gray-200">
+            <button
+              onClick={() => setCatBreakdown('parent')}
+              className={`px-3 py-1 ${catBreakdown === 'parent' ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+            >
+              Top-level
+            </button>
+            <button
+              onClick={() => setCatBreakdown('subcategory')}
+              className={`px-3 py-1 ${catBreakdown === 'subcategory' ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+            >
+              Detail
+            </button>
+          </div>
+        </div>
         <SpendingDonut
           breakdown={byCategory?.breakdown ?? []}
           displayCurrency={byCategory?.display_currency}

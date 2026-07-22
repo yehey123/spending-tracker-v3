@@ -20,6 +20,7 @@ class StagedTransactionPatch(BaseModel):
     description: str | None = Field(default=None, min_length=1, max_length=500)
     direction: str | None = None
     category_id: int | None = None
+    currency: str | None = Field(default=None, max_length=3)
 
 
 @router.patch("/{tx_id}")

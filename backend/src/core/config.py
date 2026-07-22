@@ -31,16 +31,17 @@ class Settings(BaseSettings):
     anthropic_api_key: str | None = None
     openai_api_key: str | None = None
 
-    # AI Categorization — overridable from the DB settings table at runtime
-    ai_provider: str = "anthropic"   # anthropic | openai | gemini | vertex | local
-    ai_model: str | None = None      # override default model for the chosen provider
-    ai_api_url: str | None = None    # base URL for local/Ollama provider
+    # Model selection — applies to whichever OCR/AI provider is active
+    ai_model: str | None = None
     gemini_api_key: str | None = None
     google_project_id: str | None = None   # Vertex AI project
     google_location: str = "us-central1"  # Vertex AI region
 
     # Account fingerprinting — must be ≥ 32 chars when account numbers are stored
     app_secret: str = ""
+
+    # Environment — set APP_ENV=development to enable dev-only features (e.g. dev_mode)
+    app_env: str = "production"
 
 
 settings = Settings()

@@ -161,6 +161,7 @@ async def get_staged_transactions(statement_id: int, db: AsyncSession = Depends(
                 "amount": str(tx.amount),
                 "direction": tx.direction if isinstance(tx.direction, str) else tx.direction.value,
                 "category_id": tx.category_id,
+                "currency": tx.currency,
             }
             for tx in transactions
         ],

@@ -21,7 +21,7 @@ class _MockSettings:
     google_project_id = None
     google_location = None
     ai_api_url = None
-    ai_provider = "anthropic"
+    ocr_provider = "anthropic"
     ai_model = None
     ai_category_confidence_auto = 0.85
     ai_category_confidence_suggest = 0.6
@@ -69,7 +69,7 @@ async def test_categorizer_merchant_memory_assigns_category():
 def test_has_ai_credentials_anthropic():
     s = _MockSettings()
     s.anthropic_api_key = "sk-ant-test"
-    s.ai_provider = "anthropic"
+    s.ocr_provider = "anthropic"
     assert _has_ai_credentials(s) is True
 
 
@@ -97,7 +97,7 @@ def test_openai_provider_path():
         import asyncio
 
         s = _MockSettings()
-        s.ai_provider = "openai"
+        s.ocr_provider = "openai"
         s.openai_api_key = "sk-test"
 
         result = asyncio.get_event_loop().run_until_complete(
@@ -125,7 +125,7 @@ def test_local_provider_path():
         import asyncio
 
         s = _MockSettings()
-        s.ai_provider = "local"
+        s.ocr_provider = "local"
         s.ai_api_url = "http://localhost:11434/v1"
         s.ai_model = "llama3"
 
@@ -175,7 +175,7 @@ def test_vertex_provider_path():
         mock_openai.OpenAI.return_value = mock_client
 
         s = _MockSettings()
-        s.ai_provider = "vertex"
+        s.ocr_provider = "vertex"
         s.google_project_id = "my-proj"
         s.google_location = "us-central1"
 
@@ -208,7 +208,7 @@ def test_account_type_included_in_prompt():
     with patch("src.domain.services.categorizer._openai_lib") as mock_openai:
         mock_openai.OpenAI.return_value = mock_client
         s = _MockSettings()
-        s.ai_provider = "openai"
+        s.ocr_provider = "openai"
         s.openai_api_key = "sk-test"
         asyncio.get_event_loop().run_until_complete(
             categorizer_service._call_ai(["some merchant"], [], s, account_type="credit_card")
@@ -236,7 +236,7 @@ def test_no_account_type_omits_account_line():
     with patch("src.domain.services.categorizer._openai_lib") as mock_openai:
         mock_openai.OpenAI.return_value = mock_client
         s = _MockSettings()
-        s.ai_provider = "openai"
+        s.ocr_provider = "openai"
         s.openai_api_key = "sk-test"
         asyncio.get_event_loop().run_until_complete(
             categorizer_service._call_ai(["some merchant"], [], s, account_type=None)

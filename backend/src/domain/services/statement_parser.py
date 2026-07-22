@@ -10,6 +10,7 @@ class ParsedTransaction:
     description: str
     amount: Decimal
     direction: str  # "debit" | "credit"
+    category_name: str | None = None  # populated when OCR provider bundles categorization
 
 
 _DATE_FORMATS = [
@@ -21,7 +22,7 @@ _DATE_FORMATS = [
 ]
 
 _PIPE_RE = re.compile(
-    r"^\s*(?P<date>[^|]+?)\s*\|\s*(?P<desc>[^|]+?)\s*\|\s*(?P<amount>[^|]+?)\s*\|\s*(?P<dir>[^|]+?)\s*$",
+    r"^\s*(?P<date>[^|]+?)\s*\|\s*(?P<desc>[^|]+?)\s*\|\s*(?P<amount>[^|]+?)\s*\|\s*(?P<dir>[^|]+?)(\s*\|\s*(?P<cat>[^|]*?))?\s*$",
     re.IGNORECASE,
 )
 # Matches amounts like 1,234.56 or 1234.56, optionally followed by - (credit indicator)
@@ -77,12 +78,14 @@ def parse_statement(text: str) -> list[ParsedTransaction]:
             if date is None or amount is None or amount > _SKIP_AMOUNT:
                 continue
             direction = _direction_from_token(m.group("dir"))
+            raw_cat = m.group("cat")
             results.append(
                 ParsedTransaction(
                     date=date,
                     description=m.group("desc").strip(),
                     amount=amount,
                     direction=direction,
+                    category_name=raw_cat.strip() or None if raw_cat is not None else None,
                 )
             )
             continue
