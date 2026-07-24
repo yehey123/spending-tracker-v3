@@ -1,20 +1,19 @@
 import { test, expect } from '@playwright/test';
 
-test('settings page loads and AI provider selector works', async ({ page }) => {
+test('settings page loads and OCR provider selector works', async ({ page }) => {
   await page.goto('/settings');
 
-  const aiProviderSelect = page.getByLabel(/ai.*provider/i).or(
-    page.getByRole('combobox', { name: /ai.*provider/i })
-  );
-  await expect(aiProviderSelect).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'OCR Provider' })).toBeVisible();
 
-  // Switching to local shows URL input
-  await aiProviderSelect.selectOption('local');
-  await expect(
-    page.getByPlaceholder(/localhost:11434/i).or(page.getByLabel(/api url/i))
-  ).toBeVisible();
+  // Provider select lives inside the OCR Provider section
+  const providerSelect = page.locator('section').filter({ hasText: 'OCR Provider' }).getByRole('combobox').first();
+  await expect(providerSelect).toBeVisible();
 
-  // Switching to vertex shows project ID input
-  await aiProviderSelect.selectOption('vertex');
-  await expect(page.getByLabel(/project id/i)).toBeVisible();
+  // Switching to anthropic reveals API key input
+  await providerSelect.selectOption('anthropic');
+  await expect(page.getByPlaceholder(/anthropic api key/i)).toBeVisible();
+
+  // Switching to vertex reveals Google Cloud Project ID input
+  await providerSelect.selectOption('vertex');
+  await expect(page.getByPlaceholder(/google cloud project id/i)).toBeVisible();
 });

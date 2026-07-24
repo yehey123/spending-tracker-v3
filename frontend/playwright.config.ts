@@ -10,6 +10,7 @@ export default defineConfig({
     baseURL: process.env.BASE_URL ?? 'http://localhost',
     serviceWorkers: 'block',
     trace: 'on-first-retry',
+    screenshot: 'on',
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
