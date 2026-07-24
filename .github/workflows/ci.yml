@@ -100,6 +100,12 @@ jobs:
         working-directory: frontend
         run: npx playwright install --with-deps chromium
 
+      - name: Create .env for docker compose
+        run: |
+          echo "DB_USER=ci_user" >> .env
+          echo "DB_PASSWORD=ci_password" >> .env
+          echo "DATABASE_URL=postgresql+asyncpg://ci_user:ci_password@db:5432/spending_tracker" >> .env
+
       - name: Start full stack
         env:
           APP_SECRET: "test-secret-32chars-minimum-here!!"
