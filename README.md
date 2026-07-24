@@ -199,11 +199,27 @@ spending-tracker/
 │   │   ├── hooks/              # TanStack Query hooks
 │   │   └── lib/                # API client, types
 │   └── tests/e2e/              # Playwright tests
+├── design/                     # Design artifacts (see below)
 ├── docs/screenshots/           # README screenshots (from E2E runs)
 ├── docker-compose.yml
 ├── Makefile
 └── .env.example
 ```
+
+---
+
+## Design & Planning Artifacts
+
+This project was built with [Claude Code](https://claude.ai/code). The full planning trail is committed openly in `design/`:
+
+| Path | Contents |
+|---|---|
+| `design/features/spending-tracker/proposal.md` | Original feature proposal — epics, stories, acceptance criteria |
+| `design/features/spending-tracker/contracts/` | API contract, DB schema, OCR pipeline spec, frontend UX spec, currency spec |
+| `design/features/cloud-storage-backends/` | S3/GCS storage backend proposal + interface contract |
+| `design/audits/` | Post-implementation audit findings |
+
+The step-by-step execution ledger (which wave ran what, pass/fail verdicts per step) is visible in the git history via `.claude/task/step-ledger.md` — it was removed from the working tree after the build completed but is readable in earlier commits.
 
 ---
 
