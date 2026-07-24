@@ -60,6 +60,8 @@ export default function StatementReviewPage() {
     return <div className="text-center py-12 text-gray-400">Statement not found.</div>;
   }
 
+  const currency = data.transactions[0]?.currency ?? 'PHP';
+
   return (
     <div className="max-w-xl mx-auto space-y-6">
       <h1 className="text-2xl font-bold">Review Statement</h1>
@@ -73,8 +75,8 @@ export default function StatementReviewPage() {
         <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3 text-amber-700 text-sm">
           <AlertTriangle size={18} />
           <span>
-            Gap detected: extracted ${data.extracted_total}
-            {data.declared_total ? ` vs declared $${data.declared_total}` : ' (no declared total)'}
+            Gap detected: extracted {currency} {data.extracted_total}
+            {data.declared_total ? ` vs declared ${currency} ${data.declared_total}` : ' (no declared total)'}
           </span>
         </div>
       )}
