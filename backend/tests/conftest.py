@@ -31,7 +31,7 @@ _TestingSessionLocal = None
 
 async def _create_test_db():
     """Create spending_tracker_test DB if it doesn't exist."""
-    conn = await asyncpg.connect(f"postgresql://user:password@{_DB_HOST}:5432/postgres")
+    conn = await asyncpg.connect(f"postgresql://{_DB_USER}:{_DB_PASSWORD}@{_DB_HOST}:5432/postgres")
     try:
         exists = await conn.fetchval(
             "SELECT 1 FROM pg_database WHERE datname = 'spending_tracker_test'"
