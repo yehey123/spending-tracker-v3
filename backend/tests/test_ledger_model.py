@@ -52,26 +52,26 @@ async def test_patch_category_direct_update_with_audit_log(client):
 @pytest.mark.asyncio
 async def test_reverse_transaction(client):
     tx = await _make_tx(client)
-    res = await client.post(f"/transactions/{tx['id']}/reverse", json={"reason": "duplicate"})
+    res = await client.post("/transactions/reverse", json={"ids": [tx["id"]], "reason": "duplicate"})
     assert res.status_code == 200
     data = res.json()
-    assert data["original_id"] == tx["id"]
-    assert data["reason"] == "duplicate"
-    assert "reversal_id" in data
+    assert tx["id"] in data["reversed"]
+    assert data["skipped"] == []
 
 
 @pytest.mark.asyncio
 async def test_reverse_already_reversed_409(client):
     tx = await _make_tx(client)
-    await client.post(f"/transactions/{tx['id']}/reverse", json={"reason": "duplicate"})
-    res = await client.post(f"/transactions/{tx['id']}/reverse", json={"reason": "duplicate"})
-    assert res.status_code == 409
+    await client.post("/transactions/reverse", json={"ids": [tx["id"]], "reason": "duplicate"})
+    res = await client.post("/transactions/reverse", json={"ids": [tx["id"]], "reason": "duplicate"})
+    assert res.status_code == 200
+    assert tx["id"] in res.json()["skipped"]
 
 
 @pytest.mark.asyncio
 async def test_reversed_rows_excluded_from_list(client):
     tx = await _make_tx(client)
-    res = await client.post(f"/transactions/{tx['id']}/reverse", json={"reason": "user_error"})
+    res = await client.post("/transactions/reverse", json={"ids": [tx["id"]], "reason": "user_error"})
     assert res.status_code == 200
     txs = (await client.get("/transactions")).json()
     assert tx["id"] not in [t["id"] for t in txs]
