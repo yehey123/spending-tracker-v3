@@ -16,11 +16,13 @@ from src.db.session import get_db
 
 import os
 
-# Allow overriding host for CI (GitHub Actions uses localhost, Docker uses db)
+# Allow overriding host/credentials for CI
 _DB_HOST = os.environ.get("TEST_DB_HOST", "db")
-TEST_DB_URL = f"postgresql+asyncpg://user:password@{_DB_HOST}:5432/spending_tracker_test"
-TEST_DB_RAW = f"postgresql://user:password@{_DB_HOST}:5432/spending_tracker_test"
-TEST_DB_ASYNCPG = f"postgresql+asyncpg://user:password@{_DB_HOST}:5432/spending_tracker_test"
+_DB_USER = os.environ.get("DB_USER", "user")
+_DB_PASSWORD = os.environ.get("DB_PASSWORD", "password")
+TEST_DB_URL = f"postgresql+asyncpg://{_DB_USER}:{_DB_PASSWORD}@{_DB_HOST}:5432/spending_tracker_test"
+TEST_DB_RAW = f"postgresql://{_DB_USER}:{_DB_PASSWORD}@{_DB_HOST}:5432/spending_tracker_test"
+TEST_DB_ASYNCPG = f"postgresql+asyncpg://{_DB_USER}:{_DB_PASSWORD}@{_DB_HOST}:5432/spending_tracker_test"
 
 # Engine created lazily in setup_db to bind to the correct event loop
 _engine_test = None
@@ -29,7 +31,7 @@ _TestingSessionLocal = None
 
 async def _create_test_db():
     """Create spending_tracker_test DB if it doesn't exist."""
-    conn = await asyncpg.connect("postgresql://user:password@db:5432/postgres")
+    conn = await asyncpg.connect(f"postgresql://user:password@{_DB_HOST}:5432/postgres")
     try:
         exists = await conn.fetchval(
             "SELECT 1 FROM pg_database WHERE datname = 'spending_tracker_test'"

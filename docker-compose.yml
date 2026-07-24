@@ -26,7 +26,7 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql+asyncpg://user:password@db:5432/spending_tracker
+      DATABASE_URL: postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@db:5432/spending_tracker
     volumes:
       - exchange_rates_data:/data/rates
       - ~/.config/gcloud:/root/.config/gcloud:ro
@@ -58,15 +58,15 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: spending_tracker
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d spending_tracker"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d spending_tracker"]
       interval: 5s
       timeout: 5s
       retries: 5
