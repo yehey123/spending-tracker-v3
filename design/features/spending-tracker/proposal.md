@@ -1083,23 +1083,22 @@ correction (9):  GRAB FOOD  ₱350  debit  Jun 14  correction_of=7
 
 **API:**
 ```
-POST /transactions/{id}/reverse
+POST /transactions/reverse
   body: {
-    "reason": "duplicate",     -- ENUM: duplicate | bank_reversal | user_error
+    "ids": [7, 12, 15],        -- one or more transaction IDs
+    "reason": "duplicate"      -- ENUM: duplicate | bank_reversal | user_error
                                --       receipt_superseded | other
-    "notes": "uploaded twice"  -- optional free text
   }
 
 Response 200:
 {
-  "reversal_id": 8,
-  "original_id": 7,
-  "reason": "duplicate",
-  "net_effect": "0.00"
+  "reversed": [7, 12],   -- IDs that were reversed
+  "skipped": [15]        -- IDs already reversed or not found (silently ignored)
 }
 ```
 
-409 Conflict if `reversed_by` is already set on the original.
+Already-reversed transactions are silently skipped and returned in `skipped` — no 409.
+Single-transaction reversal uses the same endpoint with a one-element `ids` array.
 
 **Reversal reasons:**
 ```
@@ -1122,15 +1121,15 @@ Correction rows (`correction_of IS NOT NULL`) are included — they are the auth
 **Acceptance criteria**
 - Given a committed transaction
 - When I tap "Reverse" and select reason "duplicate"
-- Then `POST /transactions/{id}/reverse` creates a credit row with `reversal_of = original.id`
+- Then `POST /transactions/reverse` creates a credit row with `reversal_of = original.id`
 - And the original gains `reversed_by`; both are excluded from totals; both visible in ledger with "Reversed" badge
 - Given I try to reverse an already-reversed transaction
-- Then the API returns 409 Conflict
+- Then the API returns 200 with the ID in `skipped` (silent no-op, not an error)
 - Given a correction was applied (Story 2.2 PATCH on financial fields)
 - Then the correction row IS included in analytics; the original and its reversal are not
 
-**In scope**: All five FK columns migration (shared with Story 2.2); `POST /transactions/{id}/reverse`; 409 guard; analytics exclusion clause; "Reversed" badge.
-**Out of scope**: Hard delete — never on committed transactions; bulk reversal; undoing a reversal (post a new forward entry instead).
+**In scope**: All five FK columns migration (shared with Story 2.2); `POST /transactions/reverse` (bulk + single); silent-skip for already-reversed; analytics exclusion clause; "Reversed" badge.
+**Out of scope**: Hard delete — never on committed transactions; undoing a reversal (post a new forward entry instead).
 
 **Touched files**: new migration `backend/alembic/versions/`; `backend/src/api/routes/transactions.py`; `backend/src/api/schemas/transactions.py`; `frontend/src/app/transactions/page.tsx`.
 
