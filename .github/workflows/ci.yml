@@ -15,13 +15,13 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_USER: ci_user
-          POSTGRES_PASSWORD: ci_password
+          POSTGRES_USER: ${{ secrets.CI_DB_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.CI_DB_PASSWORD }}
           POSTGRES_DB: spending_tracker_test
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U ci_user -d spending_tracker_test"
+          --health-cmd "pg_isready -U ${{ secrets.CI_DB_USER }} -d spending_tracker_test"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -47,10 +47,10 @@ jobs:
       - name: Run migrations and tests
         working-directory: backend
         env:
-          DATABASE_URL: postgresql+asyncpg://ci_user:ci_password@localhost:5432/spending_tracker_test
+          DATABASE_URL: postgresql+asyncpg://${{ secrets.CI_DB_USER }}:${{ secrets.CI_DB_PASSWORD }}@localhost:5432/spending_tracker_test
           TEST_DB_HOST: localhost
-          DB_USER: ci_user
-          DB_PASSWORD: ci_password
+          DB_USER: ${{ secrets.CI_DB_USER }}
+          DB_PASSWORD: ${{ secrets.CI_DB_PASSWORD }}
         run: |
           alembic upgrade head
           pytest --tb=short -q
@@ -102,13 +102,13 @@ jobs:
 
       - name: Create .env for docker compose
         run: |
-          echo "DB_USER=ci_user" >> .env
-          echo "DB_PASSWORD=ci_password" >> .env
-          echo "DATABASE_URL=postgresql+asyncpg://ci_user:ci_password@db:5432/spending_tracker" >> .env
+          echo "DB_USER=${{ secrets.CI_DB_USER }}" >> .env
+          echo "DB_PASSWORD=${{ secrets.CI_DB_PASSWORD }}" >> .env
+          echo "DATABASE_URL=postgresql+asyncpg://${{ secrets.CI_DB_USER }}:${{ secrets.CI_DB_PASSWORD }}@db:5432/spending_tracker" >> .env
 
       - name: Start full stack
         env:
-          APP_SECRET: "test-secret-32chars-minimum-here!!"
+          APP_SECRET: ${{ secrets.APP_SECRET }}
         run: docker compose up -d --build
         # Backend CMD now runs "alembic upgrade head && uvicorn ..." so migrations
         # are applied automatically before the service becomes healthy.
