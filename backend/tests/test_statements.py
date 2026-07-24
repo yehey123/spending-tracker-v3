@@ -11,22 +11,12 @@ def _make_png_bytes():
     return buf.getvalue()
 
 
-def _mock_storage():
-    """Return a mock StorageBackend that records calls without touching the filesystem."""
-    m = MagicMock()
-    m.save = AsyncMock(return_value="test-key.png")
-    m.delete = AsyncMock()
-    return m
-
-
 @pytest.mark.asyncio
 async def test_upload_statement_image(client):
     png = _make_png_bytes()
     mock_ocr = AsyncMock(return_value="01/05/2026 | GRAB FOOD | 150.00 | DEBIT\n01/05/2026 | SALARY | 50000.00 | CREDIT")
     mock_pre = MagicMock(return_value=Image.new("L", (100, 100)))
-    mock_store = _mock_storage()
     with patch("src.domain.services.preprocessor.preprocess", mock_pre), \
-         patch("src.api.routes.statements.get_storage_backend", return_value=mock_store), \
          patch("src.domain.services.statement_pipeline.TesseractProvider") as MockProv:
         instance = MockProv.return_value
         instance.extract_text = mock_ocr
@@ -39,7 +29,6 @@ async def test_upload_statement_image(client):
     assert data["status"] in ("staged", "committed")
     assert data["transaction_count"] == 2
     assert data["filename"] == "bank.png"
-    mock_store.save.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -67,9 +56,7 @@ async def test_list_statements(client):
     png = _make_png_bytes()
     mock_ocr = AsyncMock(return_value="")
     mock_pre = MagicMock(return_value=Image.new("L", (100, 100)))
-    mock_store = _mock_storage()
     with patch("src.domain.services.preprocessor.preprocess", mock_pre), \
-         patch("src.api.routes.statements.get_storage_backend", return_value=mock_store), \
          patch("src.domain.services.statement_pipeline.TesseractProvider") as MockProv:
         instance = MockProv.return_value
         instance.extract_text = mock_ocr
@@ -84,40 +71,29 @@ async def test_delete_statement(client):
     png = _make_png_bytes()
     mock_ocr = AsyncMock(return_value="")
     mock_pre = MagicMock(return_value=Image.new("L", (100, 100)))
-    mock_store = _mock_storage()
     with patch("src.domain.services.preprocessor.preprocess", mock_pre), \
-         patch("src.api.routes.statements.get_storage_backend", return_value=mock_store), \
          patch("src.domain.services.statement_pipeline.TesseractProvider") as MockProv:
         instance = MockProv.return_value
         instance.extract_text = mock_ocr
         stmt = (await client.post("/statements/upload", files={"file": ("del.png", png, "image/png")})).json()
-    storage_for_delete = _mock_storage()
-    with patch("src.api.routes.statements.get_storage_backend", return_value=storage_for_delete):
-        res = await client.delete(f"/statements/{stmt['id']}")
+    res = await client.delete(f"/statements/{stmt['id']}")
     assert res.status_code == 204
 
 
 @pytest.mark.asyncio
-async def test_delete_calls_storage_with_storage_key(client):
-    """Pins the delete-bug fix: delete must use storage_key, not filename."""
+async def test_delete_removes_statement_no_storage(client):
+    """Files are processed in memory only — no storage backend is called on upload or delete."""
     png = _make_png_bytes()
     mock_ocr = AsyncMock(return_value="")
     mock_pre = MagicMock(return_value=Image.new("L", (100, 100)))
-    mock_store = _mock_storage()
     with patch("src.domain.services.preprocessor.preprocess", mock_pre), \
-         patch("src.api.routes.statements.get_storage_backend", return_value=mock_store), \
          patch("src.domain.services.statement_pipeline.TesseractProvider") as MockProv:
         instance = MockProv.return_value
         instance.extract_text = mock_ocr
         stmt = (await client.post("/statements/upload", files={"file": ("receipt.png", png, "image/png")})).json()
 
-    # Capture the key that was stored (uuid-based, not the original filename)
-    saved_key = mock_store.save.call_args[0][0]  # first positional arg to save()
+    res = await client.delete(f"/statements/{stmt['id']}")
+    assert res.status_code == 204
 
-    storage_for_delete = _mock_storage()
-    with patch("src.api.routes.statements.get_storage_backend", return_value=storage_for_delete):
-        await client.delete(f"/statements/{stmt['id']}")
-
-    # Delete must be called with the uuid key, not "receipt.png"
-    storage_for_delete.delete.assert_called_once_with(saved_key)
-    assert saved_key != "receipt.png"
+    remaining = (await client.get("/statements")).json()
+    assert stmt["id"] not in [s["id"] for s in remaining]

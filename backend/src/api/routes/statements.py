@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import uuid
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -14,8 +13,6 @@ from src.api.schemas.statements import StatementOut
 from src.db.session import get_db
 from src.domain.models.statement import Statement
 from src.domain.models.transaction import Transaction
-from src.domain.services.storage import get_storage_backend
-
 import logging
 logger = logging.getLogger('statements')
 
@@ -47,16 +44,8 @@ async def upload_statement(
 
     inferred_type = "pdf" if content_type == "application/pdf" else "image"
     ext = "pdf" if inferred_type == "pdf" else ("png" if content_type == "image/png" else "jpg")
-    key = f"{uuid.uuid4()}.{ext}"
-    storage = get_storage_backend()
-    try:
-        await storage.save(key, content)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Storage error: {e}") from e
-
     statement = Statement(
-        filename=file.filename or key,
-        storage_key=key,
+        filename=file.filename or f"upload.{ext}",
         type=inferred_type,
         status="processing",
         ocr_provider="tesseract",  # will be updated by pipeline
@@ -249,13 +238,6 @@ async def delete_statement(id: int, db: AsyncSession = Depends(get_db)) -> None:
     statement = result.scalar_one_or_none()
     if statement is None:
         raise HTTPException(status_code=404, detail="Statement not found.")
-
-    storage = get_storage_backend()
-    if statement.storage_key:
-        try:
-            await storage.delete(statement.storage_key)
-        except Exception:
-            pass  # silent — object may already be gone
 
     await db.delete(statement)
     await db.commit()

@@ -21,18 +21,9 @@ def _png():
     return buf.getvalue()
 
 
-def _mock_storage():
-    m = MagicMock()
-    m.save = AsyncMock(return_value="test-key.png")
-    m.delete = AsyncMock()
-    return m
-
-
 async def _upload(client, ocr_text="01/05/2026 | GRAB FOOD | 150.00 | DEBIT"):
     mock_pre = MagicMock(return_value=Image.new("L", (100, 100)))
-    mock_store = _mock_storage()
     with patch("src.domain.services.preprocessor.preprocess", mock_pre), \
-         patch("src.api.routes.statements.get_storage_backend", return_value=mock_store), \
          patch("src.domain.services.statement_pipeline.TesseractProvider") as MockProv:
         instance = MockProv.return_value
         instance.extract_text = AsyncMock(return_value=ocr_text)
