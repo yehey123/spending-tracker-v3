@@ -4,12 +4,15 @@ from PIL import Image
 
 _BASE_PROMPT = (
     "Extract EVERY transaction from this bank or credit card statement image. "
-    "Do not stop early — list every single visible row from top to bottom without skipping any. "
+    "If the statement shows a 'Previous Balance', 'Previous Statement Balance', or 'Opening Balance' amount, "
+    "output it as the very first line in this exact format:\n"
+    "OPENING_BALANCE: <amount>\n\n"
+    "Then list every transaction from top to bottom without skipping any. "
     "Return one transaction per line in this exact format:\n"
     "DATE | DESCRIPTION | AMOUNT | DEBIT or CREDIT\n\n"
     "Use MM/DD/YYYY for dates. Amounts are numbers only, no currency symbols, no commas. "
     "If an amount has a trailing minus sign (e.g. 22000.00-), mark it as CREDIT. "
-    "Output only transaction lines. No headers, no totals, no commentary. "
+    "Output only the OPENING_BALANCE line (if present) and transaction lines. No other headers, totals, or commentary. "
     "Continue until the very last visible transaction has been listed."
 )
 

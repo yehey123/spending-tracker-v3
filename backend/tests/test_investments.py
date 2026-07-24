@@ -2,7 +2,7 @@
 
 import asyncpg
 import pytest
-from datetime import date
+from datetime import date  # used for investment tx date
 from tests.conftest import TEST_DB_RAW
 
 
@@ -10,9 +10,8 @@ async def _create_broker_account() -> int:
     conn = await asyncpg.connect(TEST_DB_RAW)
     try:
         row = await conn.fetchrow(
-            """INSERT INTO accounts (name, type, currency, opening_balance, opening_date)
-               VALUES ('Fidelity', 'broker', 'USD', 0, $1) RETURNING id""",
-            date(2024, 1, 1),
+            """INSERT INTO accounts (name, type, currency, opening_balance)
+               VALUES ('Fidelity', 'broker', 'USD', 0) RETURNING id"""
         )
         return row["id"]
     finally:
@@ -68,9 +67,8 @@ async def test_investment_tx_on_non_broker_returns_422(client):
     conn = await asyncpg.connect(TEST_DB_RAW)
     try:
         row = await conn.fetchrow(
-            """INSERT INTO accounts (name, type, currency, opening_balance, opening_date)
-               VALUES ('BPI', 'checking', 'PHP', 0, $1) RETURNING id""",
-            date(2024, 1, 1),
+            """INSERT INTO accounts (name, type, currency, opening_balance)
+               VALUES ('BPI', 'checking', 'PHP', 0) RETURNING id"""
         )
         acc_id = row["id"]
     finally:

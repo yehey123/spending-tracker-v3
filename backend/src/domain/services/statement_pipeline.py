@@ -41,9 +41,21 @@ import hashlib
 import hmac
 import re
 from datetime import timedelta
+from decimal import Decimal
 
 CC_NUMBER_RE = re.compile(r'\d{4}[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?\d{4}')
 BANK_ACCT_RE = re.compile(r'\b\d{10,14}\b')
+_OPENING_BALANCE_RE = re.compile(r'^OPENING_BALANCE:\s*([\d,]+\.?\d*)', re.MULTILINE)
+
+
+def _extract_opening_balance(raw_text: str) -> Decimal | None:
+    m = _OPENING_BALANCE_RE.search(raw_text)
+    if m:
+        try:
+            return Decimal(m.group(1).replace(',', ''))
+        except Exception:
+            return None
+    return None
 
 
 async def detect_account(raw_text: str, db: AsyncSession):
@@ -95,7 +107,6 @@ async def detect_account(raw_text: str, db: AsyncSession):
         last_four=last_four,
         fingerprint=fingerprint,
         opening_balance=0,
-        opening_date=date_type.today(),
     )
     db.add(new_account)
     await db.flush()
@@ -174,7 +185,7 @@ class StatementPipeline:
     """Multi-stage statement processing pipeline."""
 
     async def run(self, statement: Statement, content: bytes, content_type: str,
-                  db: AsyncSession) -> tuple[list[Transaction], bool]:
+                  db: AsyncSession, account_id: int | None = None) -> tuple[list[Transaction], bool]:
         """Run OCR → parse → (categorize) → staged insert. Returns (transactions, account_created)."""
         from src.domain.services.pdf_parser import extract_pdf_text
         from src.domain.services.preprocessor import preprocess
@@ -266,16 +277,33 @@ class StatementPipeline:
 
         # Stage 1.5 — Account detection (non-fatal)
         account_created = False
-        try:
-            account = await detect_account(raw_text, db)
-            account_id = account.id if account else None
-            if account_id is not None:
-                account_created = account.name.startswith('****')
+        account = None
+        if account_id is not None:
+            # Explicit account selected by user — skip auto-detect
+            from src.domain.models.account import Account
+            account = await db.get(Account, account_id)
+            if account:
                 statement.account_id = account_id
-        except Exception as e:
-            logger.warning('Account detection failed: %s', e)
-            account = None
-            account_id = None
+            else:
+                logger.warning('Explicit account_id=%d not found — falling back to auto-detect', account_id)
+                account_id = None
+        if account_id is None:
+            try:
+                account = await detect_account(raw_text, db)
+                account_id = account.id if account else None
+                if account_id is not None:
+                    account_created = account.name.startswith('****')
+                    statement.account_id = account_id
+            except Exception as e:
+                logger.warning('Account detection failed: %s', e)
+                account = None
+                account_id = None
+
+        # Stage 1.55 — Store extracted opening balance on statement for user confirmation at review
+        opening_balance = _extract_opening_balance(raw_text)
+        if opening_balance is not None:
+            statement.extracted_opening_balance = opening_balance
+            logger.info('Extracted opening_balance=%.2f from statement %d (pending user confirmation)', opening_balance, statement.id)
 
         # If linked account is a credit card, upgrade statement_kind automatically
         if account and getattr(account, 'type', None) == 'credit_card':

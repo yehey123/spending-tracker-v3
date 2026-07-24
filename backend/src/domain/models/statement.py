@@ -59,6 +59,9 @@ class Statement(Base):
     statement_kind: Mapped[str | None] = mapped_column(String(20), nullable=True, server_default="bank_account")
     file_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
+    # Added in migration 0007
+    extracted_opening_balance: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
+
     # Added in migration 0010
     account_id: Mapped[int | None] = mapped_column(
         ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True)

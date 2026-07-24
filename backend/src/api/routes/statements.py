@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import uuid
+from decimal import Decimal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from pydantic import BaseModel
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,6 +30,7 @@ async def upload_statement(
     file: UploadFile = File(...),
     type: str | None = Form(default=None),
     statement_kind: str = Form(default="bank_account"),
+    account_id: int | None = Form(default=None),
     db: AsyncSession = Depends(get_db),
 ) -> StatementOut:
     """Upload a bank statement image or PDF, run OCR pipeline, persist transactions."""
@@ -67,7 +70,7 @@ async def upload_statement(
 
     try:
         from src.domain.services.statement_pipeline import statement_pipeline
-        transactions, account_created = await statement_pipeline.run(statement, content, content_type, db)
+        transactions, account_created = await statement_pipeline.run(statement, content, content_type, db, account_id=account_id)
         await db.commit()
         await db.refresh(statement)
     except HTTPException:
@@ -153,6 +156,8 @@ async def get_staged_transactions(statement_id: int, db: AsyncSession = Depends(
         "declared_total": str(stmt.declared_total) if stmt.declared_total else None,
         "extracted_total": debit_total_str,
         "total_match": stmt.declared_total is not None and abs(stmt.declared_total - debit_total) < 1,
+        "extracted_opening_balance": str(stmt.extracted_opening_balance) if stmt.extracted_opening_balance is not None else None,
+        "account_id": stmt.account_id,
         "transactions": [
             {
                 "id": tx.id,
@@ -168,13 +173,23 @@ async def get_staged_transactions(statement_id: int, db: AsyncSession = Depends(
     }
 
 
+class CommitBody(BaseModel):
+    opening_balance: Decimal | None = None
+
+
 @router.post("/{statement_id}/commit")
-async def commit_statement(statement_id: int, db: AsyncSession = Depends(get_db)):
-    """Promote all staged transactions to active."""
+async def commit_statement(statement_id: int, body: CommitBody = CommitBody(), db: AsyncSession = Depends(get_db)):
+    """Promote all staged transactions to active. Optionally set account opening_balance."""
     stmt = await db.get(Statement, statement_id)
     status_val = stmt.status.value if hasattr(stmt.status, 'value') else stmt.status if stmt else None
     if stmt is None or status_val != 'staged':
         raise HTTPException(status_code=409, detail="Statement is not in staged state")
+
+    if body.opening_balance is not None and stmt.account_id is not None:
+        from src.domain.models.account import Account
+        account = await db.get(Account, stmt.account_id)
+        if account:
+            account.opening_balance = body.opening_balance
 
     await db.execute(
         update(Transaction)

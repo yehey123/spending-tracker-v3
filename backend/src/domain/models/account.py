@@ -1,7 +1,6 @@
-from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Date, Numeric, String
+from sqlalchemy import Boolean, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.db.base import Base
@@ -21,7 +20,6 @@ class Account(Base):
     fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
     opening_balance: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False,
                                                       server_default="0")
-    opening_date: Mapped[date] = mapped_column(Date, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
 
     statements: Mapped[list["Statement"]] = relationship(back_populates="account")

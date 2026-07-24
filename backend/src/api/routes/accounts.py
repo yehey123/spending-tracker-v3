@@ -2,7 +2,6 @@
 
 import hashlib
 import hmac
-from datetime import date
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -32,7 +31,6 @@ class AccountCreate(BaseModel):
     institution: str | None = None
     account_number: str | None = None
     opening_balance: float = 0
-    opening_date: date
 
 
 class AccountUpdate(BaseModel):
@@ -51,7 +49,6 @@ def _account_dict(acc: Account, current_balance: Decimal) -> dict:
         "institution": acc.institution,
         "last_four": acc.last_four,
         "opening_balance": str(acc.opening_balance),
-        "opening_date": acc.opening_date.isoformat(),
         "is_active": acc.is_active,
         "current_balance": str(current_balance),
     }
@@ -76,7 +73,7 @@ async def list_accounts(db: AsyncSession = Depends(get_db)):
                 )
             ).where(
                 Transaction.account_id == acc.id,
-                Transaction.date >= acc.opening_date,
+
                 Transaction.status == 'active',
                 Transaction.reversed_by.is_(None),
                 Transaction.reversal_of.is_(None),
@@ -110,7 +107,7 @@ async def create_account(body: AccountCreate, db: AsyncSession = Depends(get_db)
         last_four=last_four,
         fingerprint=fingerprint,
         opening_balance=Decimal(str(body.opening_balance)),
-        opening_date=body.opening_date,
+
     )
     db.add(acc)
     await db.commit()
@@ -124,7 +121,6 @@ async def create_account(body: AccountCreate, db: AsyncSession = Depends(get_db)
         "last_four": acc.last_four,
         "fingerprint": None,  # never returned
         "opening_balance": str(acc.opening_balance),
-        "opening_date": acc.opening_date.isoformat(),
         "is_active": acc.is_active,
     }
 
@@ -189,7 +185,6 @@ async def get_account_balance(account_id: int, db: AsyncSession = Depends(get_db
             )
         ).where(
             Transaction.account_id == account_id,
-            Transaction.date >= acc.opening_date,
             Transaction.status == 'active',
             Transaction.reversed_by.is_(None),
             Transaction.reversal_of.is_(None),

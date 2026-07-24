@@ -2,7 +2,6 @@
 
 import asyncpg
 import pytest
-from datetime import date
 from tests.conftest import TEST_DB_RAW
 
 
@@ -10,14 +9,13 @@ async def _create_account_direct(
     name: str = "Test Bank",
     type: str = "checking",
     opening_balance: str = "1000.00",
-    opening_date: str = "2026-01-01",
 ) -> int:
     conn = await asyncpg.connect(TEST_DB_RAW)
     try:
         row = await conn.fetchrow(
-            """INSERT INTO accounts (name, type, currency, opening_balance, opening_date)
-               VALUES ($1, $2, 'PHP', $3, $4) RETURNING id""",
-            name, type, opening_balance, date.fromisoformat(opening_date),
+            """INSERT INTO accounts (name, type, currency, opening_balance)
+               VALUES ($1, $2, 'PHP', $3) RETURNING id""",
+            name, type, opening_balance,
         )
         return row["id"]
     finally:
@@ -49,7 +47,7 @@ async def test_create_account_minimal(client):
     resp = await client.post("/accounts", json={
         "name": "BPI Savings",
         "type": "savings",
-        "opening_date": "2026-01-01",
+
     })
     assert resp.status_code == 201
     data = resp.json()
@@ -63,7 +61,7 @@ async def test_create_account_invalid_type(client):
     resp = await client.post("/accounts", json={
         "name": "Bad",
         "type": "crypto",
-        "opening_date": "2026-01-01",
+
     })
     assert resp.status_code == 422
 
@@ -73,7 +71,7 @@ async def test_create_account_with_number_stores_last_four(client):
     resp = await client.post("/accounts", json={
         "name": "BPI CC",
         "type": "credit_card",
-        "opening_date": "2026-01-01",
+
         "account_number": "4111111111111111",
     })
     assert resp.status_code == 201
@@ -168,8 +166,8 @@ async def test_detect_duplicates_flags_matching_txn(db_session):
     # Create account
     acc_id_row = await db_session.execute(
         text(
-            "INSERT INTO accounts (name, type, currency, opening_balance, opening_date) "
-            "VALUES ('Test', 'checking', 'PHP', 0, '2026-01-01') RETURNING id"
+            "INSERT INTO accounts (name, type, currency, opening_balance) "
+            "VALUES ('Test', 'checking', 'PHP', 0) RETURNING id"
         )
     )
     acc_id = acc_id_row.scalar()
