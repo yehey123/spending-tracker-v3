@@ -1,22 +1,26 @@
 /**
  * Real-statement OCR tests.
  *
- * These tests require a real bank statement image that is intentionally
- * NOT committed to the repo. Place the file at:
+ * By default these tests use the synthetic fixture committed at:
+ *   frontend/tests/e2e/fixtures/statement_filled.png
  *
- *   frontend/tests/e2e/fixtures/private/statement.png
- *
- * All tests in this file auto-skip when the fixture is absent, so CI
- * (which never has the file) stays green.
+ * To test with your own bank statement, place it at:
+ *   frontend/tests/e2e/fixtures/private/statement.png   (gitignored)
+ * and that file will be preferred automatically.
  */
 import { test, expect, request } from '@playwright/test';
 import { apiURL } from './fixtures';
 import * as fs from 'fs';
 import * as path from 'path';
 
-const REAL_STATEMENT = path.join(__dirname, 'fixtures', 'private', 'statement.png');
-const FIXTURE_PRESENT = fs.existsSync(REAL_STATEMENT);
-const SKIP_REASON = 'real statement fixture absent — add to frontend/tests/e2e/fixtures/private/statement.png';
+const PRIVATE_STATEMENT = path.join(__dirname, 'fixtures', 'private', 'statement.png');
+const FILLED_STATEMENT  = path.join(__dirname, 'fixtures', 'statement_filled.png');
+// statement_filled.png is the committed public fixture; set USE_PRIVATE_STATEMENT=1 to switch
+const REAL_STATEMENT    = process.env.USE_PRIVATE_STATEMENT === '1' && fs.existsSync(PRIVATE_STATEMENT)
+  ? PRIVATE_STATEMENT
+  : FILLED_STATEMENT;
+const FIXTURE_PRESENT   = fs.existsSync(REAL_STATEMENT);
+const SKIP_REASON = 'no statement fixture found';
 
 // Collect statement IDs created across tests so the cleanup test can reverse their transactions
 const createdStatementIds: number[] = [];
