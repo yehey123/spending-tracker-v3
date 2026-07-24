@@ -70,8 +70,8 @@ export function useTransactionMutations() {
   });
 
   const reverseMutation = useMutation({
-    mutationFn: ({ id, reason }: { id: number; reason: string }) =>
-      api.post(`/transactions/${id}/reverse`, { reason }),
+    mutationFn: ({ ids, reason }: { ids: number[]; reason: string }) =>
+      api.post<{ reversed: number[]; skipped: number[] }>('/transactions/reverse', { ids, reason }),
     onSuccess: invalidate,
   });
 

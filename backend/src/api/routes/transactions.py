@@ -252,48 +252,43 @@ async def patch_transaction(id: int, body: TransactionPatch, db: AsyncSession = 
     )
 
 
-@router.post("/{id}/reverse")
-async def reverse_transaction(
-    id: int,
+@router.post("/reverse")
+async def reverse_transactions(
     body: ReverseRequest,
     db: AsyncSession = Depends(get_db),
 ):
-    """Create a reversal row for a committed transaction."""
-    tx = await db.get(Transaction, id)
-    if not tx:
-        raise HTTPException(status_code=404, detail="Transaction not found.")
-    if tx.reversed_by is not None:
-        raise HTTPException(status_code=409, detail="Transaction is already reversed")
-    if tx.reversal_of is not None:
-        raise HTTPException(status_code=409, detail="Cannot reverse a reversal row")
+    """Reverse one or more committed transactions. Already-reversed rows are silently skipped."""
+    reversed_ids: list[int] = []
+    skipped_ids: list[int] = []
 
-    tx_direction = tx.direction.value if hasattr(tx.direction, 'value') else tx.direction
-    tx_date = tx.date.replace(tzinfo=None) if tx.date and tx.date.tzinfo else tx.date
-    reversal = Transaction(
-        date=tx_date,
-        amount=tx.amount,
-        description=tx.description,
-        direction='credit' if tx_direction == 'debit' else 'debit',
-        category_id=tx.category_id,
-        statement_id=tx.statement_id,
-        currency=tx.currency,
-        status='active',
-        transaction_origin=tx.transaction_origin if isinstance(tx.transaction_origin, str) else tx.transaction_origin.value,
-        reversal_of=tx.id,
-        reversal_reason=body.reason,
-    )
-    db.add(reversal)
-    await db.flush()
+    for tx_id in body.ids:
+        tx = await db.get(Transaction, tx_id)
+        if not tx or tx.reversed_by is not None or tx.reversal_of is not None:
+            skipped_ids.append(tx_id)
+            continue
 
-    tx.reversed_by = reversal.id
+        tx_direction = tx.direction.value if hasattr(tx.direction, 'value') else tx.direction
+        tx_date = tx.date.replace(tzinfo=None) if tx.date and tx.date.tzinfo else tx.date
+        reversal = Transaction(
+            date=tx_date,
+            amount=tx.amount,
+            description=tx.description,
+            direction='credit' if tx_direction == 'debit' else 'debit',
+            category_id=tx.category_id,
+            statement_id=tx.statement_id,
+            currency=tx.currency,
+            status='active',
+            transaction_origin=tx.transaction_origin if isinstance(tx.transaction_origin, str) else tx.transaction_origin.value,
+            reversal_of=tx.id,
+            reversal_reason=body.reason,
+        )
+        db.add(reversal)
+        await db.flush()
+        tx.reversed_by = reversal.id
+        reversed_ids.append(tx_id)
+
     await db.commit()
-
-    return {
-        "reversal_id": reversal.id,
-        "original_id": tx.id,
-        "reason": body.reason,
-        "net_effect": "0.00",
-    }
+    return {"reversed": reversed_ids, "skipped": skipped_ids}
 
 
 @router.get("/{id}/history", response_model=list[AuditLogOut])

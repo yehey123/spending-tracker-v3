@@ -40,6 +40,7 @@ class TransactionPatch(BaseModel):
 
 
 class ReverseRequest(BaseModel):
+    ids: list[int] = Field(min_length=1)
     reason: str
     notes: str | None = None
 
