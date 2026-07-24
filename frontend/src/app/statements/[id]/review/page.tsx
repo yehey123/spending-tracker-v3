@@ -1,5 +1,6 @@
 'use client';
 import { useParams, useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import type { StagedReviewResponse, Category } from '@/lib/types';
@@ -10,11 +11,20 @@ export default function StatementReviewPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const qc = useQueryClient();
+  const [openingBalance, setOpeningBalance] = useState<string>('');
+  const [applyOpening, setApplyOpening] = useState(false);
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['staged', id],
     queryFn: () => api.get<StagedReviewResponse>(`/statements/${id}/staged`),
   });
+
+  useEffect(() => {
+    if (data?.extracted_opening_balance) {
+      setOpeningBalance(data.extracted_opening_balance);
+      setApplyOpening(true);
+    }
+  }, [data?.extracted_opening_balance]);
 
   const { data: categories = [] } = useQuery({
     queryKey: ['categories'],
@@ -22,9 +32,12 @@ export default function StatementReviewPage() {
   });
 
   const commit = useMutation({
-    mutationFn: () => api.post(`/statements/${id}/commit`, {}),
+    mutationFn: () => api.post(`/statements/${id}/commit`, {
+      opening_balance: applyOpening && openingBalance ? parseFloat(openingBalance) : null,
+    }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['transactions'] });
+      qc.invalidateQueries({ queryKey: ['accounts'] });
       router.push('/transactions');
     },
   });
@@ -63,6 +76,37 @@ export default function StatementReviewPage() {
             Gap detected: extracted ${data.extracted_total}
             {data.declared_total ? ` vs declared $${data.declared_total}` : ' (no declared total)'}
           </span>
+        </div>
+      )}
+
+      {data.extracted_opening_balance && data.account_id && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-sm font-medium text-blue-800">Opening Balance Detected</p>
+              <p className="text-xs text-blue-600 mt-0.5">
+                Set this as the account&apos;s starting balance? You can edit the amount below.
+              </p>
+            </div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={applyOpening}
+                onChange={(e) => setApplyOpening(e.target.checked)}
+                className="w-4 h-4 accent-indigo-600"
+              />
+              <span className="text-sm text-blue-700">Apply</span>
+            </label>
+          </div>
+          {applyOpening && (
+            <input
+              type="number"
+              step="0.01"
+              value={openingBalance}
+              onChange={(e) => setOpeningBalance(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-blue-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            />
+          )}
         </div>
       )}
 

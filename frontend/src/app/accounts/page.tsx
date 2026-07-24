@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Pencil } from 'lucide-react';
 import { Account } from '@/lib/types';
 
 const ACCOUNT_TYPES = ['checking', 'savings', 'credit_card', 'cash', 'broker'] as const;
@@ -19,8 +20,7 @@ export default function AccountsPage() {
   const [editName, setEditName] = useState('');
   const [form, setForm] = useState({
     name: '', type: 'checking', currency: 'PHP',
-    institution: '', opening_balance: '0', opening_date: '',
-    account_number: '',
+    institution: '', opening_balance: '0', account_number: '',
   });
 
   const { data: accounts = [], isLoading } = useQuery<Account[]>({
@@ -41,7 +41,7 @@ export default function AccountsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
       setShowForm(false);
-      setForm({ name: '', type: 'checking', currency: 'PHP', institution: '', opening_balance: '0', opening_date: '', account_number: '' });
+      setForm({ name: '', type: 'checking', currency: 'PHP', institution: '', opening_balance: '0', account_number: '' });
     },
   });
 
@@ -76,7 +76,6 @@ export default function AccountsPage() {
       type: form.type,
       currency: form.currency,
       opening_balance: parseFloat(form.opening_balance) || 0,
-      opening_date: form.opening_date,
     };
     if (form.institution) body.institution = form.institution;
     if (form.account_number) body.account_number = form.account_number;
@@ -133,13 +132,6 @@ export default function AccountsPage() {
               />
             </div>
             <input
-              required
-              type="date"
-              value={form.opening_date}
-              onChange={e => setForm(f => ({ ...f, opening_date: e.target.value }))}
-              className="w-full border rounded-lg px-3 py-2 text-sm"
-            />
-            <input
               placeholder="Institution (optional)"
               value={form.institution}
               onChange={e => setForm(f => ({ ...f, institution: e.target.value }))}
@@ -195,9 +187,10 @@ export default function AccountsPage() {
                 ) : (
                   <button
                     onClick={() => { setEditId(acc.id); setEditName(acc.name); }}
-                    className="font-semibold text-gray-900 text-left hover:text-indigo-600"
+                    className="flex items-center gap-1.5 font-semibold text-gray-900 text-left hover:text-indigo-600 group"
                   >
                     {acc.name}
+                    <Pencil size={12} className="text-gray-300 group-hover:text-indigo-400" />
                   </button>
                 )}
                 <span className="ml-2 text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">

@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import type { AppSettings, SettingsPut, ModelsResponse, Category, CategoryCreate } from '@/lib/types';
@@ -91,10 +91,11 @@ export default function SettingsPage() {
 
   const [newName, setNewName] = useState('');
   const [newColor, setNewColor] = useState('#6366F1');
+  const [newParentId, setNewParentId] = useState<string>('');
 
   const addCategory = useMutation({
     mutationFn: (body: CategoryCreate) => api.post<Category>('/categories', body),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['categories'] }); setNewName(''); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['categories'] }); setNewName(''); setNewParentId(''); },
   });
 
   const deleteCategory = useMutation({
@@ -278,25 +279,49 @@ export default function SettingsPage() {
         <h2 className="font-semibold">Categories</h2>
         <ul className="divide-y divide-gray-100">
           {categories.map((c) => (
-            <li key={c.id} className="flex items-center justify-between py-2">
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full inline-block" style={{ backgroundColor: c.color ?? undefined }} />
-                <span className="text-sm">{c.name}</span>
-              </div>
-              <button onClick={() => { if (confirm(`Delete "${c.name}"?`)) deleteCategory.mutate(c.id); }}
-                className="text-gray-400 hover:text-red-500">
-                <Trash2 size={15} />
-              </button>
-            </li>
+            <React.Fragment key={c.id}>
+              <li className="flex items-center justify-between py-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full inline-block" style={{ backgroundColor: c.color ?? undefined }} />
+                  <span className="text-sm font-medium">{c.name}</span>
+                </div>
+                <button onClick={() => { if (confirm(`Delete "${c.name}"?`)) deleteCategory.mutate(c.id); }}
+                  className="text-gray-400 hover:text-red-500">
+                  <Trash2 size={15} />
+                </button>
+              </li>
+              {(c.children ?? []).map((child) => (
+                <li key={child.id} className="flex items-center justify-between py-1.5 pl-6">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: child.color ?? undefined }} />
+                    <span className="text-sm text-gray-600">{child.name}</span>
+                  </div>
+                  <button onClick={() => { if (confirm(`Delete "${child.name}"?`)) deleteCategory.mutate(child.id); }}
+                    className="text-gray-400 hover:text-red-500">
+                    <Trash2 size={14} />
+                  </button>
+                </li>
+              ))}
+            </React.Fragment>
           ))}
         </ul>
-        <div className="flex gap-2 pt-2">
+        <div className="flex flex-wrap gap-2 pt-2">
           <input value={newName} onChange={(e) => setNewName(e.target.value)}
-            placeholder="New category name" className="border rounded-lg px-3 py-2 text-sm flex-1" />
+            placeholder="New category name" className="border rounded-lg px-3 py-2 text-sm flex-1 min-w-32" />
+          <select
+            value={newParentId}
+            onChange={(e) => setNewParentId(e.target.value)}
+            className="border rounded-lg px-3 py-2 text-sm"
+          >
+            <option value="">Top-level</option>
+            {categories.map((c) => (
+              <option key={c.id} value={String(c.id)}>{c.name}</option>
+            ))}
+          </select>
           <input type="color" value={newColor} onChange={(e) => setNewColor(e.target.value)}
             className="border rounded-lg px-2 py-1 w-12 cursor-pointer" />
           <button
-            onClick={() => newName && addCategory.mutate({ name: newName, color: newColor })}
+            onClick={() => newName && addCategory.mutate({ name: newName, color: newColor, parent_id: newParentId ? Number(newParentId) : null })}
             className="bg-indigo-600 text-white px-3 py-2 rounded-lg text-sm flex items-center gap-1"
           >
             <Plus size={15} /> Add

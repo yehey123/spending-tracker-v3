@@ -1,10 +1,11 @@
 'use client';
 import { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { api } from '@/lib/api';
-import type { Statement } from '@/lib/types';
+import type { Statement, Account } from '@/lib/types';
 import { Upload, FileText, CheckCircle, XCircle, Loader } from 'lucide-react';
 
 export default function UploadPage() {
@@ -16,6 +17,12 @@ export default function UploadPage() {
   const [error, setError] = useState('');
   const [newAccountId, setNewAccountId] = useState<number | null>(null);
   const [statementKind, setStatementKind] = useState<'bank_account' | 'credit_card'>('bank_account');
+  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
+
+  const { data: accounts = [] } = useQuery<Account[]>({
+    queryKey: ['accounts'],
+    queryFn: () => api.get<Account[]>('/accounts'),
+  });
 
   const onDrop = useCallback((accepted: File[]) => {
     if (accepted[0]) { setFile(accepted[0]); setStatus('idle'); setResult(null); setError(''); }
@@ -34,6 +41,7 @@ export default function UploadPage() {
       const form = new FormData();
       form.append('file', file);
       form.append('statement_kind', statementKind);
+      if (selectedAccountId) form.append('account_id', selectedAccountId);
       const data = await api.upload<Statement>('/statements/upload', form);
       if (data.status === 'staged') {
         router.push(`/statements/${data.id}/review`);
@@ -94,6 +102,24 @@ export default function UploadPage() {
         </div>
       )}
 
+      {file && (
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-gray-500">Link to account (optional)</label>
+          <select
+            value={selectedAccountId}
+            onChange={e => setSelectedAccountId(e.target.value)}
+            className="border rounded-xl px-3 py-2.5 text-sm w-full"
+          >
+            <option value="">Auto-detect from statement</option>
+            {accounts.map(acc => (
+              <option key={acc.id} value={String(acc.id)}>
+                {acc.name} ({acc.type.replace('_', ' ')})
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {file && status !== 'uploading' && (
         <button
           onClick={handleUpload}
@@ -127,9 +153,9 @@ export default function UploadPage() {
                 New account detected — tap to set name and opening balance.
               </span>
               <div className="flex gap-2 ml-3 shrink-0">
-                <a href="/accounts" className="text-xs font-medium text-blue-600 underline">
+                <Link href="/accounts" className="text-xs font-medium text-blue-600 underline">
                   Go to Accounts
-                </a>
+                </Link>
                 <button onClick={() => setNewAccountId(null)} className="text-xs text-gray-400">✕</button>
               </div>
             </div>

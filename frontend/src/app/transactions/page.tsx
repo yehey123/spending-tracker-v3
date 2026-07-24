@@ -74,6 +74,8 @@ export default function TransactionsPage() {
   });
   const [reversingId, setReversingId] = useState<number | null>(null);
   const [reverseReason, setReverseReason] = useState('user_error');
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkReason, setBulkReason] = useState('user_error');
 
   const { data: categories = [] } = useQuery({
     queryKey: ['categories'],
@@ -101,7 +103,7 @@ export default function TransactionsPage() {
     setReversingId(null);
     setEditingId(tx.id);
     setEditDraft({
-      amount: tx.amount,
+      amount: parseFloat(tx.amount).toFixed(2),
       date: tx.date.slice(0, 10),
       direction: tx.direction,
       description: tx.description,
@@ -111,7 +113,7 @@ export default function TransactionsPage() {
 
   const saveEdit = (txId: number, orig: (typeof transactions)[0]) => {
     const patch: TransactionPatch = {};
-    if (editDraft.amount && editDraft.amount !== orig.amount) patch.amount = parseFloat(editDraft.amount);
+    if (editDraft.amount && parseFloat(editDraft.amount) !== parseFloat(orig.amount)) patch.amount = parseFloat(editDraft.amount);
     if (editDraft.date && editDraft.date !== orig.date.slice(0, 10)) patch.date = new Date(editDraft.date).toISOString();
     if (editDraft.direction !== orig.direction) patch.direction = editDraft.direction;
     if (editDraft.description !== orig.description) patch.description = editDraft.description;
@@ -124,10 +126,20 @@ export default function TransactionsPage() {
     }
   };
 
+  const toggleSelect = (id: number) =>
+    setSelectedIds((prev) => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
+
   const confirmReverse = (txId: number) => {
     reverseMutation.mutate(
-      { id: txId, reason: reverseReason },
+      { ids: [txId], reason: reverseReason },
       { onSuccess: () => setReversingId(null) },
+    );
+  };
+
+  const handleBulkReverse = () => {
+    reverseMutation.mutate(
+      { ids: Array.from(selectedIds), reason: bulkReason },
+      { onSuccess: () => setSelectedIds(new Set()) },
     );
   };
 
@@ -225,12 +237,48 @@ export default function TransactionsPage() {
         </select>
       </div>
 
+      {/* Bulk reverse bar */}
+      {selectedIds.size > 0 && (
+        <div className="flex flex-wrap items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">
+          <span className="text-sm font-medium text-red-700">{selectedIds.size} selected</span>
+          <select
+            value={bulkReason}
+            onChange={(e) => setBulkReason(e.target.value)}
+            className="border rounded-lg px-2 py-1 text-sm"
+          >
+            {REVERSE_REASONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+          </select>
+          <button
+            onClick={handleBulkReverse}
+            disabled={reverseMutation.isPending}
+            className="bg-red-600 text-white text-sm px-3 py-1.5 rounded-lg hover:bg-red-700 disabled:opacity-50"
+          >
+            {reverseMutation.isPending ? 'Reversing…' : `Reverse ${selectedIds.size} transaction${selectedIds.size !== 1 ? 's' : ''}`}
+          </button>
+          <button onClick={() => setSelectedIds(new Set())} className="text-gray-400 text-sm px-2">Cancel</button>
+        </div>
+      )}
+
       {/* List */}
       {isLoading ? (
         <p className="text-center text-gray-400 py-12">Loading…</p>
       ) : transactions.length === 0 ? (
         <p className="text-center text-gray-400 py-12">No transactions found</p>
       ) : (
+        <>
+          <div className="flex items-center gap-2 px-1">
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-gray-300 text-indigo-600"
+              aria-label="Select all transactions"
+              checked={selectedIds.size === transactions.length}
+              ref={(el) => { if (el) el.indeterminate = selectedIds.size > 0 && selectedIds.size < transactions.length; }}
+              onChange={(e) =>
+                setSelectedIds(e.target.checked ? new Set(transactions.map((t) => t.id)) : new Set())
+              }
+            />
+            <span className="text-xs text-gray-400">Select all</span>
+          </div>
         <ul className="space-y-2">
           {transactions.map((tx) => (
             <li key={tx.id} className="bg-white rounded-xl p-4 shadow-sm">
@@ -325,15 +373,24 @@ export default function TransactionsPage() {
                 </div>
               ) : (
                 <div className="flex items-center justify-between">
-                  <div>
-                    <div className="font-medium text-sm">{tx.description}</div>
-                    <div className="text-xs text-gray-400 mt-0.5">
-                      {tx.date.slice(0, 10)} ·{' '}
-                      <span className="inline-flex items-center gap-1">
-                        <span className="inline-block w-2 h-2 rounded-full"
-                          style={{ backgroundColor: tx.category?.color ?? '#9ca3af' }} />
-                        {tx.category?.name ?? 'Uncategorized'}
-                      </span>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(tx.id)}
+                      onChange={() => toggleSelect(tx.id)}
+                      className="h-4 w-4 rounded border-gray-300 text-indigo-600"
+                      aria-label={`Select ${tx.description}`}
+                    />
+                    <div>
+                      <div className="font-medium text-sm">{tx.description}</div>
+                      <div className="text-xs text-gray-400 mt-0.5">
+                        {tx.date.slice(0, 10)} ·{' '}
+                        <span className="inline-flex items-center gap-1">
+                          <span className="inline-block w-2 h-2 rounded-full"
+                            style={{ backgroundColor: tx.category?.color ?? '#9ca3af' }} />
+                          {tx.category?.name ?? 'Uncategorized'}
+                        </span>
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
@@ -365,6 +422,7 @@ export default function TransactionsPage() {
             </li>
           ))}
         </ul>
+        </>
       )}
 
       {/* Pagination */}

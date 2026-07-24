@@ -24,7 +24,6 @@ export interface Account {
   institution: string | null;
   last_four: string | null;
   opening_balance: string;
-  opening_date: string;
   is_active: boolean;
   current_balance: string;
 }
@@ -156,6 +155,8 @@ export interface StagedReviewResponse {
   declared_total: string | null;
   extracted_total: string;
   total_match: boolean;
+  extracted_opening_balance: string | null;
+  account_id: number | null;
   transactions: StagedTransaction[];
 }
 
