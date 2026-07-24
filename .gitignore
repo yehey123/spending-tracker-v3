@@ -37,3 +37,10 @@ uploads/
 
 # Worktree temporaries
 .claude/worktrees/
+
+# Private test fixtures (real financial data — never commit)
+**/fixtures/private/
+
+# Playwright test artifacts
+frontend/test-results/
+frontend/playwright-report/
