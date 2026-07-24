@@ -97,15 +97,32 @@ def store_rates(
     rates_by_date: dict[str, dict[str, float]],
     fetched_at: str,
 ) -> int:
-    """Insert forward and reverse rate pairs. Returns number of rate pairs stored."""
+    """Insert all currency pairs for each date. Returns number of rows stored.
+
+    Frankfurter returns USD→X rates. We store:
+      - USD↔X  (fetched directly)
+      - X↔Y    (derived: X→Y = (USD→Y) / (USD→X))
+    This gives full N² coverage with a single API request per date range.
+    """
     pairs_stored = 0
     for date_str, quote_map in rates_by_date.items():
-        for quote, rate in quote_map.items():
-            # Forward: USD → quote
-            conn.execute(UPSERT_SQL, (date_str, "USD", quote, rate, fetched_at))
-            # Reverse: quote → USD
-            conn.execute(UPSERT_SQL, (date_str, quote, "USD", 1.0 / rate, fetched_at))
-            pairs_stored += 2
+        # quote_map: {currency: rate_from_usd}
+        # Build complete set: include USD itself at rate 1.0
+        usd_rates: dict[str, float] = {"USD": 1.0, **quote_map}
+
+        currencies = list(usd_rates.keys())
+        for base in currencies:
+            rate_base_from_usd = usd_rates[base]
+            if rate_base_from_usd == 0:
+                continue
+            for quote in currencies:
+                if base == quote:
+                    continue
+                rate_quote_from_usd = usd_rates[quote]
+                cross_rate = rate_quote_from_usd / rate_base_from_usd
+                conn.execute(UPSERT_SQL, (date_str, base, quote, cross_rate, fetched_at))
+                pairs_stored += 1
+
     conn.commit()
     return pairs_stored
 
