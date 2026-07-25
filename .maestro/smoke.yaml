@@ -1,0 +1,7 @@
+appId: com.spendingtracker.app
+---
+- launchApp
+- waitForAnimationToEnd:
+    timeout: 15000
+- assertVisible:
+    text: "Spending Tracker"
