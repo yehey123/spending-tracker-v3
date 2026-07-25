@@ -120,7 +120,7 @@ jobs:
       - name: Run Playwright tests
         working-directory: frontend
         env:
-          BASE_URL: "http://localhost"
+          BASE_URL: "http://127.0.0.1"
           CI: "true"
         run: npx playwright test
 
