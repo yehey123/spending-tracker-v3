@@ -1,26 +1,27 @@
 /**
  * Real-statement OCR tests.
  *
- * By default these tests use the synthetic fixture committed at:
- *   frontend/tests/e2e/fixtures/statement_filled.png
- *
- * To test with your own bank statement, place it at:
- *   frontend/tests/e2e/fixtures/private/statement.png   (gitignored)
- * and that file will be preferred automatically.
+ * - Tesseract (default CI): uses tesseract_fixture.png — a synthetic high-contrast PNG
+ *   with pipe-delimited rows that Tesseract reliably parses. Always runs in CI.
+ * - AI providers (anthropic / openai / gemini): uses statement_filled.png (committed public
+ *   fixture) or private/statement.png (gitignored, preferred when USE_PRIVATE_STATEMENT=1).
+ *   Set ANTHROPIC_API_KEY (etc.) to enable.
  */
 import { test, expect, request } from '@playwright/test';
 import { apiURL } from './fixtures';
 import * as fs from 'fs';
 import * as path from 'path';
 
+const TESSERACT_FIXTURE = path.join(__dirname, 'fixtures', 'tesseract_fixture.png');
 const PRIVATE_STATEMENT = path.join(__dirname, 'fixtures', 'private', 'statement.png');
 const FILLED_STATEMENT  = path.join(__dirname, 'fixtures', 'statement_filled.png');
-// statement_filled.png is the committed public fixture; set USE_PRIVATE_STATEMENT=1 to switch
-const REAL_STATEMENT    = process.env.USE_PRIVATE_STATEMENT === '1' && fs.existsSync(PRIVATE_STATEMENT)
+const AI_STATEMENT      = process.env.USE_PRIVATE_STATEMENT === '1' && fs.existsSync(PRIVATE_STATEMENT)
   ? PRIVATE_STATEMENT
   : FILLED_STATEMENT;
-const FIXTURE_PRESENT   = fs.existsSync(REAL_STATEMENT);
-const SKIP_REASON = 'no statement fixture found';
+
+function chooseFixture(ocrProvider: string): string {
+  return ocrProvider === 'tesseract' ? TESSERACT_FIXTURE : AI_STATEMENT;
+}
 
 // Collect statement IDs created across tests so the cleanup test can reverse their transactions
 const createdStatementIds: number[] = [];
@@ -34,18 +35,17 @@ test.describe('real statement OCR pipeline', () => {
   });
 
   test('upload extracts transactions and lands on review page', async ({ page }) => {
-    test.skip(!FIXTURE_PRESENT, SKIP_REASON);
     test.setTimeout(120000);
 
     const ctx = await request.newContext();
     const settingsResp = await ctx.get(`${apiURL()}/settings`);
     const { ocr_provider } = await settingsResp.json() as { ocr_provider: string };
-    test.skip(ocr_provider === 'tesseract', 'Tesseract cannot reliably parse bank statement images — configure an AI OCR provider (ANTHROPIC_API_KEY)');
     await ctx.patch(`${apiURL()}/settings`, { data: { review_before_commit: true } });
     await ctx.dispose();
 
+    const fixture = chooseFixture(ocr_provider);
     await page.goto('/upload');
-    await page.locator('input[type="file"]').setInputFiles(REAL_STATEMENT);
+    await page.locator('input[type="file"]').setInputFiles(fixture);
     await page.getByRole('button', { name: 'Credit Card' }).click();
     await page.getByText(/upload & process/i).click();
 
@@ -64,16 +64,15 @@ test.describe('real statement OCR pipeline', () => {
   });
 
   test('commit imported statement adds transactions to ledger', async ({ page }) => {
-    test.skip(!FIXTURE_PRESENT, SKIP_REASON);
     test.setTimeout(120000);
 
     // Upload via API directly (faster than UI — OCR still runs server-side)
     const ctx = await request.newContext();
     const settingsResp = await ctx.get(`${apiURL()}/settings`);
     const { ocr_provider } = await settingsResp.json() as { ocr_provider: string };
-    test.skip(ocr_provider === 'tesseract', 'Tesseract cannot reliably parse bank statement images — configure an AI OCR provider (ANTHROPIC_API_KEY)');
     await ctx.patch(`${apiURL()}/settings`, { data: { review_before_commit: true } });
-    const buffer = fs.readFileSync(REAL_STATEMENT);
+    const fixture = chooseFixture(ocr_provider);
+    const buffer = fs.readFileSync(fixture);
     const uploadResp = await ctx.post(`${apiURL()}/statements/upload`, {
       multipart: {
         file: { name: 'statement.png', mimeType: 'image/png', buffer },
@@ -98,8 +97,6 @@ test.describe('real statement OCR pipeline', () => {
   });
 
   test('cleanup — reverse all transactions from OCR-imported statements', async ({ page }) => {
-    test.skip(!FIXTURE_PRESENT, SKIP_REASON);
-
     if (createdStatementIds.length === 0) return;
 
     const ctx = await request.newContext();
