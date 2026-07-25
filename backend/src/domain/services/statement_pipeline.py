@@ -194,7 +194,14 @@ class StatementPipeline:
         settings = await db.get(AppSettings, 1)
         if settings is None:
             from src.domain.models.app_settings import AppSettings as AS
-            settings = AS(id=1, ocr_provider="tesseract")
+            from src.core.config import settings as _cfg
+            settings = AS(
+                id=1,
+                ocr_provider=_cfg.ocr_provider,
+                anthropic_api_key=_cfg.anthropic_api_key,
+                openai_api_key=_cfg.openai_api_key,
+                gemini_api_key=_cfg.gemini_api_key,
+            )
 
         ocr_provider = _resolve_ocr(settings)
         statement.ocr_provider = settings.ocr_provider

@@ -105,6 +105,12 @@ jobs:
           echo "DB_USER=${{ secrets.CI_DB_USER }}" >> .env
           echo "DB_PASSWORD=${{ secrets.CI_DB_PASSWORD }}" >> .env
           echo "DATABASE_URL=postgresql+asyncpg://${{ secrets.CI_DB_USER }}:${{ secrets.CI_DB_PASSWORD }}@db:5432/spending_tracker" >> .env
+          if [ -n "$ANTHROPIC_API_KEY" ]; then
+            echo "ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY" >> .env
+            echo "OCR_PROVIDER=anthropic" >> .env
+          fi
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
       - name: Start full stack
         env:

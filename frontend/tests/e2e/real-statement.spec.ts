@@ -38,6 +38,9 @@ test.describe('real statement OCR pipeline', () => {
     test.setTimeout(120000);
 
     const ctx = await request.newContext();
+    const settingsResp = await ctx.get(`${apiURL()}/settings`);
+    const { ocr_provider } = await settingsResp.json() as { ocr_provider: string };
+    test.skip(ocr_provider === 'tesseract', 'Tesseract cannot reliably parse bank statement images — configure an AI OCR provider (ANTHROPIC_API_KEY)');
     await ctx.patch(`${apiURL()}/settings`, { data: { review_before_commit: true } });
     await ctx.dispose();
 
@@ -66,6 +69,9 @@ test.describe('real statement OCR pipeline', () => {
 
     // Upload via API directly (faster than UI — OCR still runs server-side)
     const ctx = await request.newContext();
+    const settingsResp = await ctx.get(`${apiURL()}/settings`);
+    const { ocr_provider } = await settingsResp.json() as { ocr_provider: string };
+    test.skip(ocr_provider === 'tesseract', 'Tesseract cannot reliably parse bank statement images — configure an AI OCR provider (ANTHROPIC_API_KEY)');
     await ctx.patch(`${apiURL()}/settings`, { data: { review_before_commit: true } });
     const buffer = fs.readFileSync(REAL_STATEMENT);
     const uploadResp = await ctx.post(`${apiURL()}/statements/upload`, {

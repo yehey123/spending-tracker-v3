@@ -17,7 +17,14 @@ async def _get_settings(db: AsyncSession) -> AppSettings:
     result = await db.execute(select(AppSettings).where(AppSettings.id == 1))
     row = result.scalar_one_or_none()
     if row is None:
-        row = AppSettings(id=1, ocr_provider="tesseract")
+        from src.core.config import settings as _cfg
+        row = AppSettings(
+            id=1,
+            ocr_provider=_cfg.ocr_provider,
+            anthropic_api_key=_cfg.anthropic_api_key,
+            openai_api_key=_cfg.openai_api_key,
+            gemini_api_key=_cfg.gemini_api_key,
+        )
         db.add(row)
         await db.commit()
         await db.refresh(row)
