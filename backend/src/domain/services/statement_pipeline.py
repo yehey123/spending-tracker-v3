@@ -17,9 +17,13 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# ~8000x8000. Enforced explicitly at open() time; also handed to PIL as defence in
+# depth, though PIL's own check only errors above 2x this value.
+MAX_IMAGE_PIXELS = 64_000_000
+
 try:
     from PIL import Image as PILImage
-    PILImage.MAX_IMAGE_PIXELS = 64_000_000  # ~8000x8000, guards against decompression bombs
+    PILImage.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
 except ImportError:
     PILImage = None  # type: ignore
 
@@ -257,6 +261,15 @@ class StatementPipeline:
                         raise RuntimeError("Pillow is required for image processing.")
                     try:
                         img = PILImage.open(io.BytesIO(content))
+                        # open() parses the header only, so size is known before any
+                        # pixel data is decoded — check it explicitly rather than relying
+                        # on PIL's own guard, which only raises above 2 * MAX_IMAGE_PIXELS
+                        # and merely warns between 1x and 2x.
+                        w, h = img.size
+                        if w * h > MAX_IMAGE_PIXELS:
+                            raise ValueError(
+                                "Image exceeds maximum allowed pixel dimensions."
+                            )
                         img.load()
                     except PILImage.DecompressionBombError as e:
                         raise ValueError(
