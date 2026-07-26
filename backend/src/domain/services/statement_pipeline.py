@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 try:
     from PIL import Image as PILImage
+    PILImage.MAX_IMAGE_PIXELS = 64_000_000  # ~8000x8000, guards against decompression bombs
 except ImportError:
     PILImage = None  # type: ignore
 
@@ -254,7 +255,13 @@ class StatementPipeline:
                 else:
                     if PILImage is None:
                         raise RuntimeError("Pillow is required for image processing.")
-                    img = PILImage.open(io.BytesIO(content))
+                    try:
+                        img = PILImage.open(io.BytesIO(content))
+                        img.load()
+                    except PILImage.DecompressionBombError as e:
+                        raise ValueError(
+                            "Image exceeds maximum allowed pixel dimensions."
+                        ) from e
                     # Preprocessing (grayscale + threshold) helps Tesseract but hurts
                     # AI vision models — send the original color image to those.
                     if settings.ocr_provider == "tesseract":
@@ -272,8 +279,12 @@ class StatementPipeline:
 
                 statement.raw_ocr_text = raw_text
                 logger.info(
-                    "OCR complete [provider=%s] [bundled_categories=%s] [chars=%d]\n--- OCR OUTPUT ---\n%s\n--- END OCR ---",
-                    settings.ocr_provider, bundle_categories, len(raw_text or ""), raw_text or "(empty)"
+                    "OCR complete [provider=%s] [bundled_categories=%s] [chars=%d]",
+                    settings.ocr_provider, bundle_categories, len(raw_text or ""),
+                )
+                logger.debug(
+                    "--- OCR OUTPUT ---\n%s\n--- END OCR ---",
+                    raw_text or "(empty)",
                 )
                 await db.flush()
             except Exception as e:

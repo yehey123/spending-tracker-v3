@@ -20,6 +20,21 @@ router = APIRouter()
 
 _ALLOWED_MIMES = {"image/png", "image/jpeg", "application/pdf"}
 _MAX_SIZE = 20 * 1024 * 1024  # 20 MB
+_CHUNK_SIZE = 1 << 20  # 1 MB
+
+_MAGIC_BYTES: dict[str, bytes] = {
+    "image/png": b"\x89PNG\r\n\x1a\n",
+    "image/jpeg": b"\xff\xd8\xff",
+    "application/pdf": b"%PDF-",
+}
+
+
+def _content_matches_declared_type(content: bytes, content_type: str) -> bool:
+    """Verify the actual file bytes start with the magic number for content_type."""
+    signature = _MAGIC_BYTES.get(content_type)
+    if signature is None:
+        return False
+    return content.startswith(signature)
 
 
 @router.post("/upload", response_model=StatementOut, status_code=200)
@@ -38,9 +53,21 @@ async def upload_statement(
             status_code=400,
             detail="Unsupported file type. Accepted: PNG, JPEG, PDF.",
         )
-    content = await file.read()
-    if len(content) > _MAX_SIZE:
-        raise HTTPException(status_code=400, detail="File exceeds 20 MB limit.")
+    buf = bytearray()
+    while True:
+        chunk = await file.read(_CHUNK_SIZE)
+        if not chunk:
+            break
+        buf.extend(chunk)
+        if len(buf) > _MAX_SIZE:
+            raise HTTPException(status_code=400, detail="File exceeds 20 MB limit.")
+    content = bytes(buf)
+
+    if not _content_matches_declared_type(content, content_type):
+        raise HTTPException(
+            status_code=400,
+            detail="File content does not match its declared type.",
+        )
 
     inferred_type = "pdf" if content_type == "application/pdf" else "image"
     ext = "pdf" if inferred_type == "pdf" else ("png" if content_type == "image/png" else "jpg")
