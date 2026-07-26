@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.schemas.settings import SettingsOut, SettingsPut
 from src.core.config import settings as app_config
+from src.core.crypto import encrypt_secret
 from src.db.session import get_db
 from src.domain.models.app_settings import AppSettings
 
@@ -21,9 +22,9 @@ async def _get_settings(db: AsyncSession) -> AppSettings:
         row = AppSettings(
             id=1,
             ocr_provider=_cfg.ocr_provider,
-            anthropic_api_key=_cfg.anthropic_api_key,
-            openai_api_key=_cfg.openai_api_key,
-            gemini_api_key=_cfg.gemini_api_key,
+            anthropic_api_key=encrypt_secret(_cfg.anthropic_api_key),
+            openai_api_key=encrypt_secret(_cfg.openai_api_key),
+            gemini_api_key=encrypt_secret(_cfg.gemini_api_key),
         )
         db.add(row)
         await db.commit()
@@ -88,9 +89,9 @@ async def update_settings(body: SettingsPut, db: AsyncSession = Depends(get_db))
         row.ocr_provider = body.ocr_provider
 
     if "anthropic_api_key" in fields_set:
-        row.anthropic_api_key = body.anthropic_api_key
+        row.anthropic_api_key = encrypt_secret(body.anthropic_api_key)
     if "openai_api_key" in fields_set:
-        row.openai_api_key = body.openai_api_key
+        row.openai_api_key = encrypt_secret(body.openai_api_key)
     if "home_currency" in fields_set:
         row.home_currency = body.home_currency
     if "review_before_commit" in fields_set and body.review_before_commit is not None:
@@ -105,7 +106,7 @@ async def update_settings(body: SettingsPut, db: AsyncSession = Depends(get_db))
     if "ai_model" in fields_set:
         row.ai_model = body.ai_model
     if "gemini_api_key" in fields_set:
-        row.gemini_api_key = body.gemini_api_key
+        row.gemini_api_key = encrypt_secret(body.gemini_api_key)
     if "google_project_id" in fields_set:
         row.google_project_id = body.google_project_id
     if "google_location" in fields_set:
