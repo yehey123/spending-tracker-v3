@@ -1,0 +1,8 @@
+# Override: gcloud ADC mount for Google Vertex AI OCR provider
+# Only needed when OCR_PROVIDER=vertex. Use via:
+#   docker compose -f docker-compose.yml -f docker-compose.vertex.yml up
+
+services:
+  backend:
+    volumes:
+      - ~/.config/gcloud:/root/.config/gcloud:ro

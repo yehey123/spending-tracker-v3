@@ -29,7 +29,6 @@ services:
       DATABASE_URL: postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@db:5432/spending_tracker
     volumes:
       - exchange_rates_data:/data/rates
-      - ~/.config/gcloud:/root/.config/gcloud:ro
     depends_on:
       db:
         condition: service_healthy
@@ -62,7 +61,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: spending_tracker
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
