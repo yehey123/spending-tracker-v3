@@ -26,5 +26,11 @@ class Settings(BaseSettings):
     # Environment — set APP_ENV=development to enable dev-only features (e.g. dev_mode)
     app_env: str = "production"
 
+    # Shared-secret API auth — empty string disables auth (dev only)
+    api_token: str = ""
+
+    # Comma-separated list of allowed CORS origins; empty falls back to dev/Capacitor defaults
+    cors_origins: str = ""
+
 
 settings = Settings()

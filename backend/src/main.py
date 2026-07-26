@@ -7,9 +7,11 @@ logging.basicConfig(
     format="%(levelname)s [%(name)s] %(message)s",
 )
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from src.core.auth import require_token
+from src.core.config import settings as app_settings
 from src.db.session import AsyncSessionLocal, engine
 from src.domain.services.category_seeder import seed_default_categories
 from src.domain.services.exchange_rate import exchange_rate_service
@@ -40,11 +42,21 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Spending Tracker", version="0.1.0", lifespan=lifespan, redirect_slashes=False)
 
+_default_cors_origins = [
+    "http://localhost",
+    "http://localhost:3000",
+    "capacitor://localhost",
+    "http://localhost:8100",
+]
+_configured_cors_origins = [
+    origin.strip() for origin in app_settings.cors_origins.split(",") if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_configured_cors_origins or _default_cors_origins,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["X-API-Token", "Content-Type", "Authorization"],
 )
 
 from src.api.routes import (  # noqa: E402
@@ -64,23 +76,51 @@ from src.api.routes import (  # noqa: E402
 )
 
 app.include_router(health.router)
-app.include_router(accounts.router, prefix="/accounts", tags=["accounts"])
-app.include_router(categories.router, prefix="/categories", tags=["categories"])
-app.include_router(statements.router, prefix="/statements", tags=["statements"])
-app.include_router(transactions.router, prefix="/transactions", tags=["transactions"])
-app.include_router(staged_transactions.router, prefix="/staged-transactions", tags=["staged-transactions"])
-app.include_router(analytics.router, prefix="/analytics", tags=["analytics"])
-app.include_router(settings.router, prefix="/settings", tags=["settings"])
-app.include_router(exchange_rates.router, prefix="/exchange-rates", tags=["exchange-rates"])
-app.include_router(receipts.router, prefix="/receipts", tags=["receipts"])
-app.include_router(flags.router, prefix="/flags", tags=["flags"])
+app.include_router(
+    accounts.router, prefix="/accounts", tags=["accounts"], dependencies=[Depends(require_token)]
+)
+app.include_router(
+    categories.router, prefix="/categories", tags=["categories"], dependencies=[Depends(require_token)]
+)
+app.include_router(
+    statements.router, prefix="/statements", tags=["statements"], dependencies=[Depends(require_token)]
+)
+app.include_router(
+    transactions.router, prefix="/transactions", tags=["transactions"], dependencies=[Depends(require_token)]
+)
+app.include_router(
+    staged_transactions.router,
+    prefix="/staged-transactions",
+    tags=["staged-transactions"],
+    dependencies=[Depends(require_token)],
+)
+app.include_router(
+    analytics.router, prefix="/analytics", tags=["analytics"], dependencies=[Depends(require_token)]
+)
+app.include_router(
+    settings.router, prefix="/settings", tags=["settings"], dependencies=[Depends(require_token)]
+)
+app.include_router(
+    exchange_rates.router,
+    prefix="/exchange-rates",
+    tags=["exchange-rates"],
+    dependencies=[Depends(require_token)],
+)
+app.include_router(
+    receipts.router, prefix="/receipts", tags=["receipts"], dependencies=[Depends(require_token)]
+)
+app.include_router(
+    flags.router, prefix="/flags", tags=["flags"], dependencies=[Depends(require_token)]
+)
 app.include_router(
     investment_transactions.router,
     prefix="/accounts/{account_id}/investment-transactions",
     tags=["investment-transactions"],
+    dependencies=[Depends(require_token)],
 )
 app.include_router(
     portfolio.router,
     prefix="/accounts/{account_id}/portfolio",
     tags=["portfolio"],
+    dependencies=[Depends(require_token)],
 )
