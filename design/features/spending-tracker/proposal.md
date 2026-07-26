@@ -20,7 +20,9 @@ Self-hosted personal finance app. Users upload credit card statement screenshots
 
 ### Non-Goals
 - No envelope/goal/budget tracking in v1
-- No multi-user or authentication in v1 (auth is an explicit later pivot)
+- No multi-user auth in v1 (multi-user remains a later pivot). **Amended 2026-07-26**: an
+  opt-in single-secret auth layer landed (`API_TOKEN`); empty token preserves the original
+  no-auth behaviour. Multi-user / `user_id` FKs are still out of scope.
 - No bank integration (Plaid, open banking) in v1
 - No real-time push / transaction notifications in v1
 - Not a receipt scanner (statement-level upload, not individual receipt photos)
@@ -130,10 +132,24 @@ Alembic initial migration creates 4 tables: `categories`, `statements`, `transac
 | `lucide-react` | Icons |
 
 ### Security notes
-- OCR API keys stored in `app_settings` table in plaintext — acceptable for single-user self-hosted v1; flag for encryption if auth is added.
+- ~~OCR API keys stored in `app_settings` table in plaintext~~ — **Amended 2026-07-26**: keys are
+  now Fernet-encrypted at rest (`src/core/crypto.py`), key derived from `APP_SECRET` via HKDF.
+  Values carry an `enc:v1:` prefix; unprefixed legacy rows decrypt as passthrough, so no data
+  migration was required. See R6.
 - `pickle` removed entirely from new backend (was in old code; not reintroduced).
-- CORS configured to allow all origins by default (self-hosted; user controls the server). Can be tightened via env var.
-- Uploaded files stored on local filesystem under a configurable `UPLOAD_DIR`. No path traversal risk as filenames are UUIDs, not user-supplied strings.
+- ~~CORS configured to allow all origins by default~~ — **Amended 2026-07-26**: `allow_origins` is
+  now driven by `CORS_ORIGINS`, defaulting to localhost + Capacitor origins. The original
+  rationale ("self-hosted; user controls the server") did not hold: with no auth, a wildcard
+  origin let *any site the user browsed* read the API cross-origin from the browser. The threat
+  was never a network attacker — it was a tab.
+- ~~Uploaded files stored on local filesystem under a configurable `UPLOAD_DIR`~~ — **stale since
+  `f5f212b0`** (skip-file-storage): uploads are processed in memory and the bytes discarded.
+  `UPLOAD_DIR` no longer exists. Note the privacy claim is only partly delivered — the extracted
+  `raw_ocr_text` is still persisted to the DB (and was, until 2026-07-26, logged at INFO).
+- **Added 2026-07-26**: statement uploads verify magic bytes against the declared MIME, cap the
+  body during a streaming read, and enforce a 64 MP decompression-bomb ceiling.
+- **Added 2026-07-26**: untrusted OCR/merchant/category text is delimited inside
+  `<untrusted_data>` with an explicit instruction-hierarchy line before reaching any LLM.
 
 ---
 
@@ -162,7 +178,8 @@ Alembic initial migration creates 4 tables: `categories`, `statements`, `transac
 | R3 | Philippine bank statement formats not handled by generic parser | [UNKNOWN] | Parser is extensible; ship with generic patterns + allow user correction |
 | R4 | App Store review rejects Capacitor build | [ASSUMPTION] | Add required privacy labels; test on TestFlight before submission |
 | R5 | Auth retrofit is painful with single-user assumptions | [ASSUMPTION] | Add `user_id` FK placeholder to all tables now even if unused; soft-wires auth path |
-| R6 | OCR API keys stored plaintext | KNOWN | Acceptable for v1 self-hosted; document the risk; prioritize encryption if auth lands |
+| R6 | OCR API keys stored plaintext | ~~KNOWN~~ **CLOSED 2026-07-26** | Auth landed, so the "prioritize encryption if auth lands" trigger fired. Keys Fernet-encrypted at rest. **New residual risk R12.** |
+| R12 | `APP_SECRET` now derives the at-rest encryption key as well as account fingerprints — rotating it silently breaks both | KNOWN, accepted 2026-07-26 | Legacy-plaintext passthrough bounds the blast radius; a rotation requires re-entering provider keys in Settings. Documented here because nothing in the code warns about it. |
 | R7 | `opencv-python-headless` not available on Python 3.14 | [UNKNOWN] | Verify at implementation start; fallback to `opencv-python` or pin Python version |
 | R8 | Frankfurter/ECB historical rates start 1999 — pre-1999 transactions have no automated source | KNOWN | Mark such transactions `unconverted` in analytics; never zero or silently skip. Future story: bundled IMF/World Bank CSV for older rates. |
 | R9 | Frankfurter covers ~30 currencies (ECB basket + majors); exotic currencies absent | [ASSUMPTION] | Same unconverted-count path; user must manually seed missing pairs via a future manual-rate entry story |
