@@ -12,8 +12,13 @@ export default function SettingsPage() {
   const [backendUrl, setBackendUrl] = useState('');
   const [urlStatus, setUrlStatus] = useState<'idle' | 'checking' | 'connected' | 'error'>('idle');
 
+  // API token (write-only — never read back to display)
+  const [apiTokenInput, setApiTokenInput] = useState('');
+  const [apiTokenSet, setApiTokenSet] = useState(false);
+
   useEffect(() => {
     setBackendUrl(localStorage.getItem('spending_tracker_backend_url') ?? 'http://localhost:8000');
+    setApiTokenSet(!!localStorage.getItem('spending_tracker_api_token'));
   }, []);
 
   const checkUrl = async () => {
@@ -123,6 +128,36 @@ export default function SettingsPage() {
         </div>
         {urlStatus === 'connected' && <p className="text-green-600 text-xs flex items-center gap-1"><CheckCircle size={13} /> Connected</p>}
         {urlStatus === 'error' && <p className="text-red-600 text-xs flex items-center gap-1"><XCircle size={13} /> Could not connect</p>}
+        <div className="border-t pt-3 space-y-2">
+          <label className="text-sm font-medium">API Token</label>
+          <p className="text-xs text-gray-400">
+            {apiTokenSet ? <span className="flex items-center gap-1"><CheckCircle size={13} className="text-green-500" /> Token is set</span> : 'Not set'}
+          </p>
+          <div className="flex gap-2">
+            <input
+              type="password"
+              value={apiTokenInput}
+              onChange={(e) => setApiTokenInput(e.target.value)}
+              className="border rounded-lg px-3 py-2 text-sm flex-1"
+              placeholder="Enter new token to set or update"
+            />
+            <button
+              onClick={() => {
+                if (apiTokenInput) {
+                  localStorage.setItem('spending_tracker_api_token', apiTokenInput);
+                  setApiTokenSet(true);
+                  setApiTokenInput('');
+                } else {
+                  localStorage.removeItem('spending_tracker_api_token');
+                  setApiTokenSet(false);
+                }
+              }}
+              className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm"
+            >
+              {apiTokenInput ? 'Save' : 'Clear'}
+            </button>
+          </div>
+        </div>
       </section>
 
       {/* Import Settings */}

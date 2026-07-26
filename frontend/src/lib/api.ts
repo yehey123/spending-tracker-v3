@@ -12,11 +12,23 @@ function getBaseUrl(): string {
   return '/api';
 }
 
+function getApiToken(): string | null {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('spending_tracker_api_token');
+  }
+  return null;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${getBaseUrl()}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...init?.headers },
-    ...init,
-  });
+  const token = getApiToken();
+  const { headers: initHeaders, ...restInit } = init ?? {};
+  const isFormData = restInit.body instanceof FormData;
+  const headers: Record<string, string> = {
+    ...(!isFormData ? { 'Content-Type': 'application/json' } : {}),
+    ...(initHeaders as Record<string, string>),
+    ...(token ? { 'X-API-Token': token } : {}),
+  };
+  const res = await fetch(`${getBaseUrl()}${path}`, { headers, ...restInit });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw Object.assign(new Error(err.detail ?? res.statusText), { status: res.status });
