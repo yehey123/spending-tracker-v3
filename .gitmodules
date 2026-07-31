@@ -1,0 +1,3 @@
+[submodule "deploy"]
+	path = deploy
+	url = git@github.com:yehey123/spending-tracker-deploy.git

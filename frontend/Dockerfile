@@ -13,6 +13,8 @@ RUN --mount=type=cache,target=/root/.npm \
 COPY . .
 ARG NEXT_PUBLIC_API_URL=/api
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ARG NODE_OPTIONS=
+ENV NODE_OPTIONS=$NODE_OPTIONS
 RUN npm run build
 
 FROM node:24-alpine AS runner
