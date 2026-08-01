@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:capacitor": "rm -rf src/app/api && CAPACITOR_BUILD=1 next build",
     "start": "next start",
     "lint": "next lint",
     "test:e2e": "playwright test",
