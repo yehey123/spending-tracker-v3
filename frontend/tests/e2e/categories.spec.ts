@@ -1,5 +1,5 @@
-import { test, expect, request } from '@playwright/test';
-import { apiURL } from './fixtures';
+import { test, expect } from '@playwright/test';
+import { apiURL, authedApiContext } from './fixtures';
 
 const E2E_CATEGORY = 'E2E Dining';
 const E2E_SUBCATEGORY = 'E2E Fast Food';
@@ -7,7 +7,7 @@ let categoryId: number;
 
 // Seed the parent category once before all tests in this file
 test.beforeAll(async () => {
-  const ctx = await request.newContext();
+  const ctx = await authedApiContext();
   const resp = await ctx.post(`${apiURL()}/categories`, {
     data: { name: E2E_CATEGORY, slug: 'e2e-dining', color: '#f97316' },
   });
@@ -40,7 +40,7 @@ test('can create a subcategory via settings page', async ({ page }) => {
 
 test('category filter shows only transactions in that category', async ({ page }) => {
   // Seed a transaction assigned to the E2E category via API
-  const ctx = await request.newContext();
+  const ctx = await authedApiContext();
   await ctx.post(`${apiURL()}/transactions`, {
     data: {
       date: '2026-02-01T00:00:00Z',
@@ -61,7 +61,7 @@ test('category filter shows only transactions in that category', async ({ page }
 // ─── Credit direction ─────────────────────────────────────────────────────────
 
 test('credit transaction appears with + prefix in list', async ({ page }) => {
-  const ctx = await request.newContext();
+  const ctx = await authedApiContext();
   await ctx.post(`${apiURL()}/transactions`, {
     data: {
       date: '2026-02-02T00:00:00Z',
@@ -96,7 +96,7 @@ test('debit direction filter hides credit transactions', async ({ page }) => {
 // ─── Cleanup ──────────────────────────────────────────────────────────────────
 
 test('cleanup — reverse E2E transactions and delete E2E categories', async ({ page }) => {
-  const ctx = await request.newContext();
+  const ctx = await authedApiContext();
 
   // Reverse E2E transactions seeded in this file
   const txResp = await ctx.get(`${apiURL()}/transactions`);

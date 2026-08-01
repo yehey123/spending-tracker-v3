@@ -1,10 +1,10 @@
-import { test, expect, request } from '@playwright/test';
-import { apiURL } from './fixtures';
+import { test, expect } from '@playwright/test';
+import { apiURL, authedApiContext } from './fixtures';
 
 const SEED_DESC = 'E2E_TEST_MERCHANT_TX';
 
 test.beforeEach(async () => {
-  const ctx = await request.newContext();
+  const ctx = await authedApiContext();
   await ctx.post(`${apiURL()}/transactions`, {
     data: {
       date: '2026-01-15T00:00:00Z',
@@ -58,7 +58,7 @@ test('can edit a transaction description', async ({ page }) => {
 // stays clean between local runs. Runs last (serial worker, alphabetical order).
 test('cleanup — reverse all E2E-seeded transactions', async ({ page }) => {
   const E2E_DESCRIPTIONS = [SEED_DESC, 'E2E_MANUAL_TX', 'E2E_EDITED_DESC'];
-  const ctx = await request.newContext();
+  const ctx = await authedApiContext();
 
   // Fetch all active transactions (paginated endpoint returns up to 50 by default)
   const listResp = await ctx.get(`${apiURL()}/transactions`);

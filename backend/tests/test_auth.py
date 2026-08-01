@@ -1,69 +1,62 @@
-"""Tests for shared-secret API token authentication (src/core/auth.py).
+"""Tests for JWT authentication (E12/E13).
 
-Spec provenance:
-  A1. api_token == "" → auth disabled, protected route reachable with no header.
-  A2. Correct token in X-API-Token → 200.
-  A3. Correct token in Authorization: Bearer → 200.
-  A4. Wrong token → 401, detail "Invalid or missing API token".
-  A5. No header at all when token set → 401.
-  A6. /health always reachable even when api_token is set.
+Spec:
+  A1. POST /auth/register with valid email+password → 200, returns access_token.
+  A2. POST /auth/login with correct credentials → 200, returns access_token.
+  A3. POST /auth/login with wrong password → 401.
+  A4. Bearer JWT on protected route → 200.
+  A5. No auth header on protected route → 401.
+  A6. GET /health is public — no token needed.
 """
 
 import pytest
 
-from src.core.config import settings as _settings
 
-_PROTECTED_ROUTE = "/categories"
-_TEST_TOKEN = "super-secret-test-token-abc"
+@pytest.mark.asyncio
+async def test_register_returns_token(client) -> None:
+    """Valid registration returns an access_token (A1)."""
+    res = await client.post(
+        "/auth/register",
+        json={"email": "new_auth_test@test.com", "password": "StrongPass1!"},
+    )
+    assert res.status_code in (200, 201)
+    body = res.json()
+    assert "access_token" in body
+    assert body["token_type"] == "bearer"
 
 
 @pytest.mark.asyncio
-async def test_auth_disabled_when_token_empty(client, monkeypatch) -> None:
-    """Empty api_token disables auth — protected route accessible with no header (A1)."""
-    monkeypatch.setattr(_settings, "api_token", "")
-    res = await client.get(_PROTECTED_ROUTE)
-    assert res.status_code == 200
-
-
-@pytest.mark.asyncio
-async def test_correct_x_api_token_header_accepted(client, monkeypatch) -> None:
-    """Correct token in X-API-Token header → request proceeds (A2)."""
-    monkeypatch.setattr(_settings, "api_token", _TEST_TOKEN)
-    res = await client.get(_PROTECTED_ROUTE, headers={"X-API-Token": _TEST_TOKEN})
-    assert res.status_code == 200
-
-
-@pytest.mark.asyncio
-async def test_correct_bearer_token_accepted(client, monkeypatch) -> None:
-    """Correct token in Authorization: Bearer → request proceeds (A3)."""
-    monkeypatch.setattr(_settings, "api_token", _TEST_TOKEN)
-    res = await client.get(
-        _PROTECTED_ROUTE, headers={"Authorization": f"Bearer {_TEST_TOKEN}"}
+async def test_login_correct_credentials(client) -> None:
+    """Correct email+password returns access_token (A2)."""
+    await client.post(
+        "/auth/register",
+        json={"email": "login_test@test.com", "password": "StrongPass1!"},
+    )
+    res = await client.post(
+        "/auth/login",
+        json={"email": "login_test@test.com", "password": "StrongPass1!"},
     )
     assert res.status_code == 200
+    assert "access_token" in res.json()
 
 
 @pytest.mark.asyncio
-async def test_wrong_token_returns_401(client, monkeypatch) -> None:
-    """Wrong token value → 401 with exact detail message (A4)."""
-    monkeypatch.setattr(_settings, "api_token", _TEST_TOKEN)
-    res = await client.get(_PROTECTED_ROUTE, headers={"X-API-Token": "wrong-value"})
+async def test_login_wrong_password(client) -> None:
+    """Wrong password → 401 (A3)."""
+    await client.post(
+        "/auth/register",
+        json={"email": "wrongpw@test.com", "password": "StrongPass1!"},
+    )
+    res = await client.post(
+        "/auth/login",
+        json={"email": "wrongpw@test.com", "password": "WrongPassword!"},
+    )
     assert res.status_code == 401
-    assert res.json()["detail"] == "Invalid or missing API token"
 
 
 @pytest.mark.asyncio
-async def test_no_header_returns_401(client, monkeypatch) -> None:
-    """No auth header when api_token is set → 401 with exact detail message (A5)."""
-    monkeypatch.setattr(_settings, "api_token", _TEST_TOKEN)
-    res = await client.get(_PROTECTED_ROUTE)
-    assert res.status_code == 401
-    assert res.json()["detail"] == "Invalid or missing API token"
-
-
-@pytest.mark.asyncio
-async def test_health_reachable_with_no_token_when_auth_enabled(client, monkeypatch) -> None:
-    """GET /health is accessible with no token even when api_token is set (A6)."""
-    monkeypatch.setattr(_settings, "api_token", _TEST_TOKEN)
+async def test_health_public(client) -> None:
+    """GET /health is accessible without any token (A6)."""
     res = await client.get("/health")
     assert res.status_code == 200
+    assert res.json()["status"] == "healthy"

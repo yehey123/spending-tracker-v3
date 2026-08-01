@@ -129,8 +129,11 @@ def test_local_provider_path():
         s.ai_api_url = "http://localhost:11434/v1"
         s.ai_model = "llama3"
 
+        mock_cat = MagicMock()
+        mock_cat.id = 1
+        mock_cat.name = "Food"
         result = asyncio.get_event_loop().run_until_complete(
-            categorizer_service._call_ai(["coffee shop"], [], s)
+            categorizer_service._call_ai(["coffee shop"], [mock_cat], s)
         )
 
         mock_openai.OpenAI.assert_called_once_with(
@@ -179,8 +182,11 @@ def test_vertex_provider_path():
         s.google_project_id = "my-proj"
         s.google_location = "us-central1"
 
+        mock_cat = MagicMock()
+        mock_cat.id = 2
+        mock_cat.name = "Cloud"
         result = asyncio.get_event_loop().run_until_complete(
-            categorizer_service._call_ai(["cloud store"], [], s)
+            categorizer_service._call_ai(["cloud store"], [mock_cat], s)
         )
 
         call_kwargs = mock_openai.OpenAI.call_args.kwargs

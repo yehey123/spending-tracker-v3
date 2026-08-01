@@ -1,5 +1,7 @@
 """Settings routes: read and update OCR provider and currency configuration."""
 
+import uuid
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,20 +9,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.api.schemas.settings import SettingsOut, SettingsPut
 from src.core.config import settings as app_config
 from src.core.crypto import encrypt_secret
+from src.core.deps import get_current_user
 from src.db.session import get_db
 from src.domain.models.app_settings import AppSettings
+from src.domain.models.user import User
 
 router = APIRouter()
 
 
-async def _get_settings(db: AsyncSession) -> AppSettings:
-    """Fetch the single app_settings row (id=1)."""
-    result = await db.execute(select(AppSettings).where(AppSettings.id == 1))
+async def _get_settings(db: AsyncSession, user_id: uuid.UUID) -> AppSettings:
+    """Fetch the app_settings row for this user, creating it if absent."""
+    result = await db.execute(select(AppSettings).where(AppSettings.user_id == user_id))
     row = result.scalar_one_or_none()
     if row is None:
         from src.core.config import settings as _cfg
         row = AppSettings(
-            id=1,
+            user_id=user_id,
             ocr_provider=_cfg.ocr_provider,
             anthropic_api_key=encrypt_secret(_cfg.anthropic_api_key),
             openai_api_key=encrypt_secret(_cfg.openai_api_key),
@@ -52,16 +56,23 @@ def _to_out(row: AppSettings) -> SettingsOut:
 
 
 @router.get("", response_model=SettingsOut)
-async def get_settings(db: AsyncSession = Depends(get_db)):
+async def get_settings(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Return current settings. API key values are never returned."""
-    row = await _get_settings(db)
+    row = await _get_settings(db, current_user.id)
     return _to_out(row)
 
 
 @router.put("", response_model=SettingsOut)
-async def update_settings(body: SettingsPut, db: AsyncSession = Depends(get_db)):
+async def update_settings(
+    body: SettingsPut,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Update settings. Only provided fields are changed (use model_fields_set)."""
-    row = await _get_settings(db)
+    row = await _get_settings(db, current_user.id)
 
     fields_set = body.model_fields_set
 
@@ -139,7 +150,11 @@ from sqlalchemy import select as _sa_select
 
 
 @router.get("/models")
-async def list_models(provider: str | None = None, db: AsyncSession = Depends(get_db)):
+async def list_models(
+    provider: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     from datetime import datetime, timedelta, timezone
     from src.domain.models.model_cache import ModelCache
     q = _sa_select(ModelCache)
@@ -173,7 +188,7 @@ async def list_models(provider: str | None = None, db: AsyncSession = Depends(ge
 
 
 @router.post("/models/refresh")
-async def refresh_models():
+async def refresh_models(current_user: User = Depends(get_current_user)):
     from src.domain.services.model_sync import sync_all
     counts = await sync_all()
     return {"synced": counts}

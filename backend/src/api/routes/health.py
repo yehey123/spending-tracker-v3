@@ -14,6 +14,8 @@ _REQUIRED_TABLES = {
     "app_settings", "categories", "statements", "transactions",
     "transaction_flags", "merchant_category_memory", "audit_log",
     "accounts", "investment_transactions",
+    "access_requests", "invite_tokens",   # E11
+    "users", "oauth_accounts", "refresh_tokens",  # E12
 }
 
 

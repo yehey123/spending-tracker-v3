@@ -7,8 +7,8 @@
  *   fixture) or private/statement.png (gitignored, preferred when USE_PRIVATE_STATEMENT=1).
  *   Set ANTHROPIC_API_KEY (etc.) to enable.
  */
-import { test, expect, request } from '@playwright/test';
-import { apiURL } from './fixtures';
+import { test, expect } from '@playwright/test';
+import { apiURL, authedApiContext } from './fixtures';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -29,7 +29,7 @@ const createdStatementIds: number[] = [];
 test.describe('real statement OCR pipeline', () => {
   test.afterEach(async () => {
     // Always reset staging flag regardless of test outcome
-    const ctx = await request.newContext();
+    const ctx = await authedApiContext();
     await ctx.patch(`${apiURL()}/settings`, { data: { review_before_commit: false } });
     await ctx.dispose();
   });
@@ -37,7 +37,7 @@ test.describe('real statement OCR pipeline', () => {
   test('upload extracts transactions and lands on review page', async ({ page }) => {
     test.setTimeout(120000);
 
-    const ctx = await request.newContext();
+    const ctx = await authedApiContext();
     const settingsResp = await ctx.get(`${apiURL()}/settings`);
     const { ocr_provider } = await settingsResp.json() as { ocr_provider: string };
     await ctx.patch(`${apiURL()}/settings`, { data: { review_before_commit: true } });
@@ -67,7 +67,7 @@ test.describe('real statement OCR pipeline', () => {
     test.setTimeout(120000);
 
     // Upload via API directly (faster than UI — OCR still runs server-side)
-    const ctx = await request.newContext();
+    const ctx = await authedApiContext();
     const settingsResp = await ctx.get(`${apiURL()}/settings`);
     const { ocr_provider } = await settingsResp.json() as { ocr_provider: string };
     await ctx.patch(`${apiURL()}/settings`, { data: { review_before_commit: true } });
@@ -99,7 +99,7 @@ test.describe('real statement OCR pipeline', () => {
   test('cleanup — reverse all transactions from OCR-imported statements', async ({ page }) => {
     if (createdStatementIds.length === 0) return;
 
-    const ctx = await request.newContext();
+    const ctx = await authedApiContext();
     const listResp = await ctx.get(`${apiURL()}/transactions?limit=200`);
     const transactions: Array<{ id: number; statement_id: number | null; status: string }> =
       await listResp.json();

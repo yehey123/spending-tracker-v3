@@ -60,6 +60,11 @@ export default function SettingsPage() {
   });
   const supportedCurrencies = Object.entries(currenciesData?.currencies ?? {});
 
+  const { data: creditData } = useQuery({
+    queryKey: ['credits', 'balance'],
+    queryFn: () => api.get<{ balance: number; monthly_grant: number; weights: Record<string, number> }>('/credits/balance'),
+  });
+
   useEffect(() => {
     if (settings) {
       setOcrProvider(settings.ocr_provider);
@@ -108,12 +113,34 @@ export default function SettingsPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['categories'] }),
   });
 
+  const isProduction = process.env.NEXT_PUBLIC_APP_ENV === 'production';
+
   return (
     <div className="space-y-8 max-w-xl mx-auto">
       <h1 className="text-2xl font-bold">Settings</h1>
 
-      {/* Backend URL */}
-      <section className="bg-white rounded-xl p-5 shadow-sm space-y-3">
+      {/* OCR Credits */}
+      {creditData && (
+        <section className="bg-white rounded-xl p-5 shadow-sm space-y-2">
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">OCR Credits</h2>
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl font-bold">{creditData.balance}</span>
+            <span className="text-sm text-gray-500">/ {creditData.monthly_grant} monthly</span>
+          </div>
+          <p className="text-xs text-gray-400">
+            Tesseract: free · Gemini: {creditData.weights.gemini}cr · Vertex: {creditData.weights.vertex}cr
+            · Claude: {creditData.weights.anthropic}cr · GPT-4V: {creditData.weights.openai}cr
+          </p>
+          {creditData.balance === 0 && (
+            <p className="text-xs text-amber-600">
+              Balance at zero — uploads will use Tesseract (free) until next monthly reset.
+            </p>
+          )}
+        </section>
+      )}
+
+      {/* Backend URL — hidden in production */}
+      {!isProduction && <section className="bg-white rounded-xl p-5 shadow-sm space-y-3">
         <h2 className="font-semibold">Backend URL</h2>
         <div className="flex gap-2">
           <input
@@ -158,7 +185,7 @@ export default function SettingsPage() {
             </button>
           </div>
         </div>
-      </section>
+      </section>}
 
       {/* Import Settings */}
       <section className="bg-white rounded-xl p-5 shadow-sm space-y-3">

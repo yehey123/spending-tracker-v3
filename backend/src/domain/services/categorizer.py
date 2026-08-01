@@ -5,7 +5,10 @@ from __future__ import annotations
 import json
 import logging
 import re
-from typing import TYPE_CHECKING
+import unicodedata
+from typing import TYPE_CHECKING, Any
+
+from pydantic import BaseModel, field_validator
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -43,6 +46,68 @@ def _strip_injection(s: str) -> str:
     collapsed = re.sub(r'[\r\n]+', ' ', s)
     collapsed = re.sub(r'\s+', ' ', collapsed).strip()
     return collapsed[:200]
+
+
+_HOMOGLYPH_MAP = str.maketrans({
+    'а': 'a',  # Cyrillic а
+    'е': 'e',  # Cyrillic е
+    'о': 'o',  # Cyrillic о
+    'с': 'c',  # Cyrillic с
+    'р': 'p',  # Cyrillic р
+    'х': 'x',  # Cyrillic х
+    'і': 'i',  # Cyrillic і
+    'І': 'I',  # Cyrillic І
+    'һ': 'h',  # Cyrillic ħ
+    'ａ': 'a',  # Fullwidth a
+    'ｅ': 'e',  # Fullwidth e
+    'ｏ': 'o',  # Fullwidth o
+    'ｃ': 'c',  # Fullwidth c
+    '‘': "'",  # Right single quotation mark
+    '“': '"',  # Left double quotation mark
+    '”': '"',  # Right double quotation mark
+    '–': '-',  # En dash
+    '—': '-',  # Em dash
+})
+
+
+def _sanitize_merchant(s: str) -> str:
+    s = unicodedata.normalize('NFC', s)
+    s = s.translate(_HOMOGLYPH_MAP)
+    s = ''.join(ch for ch in s if unicodedata.category(ch)[0] not in ('C', 'Z') or ch == ' ')
+    s = re.sub(r'\s+', ' ', s).strip()
+    return s[:200]
+
+
+class CategoryResult(BaseModel):
+    merchant: str
+    category_id: int | None = None
+    confidence: float = 0.0
+
+    @field_validator('confidence')
+    @classmethod
+    def clamp_confidence(cls, v: float) -> float:
+        return max(0.0, min(1.0, float(v)))
+
+    @field_validator('category_id', mode='before')
+    @classmethod
+    def coerce_category_id(cls, v: Any) -> int | None:
+        if v is None:
+            return None
+        try:
+            return int(v)
+        except (TypeError, ValueError):
+            return None
+
+
+_MAX_AMOUNT = 1_000_000_000
+
+
+def _validate_transaction_amount(tx: "Transaction") -> bool:
+    try:
+        amount = float(tx.amount)
+        return -_MAX_AMOUNT <= amount <= _MAX_AMOUNT
+    except (TypeError, ValueError):
+        return False
 
 
 def _has_ai_credentials(settings: AppSettings) -> bool:
@@ -83,6 +148,8 @@ class CategorizerService:
                 tx.category_id = mem.category_id
             else:
                 unknown.append((tx, key))
+
+        unknown = [(tx, key) for tx, key in unknown if _validate_transaction_amount(tx)]
 
         if unknown and _has_ai_credentials(settings):
             merchant_names = [key for _, key in unknown]
@@ -127,7 +194,7 @@ class CategorizerService:
         try:
             cat_list = [{'id': c.id, 'name': c.name} for c in categories]
             _acct_line = f"Account type: {account_type}\n\n" if account_type else ""
-            safe_merchants = [_strip_injection(m) for m in merchants]
+            safe_merchants = [_sanitize_merchant(_strip_injection(m)) for m in merchants]
             prompt = (
                 f"Given these categories: {json.dumps(cat_list)}\n\n"
                 f"{_acct_line}"
@@ -150,6 +217,8 @@ class CategorizerService:
                 message = client.messages.create(
                     model=model,
                     max_tokens=_max_tokens,
+                    tools=[],                        # RULE-AI-EXEC-1
+                    tool_choice={"type": "none"},    # RULE-AI-EXEC-1
                     messages=[{'role': 'user', 'content': prompt}],
                 )
                 text = message.content[0].text.strip()
@@ -164,6 +233,7 @@ class CategorizerService:
                     model=model,
                     messages=[{'role': 'user', 'content': prompt}],
                     max_tokens=_max_tokens,
+                    tool_choice="none",              # RULE-AI-EXEC-1
                 )
                 text = resp.choices[0].message.content.strip()
 
@@ -180,6 +250,8 @@ class CategorizerService:
                     model=model,
                     messages=[{'role': 'user', 'content': prompt}],
                     max_tokens=_max_tokens,
+                    tool_choice="none",              # RULE-AI-EXEC-1
+                    extra_body={"tool_config": {"function_calling_config": {"mode": "NONE"}}},
                 )
                 text = resp.choices[0].message.content.strip()
 
@@ -193,6 +265,7 @@ class CategorizerService:
                     model=model,
                     messages=[{'role': 'user', 'content': prompt}],
                     max_tokens=_max_tokens,
+                    tool_choice="none",              # RULE-AI-EXEC-1 (best-effort for local models)
                 )
                 text = resp.choices[0].message.content.strip()
 
@@ -218,6 +291,8 @@ class CategorizerService:
                     model=model,
                     messages=[{'role': 'user', 'content': prompt}],
                     max_tokens=_max_tokens,
+                    tool_choice="none",              # RULE-AI-EXEC-1
+                    extra_body={"tool_config": {"function_calling_config": {"mode": "NONE"}}},
                 )
                 text = resp.choices[0].message.content.strip()
 
@@ -225,7 +300,27 @@ class CategorizerService:
                 logger.warning('Unknown AI provider: %s', provider)
                 return []
 
-            return json.loads(text)
+            raw = json.loads(text)
+            if not isinstance(raw, list):
+                logger.warning('Categorizer: expected list, got %s', type(raw).__name__)
+                return []
+            validated = []
+            for item in raw:
+                try:
+                    validated.append(CategoryResult.model_validate(item).model_dump())
+                except Exception as e:
+                    logger.debug('Categorizer: skipping invalid item %s — %s', item, e)
+            known_ids = {c.id for c in categories}
+            allowlisted = []
+            for item in validated:
+                cat_id = item.get('category_id')
+                if cat_id is not None and cat_id not in known_ids:
+                    logger.warning(
+                        'Categorizer: model returned unknown category_id=%d — discarding', cat_id
+                    )
+                    item['category_id'] = None
+                allowlisted.append(item)
+            return allowlisted
 
         except Exception as exc:
             logger.warning('Categorizer AI call failed (%s): %s', provider, exc)

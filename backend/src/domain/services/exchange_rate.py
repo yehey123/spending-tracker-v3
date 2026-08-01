@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime
+from datetime import UTC
 import logging
 from typing import Any
 
@@ -97,7 +98,7 @@ class ExchangeRateService:
             logger.warning("Frankfurter response missing rate for %s on %s→%s", date, base, quote)
             return None
 
-        fetched_at = datetime.datetime.utcnow().isoformat()
+        fetched_at = datetime.datetime.now(UTC).isoformat()
         await self._upsert_rate(date, base, quote, rate, fetched_at)
         if rate != 0:
             await self._upsert_rate(date, quote, base, 1.0 / rate, fetched_at)
@@ -170,7 +171,7 @@ class ExchangeRateService:
         all_dates = set(rates.keys())
         already_cached = await self._cached_dates(base, quote, all_dates)
 
-        fetched_at = datetime.datetime.utcnow().isoformat()
+        fetched_at = datetime.datetime.now(UTC).isoformat()
         fetched = 0
         skipped_cached = 0
 

@@ -16,6 +16,10 @@ services:
         NEXT_PUBLIC_API_URL: /api
     expose:
       - "3000"
+    environment:
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-dev-nextauth-secret-replace-in-production}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      INTERNAL_API_URL: http://backend:8000
     depends_on:
       - backend
 
@@ -27,6 +31,10 @@ services:
       - .env
     environment:
       DATABASE_URL: postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@db:5432/spending_tracker
+      APP_DB_URL: postgresql+asyncpg://app_user:${APP_DB_PASSWORD:-app_password}@db:5432/spending_tracker
+      TMPDIR: /tmp
+    tmpfs:
+      - /tmp:size=256m,mode=1777
     volumes:
       - exchange_rates_data:/data/rates
     depends_on:

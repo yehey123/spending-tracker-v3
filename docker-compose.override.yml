@@ -1,0 +1,8 @@
+# docker-compose.override.yml — production environment overrides
+# Apply with: docker compose -f docker-compose.yml -f docker-compose.override.yml up
+services:
+  frontend:
+    build:
+      args:
+        NEXT_PUBLIC_APP_ENV: production
+        NEXT_PUBLIC_API_URL: /api

@@ -1,5 +1,5 @@
-import { test, expect, request } from '@playwright/test';
-import { apiURL } from './fixtures';
+import { test, expect } from '@playwright/test';
+import { apiURL, authedApiContext } from './fixtures';
 
 const E2E_ACCOUNT_NAMES = ['E2E Test Bank'];
 
@@ -19,7 +19,7 @@ test('can create an account', async ({ page }) => {
 // Cleanup: delete all accounts created by this suite (accounts + portfolio specs).
 // Uses page so Playwright captures a screenshot of the accounts list post-cleanup.
 test('cleanup — delete all E2E-created accounts', async ({ page }) => {
-  const ctx = await request.newContext();
+  const ctx = await authedApiContext();
 
   const listResp = await ctx.get(`${apiURL()}/accounts`);
   const accounts: Array<{ id: number; name: string }> = await listResp.json();

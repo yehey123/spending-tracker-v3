@@ -117,12 +117,12 @@ async def test_ttl_cleanup(db_session):
     await db_session.commit()
     tx_id = tx.id
 
-    # Patch AsyncSessionLocal so TTL cleanup targets the test DB session
+    # Patch get_admin_db so TTL cleanup targets the test DB session (which has RLS bypass)
     @asynccontextmanager
-    async def _test_session():
+    async def _mock_admin_db():
         yield db_session
 
-    with patch("src.tasks.ttl_cleanup.AsyncSessionLocal", _test_session):
+    with patch("src.tasks.ttl_cleanup.get_admin_db", _mock_admin_db):
         await run_ttl_cleanup()
 
     db_session.expire_all()

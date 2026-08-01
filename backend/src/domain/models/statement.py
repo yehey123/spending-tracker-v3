@@ -1,9 +1,10 @@
 import enum
+import uuid
 from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import DateTime, Enum, Float, ForeignKey, Numeric, String, Text
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.db.base import Base
@@ -34,7 +35,6 @@ class Statement(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     filename: Mapped[str] = mapped_column(String(255), nullable=True)
-    storage_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
     type: Mapped[StatementType | None] = mapped_column(
         Enum("image", "pdf", name="statement_type"), nullable=True
     )
@@ -62,9 +62,13 @@ class Statement(Base):
     # Added in migration 0007
     extracted_opening_balance: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
 
-    # Added in migration 0010
+    # Added in migration 0001
     account_id: Mapped[int | None] = mapped_column(
         ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True)
+
+    # Added in migration 0010 (E13 multitenancy)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=True)
 
     transactions: Mapped[list["Transaction"]] = relationship(back_populates="statement")
     account: Mapped["Account | None"] = relationship("Account", back_populates="statements")

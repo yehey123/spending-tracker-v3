@@ -11,14 +11,17 @@
     "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
+    "@capacitor-community/generic-oauth2": "^6.1.0",
     "@capacitor/android": "^6.0",
     "@capacitor/cli": "^6.0",
     "@capacitor/core": "^6.0",
     "@capacitor/ios": "^6.0",
+    "@capacitor/preferences": "^6.0.0",
     "@ducanh2912/next-pwa": "^10.2.9",
     "@tanstack/react-query": "^5.0",
     "lucide-react": "^0.400",
     "next": "^14.2",
+    "next-auth": "^5.0.0-beta.32",
     "react": "^18.3",
     "react-dom": "^18.3",
     "react-dropzone": "^14.3",

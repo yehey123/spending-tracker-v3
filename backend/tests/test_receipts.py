@@ -10,11 +10,10 @@ async def _create_receipt_statement(declared_total: str | None = None) -> int:
     conn = await asyncpg.connect(TEST_DB_RAW)
     try:
         row = await conn.fetchrow(
-            """INSERT INTO statements (filename, storage_key, type, status, ocr_provider, file_type, declared_total)
-               VALUES ($1, $2, 'image', 'committed', 'tesseract', 'receipt', $3)
+            """INSERT INTO statements (filename, type, status, ocr_provider, file_type, declared_total)
+               VALUES ($1, 'image', 'committed', 'tesseract', 'receipt', $2)
                RETURNING id""",
             "receipt.jpg",
-            "receipt-key.jpg",
             declared_total,
         )
         return row["id"]

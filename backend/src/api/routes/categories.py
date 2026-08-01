@@ -9,9 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.api.schemas.categories import CategoryCreate, CategoryOut, CategoryUpdate
+from src.core.deps import get_current_user
 from src.db.session import get_db
 from src.domain.models.category import Category
 from src.domain.models.transaction import Transaction
+from src.domain.models.user import User
 
 router = APIRouter()
 
@@ -30,7 +32,10 @@ def _to_tree(cat: Category) -> dict:
 
 
 @router.get("", response_model=list[CategoryOut])
-async def list_categories(db: AsyncSession = Depends(get_db)):
+async def list_categories(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Return all top-level categories with nested children."""
     result = await db.execute(
         select(Category)
@@ -43,7 +48,11 @@ async def list_categories(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("", response_model=CategoryOut, status_code=201)
-async def create_category(body: CategoryCreate, db: AsyncSession = Depends(get_db)):
+async def create_category(
+    body: CategoryCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Create a category. parent_id enforces max 2-level depth."""
     if body.parent_id is not None:
         parent = await db.get(Category, body.parent_id)
@@ -59,6 +68,8 @@ async def create_category(body: CategoryCreate, db: AsyncSession = Depends(get_d
         color=body.color or "#6B7280",
         icon=body.icon,
         parent_id=body.parent_id,
+        user_id=current_user.id,
+        is_system=False,
     )
     db.add(cat)
     try:
@@ -75,7 +86,12 @@ async def create_category(body: CategoryCreate, db: AsyncSession = Depends(get_d
 
 
 @router.put("/{id}", response_model=CategoryOut)
-async def update_category(id: int, body: CategoryUpdate, db: AsyncSession = Depends(get_db)):
+async def update_category(
+    id: int,
+    body: CategoryUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Full replace of category fields. Validates depth if parent_id changes."""
     result = await db.execute(
         select(Category).options(selectinload(Category.children)).where(Category.id == id)
@@ -111,7 +127,11 @@ async def update_category(id: int, body: CategoryUpdate, db: AsyncSession = Depe
 
 
 @router.delete("/{id}", status_code=204)
-async def delete_category(id: int, db: AsyncSession = Depends(get_db)):
+async def delete_category(
+    id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Delete a category. Fails if it has children; nullifies linked transactions."""
     cat = await db.get(Category, id)
     if cat is None:

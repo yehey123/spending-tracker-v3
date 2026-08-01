@@ -1,11 +1,11 @@
-import { test, expect, request } from '@playwright/test';
-import { apiURL } from './fixtures';
+import { test, expect } from '@playwright/test';
+import { apiURL, authedApiContext } from './fixtures';
 import * as path from 'path';
 
 const BLANK_PNG = path.join(__dirname, 'fixtures', 'blank.png');
 
 test.afterEach(async () => {
-  const ctx = await request.newContext();
+  const ctx = await authedApiContext();
   await ctx.patch(`${apiURL()}/settings`, { data: { review_before_commit: false } });
   await ctx.dispose();
 });
@@ -24,7 +24,7 @@ test('file selection reveals statement kind toggle and upload button', async ({ 
 });
 
 test('upload with staging enabled redirects to review page', async ({ page }) => {
-  const ctx = await request.newContext();
+  const ctx = await authedApiContext();
   await ctx.patch(`${apiURL()}/settings`, { data: { review_before_commit: true } });
   await ctx.dispose();
 

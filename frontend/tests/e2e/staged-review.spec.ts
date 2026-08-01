@@ -1,12 +1,12 @@
-import { test, expect, request } from '@playwright/test';
-import { apiURL } from './fixtures';
+import { test, expect } from '@playwright/test';
+import { apiURL, authedApiContext } from './fixtures';
 import * as fs from 'fs';
 import * as path from 'path';
 
 const BLANK_PNG = path.join(__dirname, 'fixtures', 'blank.png');
 
 async function seedStagedStatement(): Promise<number> {
-  const ctx = await request.newContext();
+  const ctx = await authedApiContext();
   await ctx.patch(`${apiURL()}/settings`, { data: { review_before_commit: true } });
   const buffer = fs.readFileSync(BLANK_PNG);
   const resp = await ctx.post(`${apiURL()}/statements/upload`, {
@@ -21,7 +21,7 @@ async function seedStagedStatement(): Promise<number> {
 }
 
 test.afterEach(async () => {
-  const ctx = await request.newContext();
+  const ctx = await authedApiContext();
   await ctx.patch(`${apiURL()}/settings`, { data: { review_before_commit: false } });
   await ctx.dispose();
 });

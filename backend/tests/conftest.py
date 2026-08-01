@@ -87,9 +87,9 @@ def _drop_migrations():
 @pytest.fixture(autouse=True)
 def clear_cache():
     """Flush the analytics cache before each test for isolation."""
-    cache.clear()
+    cache._store.clear()
     yield
-    cache.clear()
+    cache._store.clear()
 
 
 @pytest_asyncio.fixture(scope="session", autouse=True)
@@ -139,7 +139,8 @@ async def clean_tables():
         # TRUNCATE bypasses RLS; used for fast bulk cleanup
         await conn.execute(
             "TRUNCATE accounts, investment_transactions, transactions, statements, "
-            "categories, app_settings, refresh_tokens, oauth_accounts "
+            "categories, app_settings, refresh_tokens, oauth_accounts, "
+            "invite_tokens, access_requests, credit_ledger, credit_rollovers, system_config "
             "RESTART IDENTITY CASCADE"
         )
         # Remove any extra users created by individual auth tests; keep the shared test user

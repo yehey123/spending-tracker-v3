@@ -1,7 +1,7 @@
 """Transaction flag review routes."""
 
 from __future__ import annotations
-from datetime import datetime
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -79,6 +79,6 @@ async def resolve_flag(flag_id: int, body: FlagPatch, db: AsyncSession = Depends
 
     flag.status = body.status
     flag.resolved_by = 'user'
-    flag.resolved_at = datetime.utcnow()
+    flag.resolved_at = datetime.now(UTC)
     await db.commit()
     return {"id": flag_id, "status": body.status}

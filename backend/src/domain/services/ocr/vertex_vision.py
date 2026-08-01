@@ -4,7 +4,7 @@ import logging
 
 from PIL import Image
 
-from .base import OCRProvider, _build_prompt
+from .base import OCRProvider, _build_prompt, SYSTEM_PROMPT
 
 _log = logging.getLogger(__name__)
 
@@ -44,7 +44,17 @@ class VertexVisionProvider(OCRProvider):
         response = client.chat.completions.create(
             model=self.model,
             max_tokens=self.max_tokens,
+            tool_choice="none",                  # RULE-AI-EXEC-1
+            extra_body={                         # Vertex-native function calling disable
+                "tool_config": {
+                    "function_calling_config": {"mode": "NONE"}
+                }
+            },
             messages=[
+                {
+                    "role": "system",
+                    "content": SYSTEM_PROMPT,
+                },
                 {
                     "role": "user",
                     "content": [
@@ -54,7 +64,7 @@ class VertexVisionProvider(OCRProvider):
                         },
                         {"type": "text", "text": prompt},
                     ],
-                }
+                },
             ],
         )
         choice = response.choices[0]

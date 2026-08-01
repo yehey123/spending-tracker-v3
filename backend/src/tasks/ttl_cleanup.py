@@ -1,17 +1,20 @@
-"""Nightly TTL cleanup — expires staged statements older than 7 days."""
+"""Nightly TTL cleanup — expires staged statements, purges expired tokens."""
 
 from datetime import datetime, timezone, timedelta
 from sqlalchemy import update, delete, select
-from src.db.session import AsyncSessionLocal
+from src.db.session import get_admin_db
 from src.domain.models.statement import Statement
 from src.domain.models.transaction import Transaction
+from src.domain.models.user import RefreshToken
+from src.domain.models.invite_token import InviteToken
 
 STAGED_TTL_DAYS = 7
 
 
 async def run_ttl_cleanup():
-    cutoff = datetime.now(timezone.utc) - timedelta(days=STAGED_TTL_DAYS)
-    async with AsyncSessionLocal() as db:
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=STAGED_TTL_DAYS)
+    async with get_admin_db() as db:
         result = await db.execute(
             select(Statement.id)
             .where(Statement.status == 'staged')
@@ -31,5 +34,13 @@ async def run_ttl_cleanup():
                 .where(Statement.id == stmt_id)
                 .values(status='discarded')
             )
+
+        await db.execute(
+            delete(RefreshToken).where(RefreshToken.absolute_expires_at < now)
+        )
+
+        await db.execute(
+            delete(InviteToken).where(InviteToken.expires_at < now)
+        )
 
         await db.commit()

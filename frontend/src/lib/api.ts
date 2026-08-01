@@ -12,23 +12,32 @@ function getBaseUrl(): string {
   return '/api';
 }
 
-function getApiToken(): string | null {
-  if (typeof window !== 'undefined') {
-    return localStorage.getItem('spending_tracker_api_token');
+async function getCapacitorTokenIfNative(): Promise<string | null> {
+  try {
+    // Dynamic import — avoids bundling Capacitor modules in web builds
+    const { Capacitor } = await import('@capacitor/core');
+    if (!Capacitor.isNativePlatform()) return null;
+    const { getCapacitorToken } = await import('./capacitor-auth');
+    return getCapacitorToken();
+  } catch {
+    return null;
   }
-  return null;
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = getApiToken();
   const { headers: initHeaders, ...restInit } = init ?? {};
   const isFormData = restInit.body instanceof FormData;
+  const nativeToken = await getCapacitorTokenIfNative();
   const headers: Record<string, string> = {
     ...(!isFormData ? { 'Content-Type': 'application/json' } : {}),
     ...(initHeaders as Record<string, string>),
-    ...(token ? { 'X-API-Token': token } : {}),
+    ...(nativeToken ? { Authorization: `Bearer ${nativeToken}` } : {}),
   };
-  const res = await fetch(`${getBaseUrl()}${path}`, { headers, ...restInit });
+  const res = await fetch(`${getBaseUrl()}${path}`, {
+    headers,
+    credentials: 'include',
+    ...restInit,
+  });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw Object.assign(new Error(err.detail ?? res.statusText), { status: res.status });

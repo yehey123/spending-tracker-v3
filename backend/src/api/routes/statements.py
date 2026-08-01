@@ -10,9 +10,11 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.schemas.statements import StatementOut
+from src.core.deps import get_current_user
 from src.db.session import get_db
 from src.domain.models.statement import Statement
 from src.domain.models.transaction import Transaction
+from src.domain.models.user import User
 import logging
 logger = logging.getLogger('statements')
 
@@ -27,6 +29,17 @@ _MAGIC_BYTES: dict[str, bytes] = {
     "image/jpeg": b"\xff\xd8\xff",
     "application/pdf": b"%PDF-",
 }
+
+# PostScript/EPS — reject before magic check regardless of declared content_type.
+_EPS_MAGIC_PREFIXES: tuple[bytes, ...] = (
+    b"%!PS-Adobe-",
+    b"%!EPS",
+    b"\xc5\xd0\xd3\xc6",  # Binary EPS header (EPSI)
+)
+
+
+def _is_eps_content(content: bytes) -> bool:
+    return any(content.startswith(p) for p in _EPS_MAGIC_PREFIXES)
 
 
 def _content_matches_declared_type(content: bytes, content_type: str) -> bool:
@@ -44,6 +57,7 @@ async def upload_statement(
     statement_kind: str = Form(default="bank_account"),
     account_id: int | None = Form(default=None),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> StatementOut:
     """Upload a bank statement image or PDF, run OCR pipeline, persist transactions."""
     # MIME + size validation
@@ -63,6 +77,12 @@ async def upload_statement(
             raise HTTPException(status_code=400, detail="File exceeds 20 MB limit.")
     content = bytes(buf)
 
+    if _is_eps_content(content):
+        raise HTTPException(
+            status_code=400,
+            detail="PostScript/EPS files are not accepted.",
+        )
+
     if not _content_matches_declared_type(content, content_type):
         raise HTTPException(
             status_code=400,
@@ -77,6 +97,7 @@ async def upload_statement(
         status="processing",
         ocr_provider="tesseract",  # will be updated by pipeline
         statement_kind=statement_kind,
+        user_id=current_user.id,
     )
     if type == 'receipt':
         statement.file_type = 'receipt'
@@ -86,7 +107,9 @@ async def upload_statement(
 
     try:
         from src.domain.services.statement_pipeline import statement_pipeline
-        transactions, account_created = await statement_pipeline.run(statement, content, content_type, db, account_id=account_id)
+        transactions, account_created = await statement_pipeline.run(
+            statement, content, content_type, db, account_id=account_id, user_id=current_user.id
+        )
         await db.commit()
         await db.refresh(statement)
     except HTTPException:
@@ -118,6 +141,7 @@ async def list_statements(
     offset: int = 0,
     limit: int = 20,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> list[StatementOut]:
     """Paginated list of statements with computed transaction_count."""
     count_sq = (
@@ -126,7 +150,12 @@ async def list_statements(
         .correlate(Statement)
         .scalar_subquery()
     )
-    stmt = select(Statement, count_sq.label("transaction_count")).offset(offset).limit(limit)
+    stmt = (
+        select(Statement, count_sq.label("transaction_count"))
+        .where(Statement.user_id == current_user.id)
+        .offset(offset)
+        .limit(limit)
+    )
     rows = (await db.execute(stmt)).all()
     return [
         StatementOut(
@@ -150,9 +179,16 @@ async def list_statements(
 
 
 @router.get("/{statement_id}/staged")
-async def get_staged_transactions(statement_id: int, db: AsyncSession = Depends(get_db)):
+async def get_staged_transactions(
+    statement_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Get all staged transactions for a statement pending review."""
-    stmt = await db.get(Statement, statement_id)
+    result = await db.execute(
+        select(Statement).where(Statement.id == statement_id, Statement.user_id == current_user.id)
+    )
+    stmt = result.scalar_one_or_none()
     if stmt is None:
         raise HTTPException(status_code=404, detail="Statement not found.")
 
@@ -194,11 +230,21 @@ class CommitBody(BaseModel):
 
 
 @router.post("/{statement_id}/commit")
-async def commit_statement(statement_id: int, body: CommitBody = CommitBody(), db: AsyncSession = Depends(get_db)):
+async def commit_statement(
+    statement_id: int,
+    body: CommitBody = CommitBody(),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Promote all staged transactions to active. Optionally set account opening_balance."""
-    stmt = await db.get(Statement, statement_id)
-    status_val = stmt.status.value if hasattr(stmt.status, 'value') else stmt.status if stmt else None
-    if stmt is None or status_val != 'staged':
+    result = await db.execute(
+        select(Statement).where(Statement.id == statement_id, Statement.user_id == current_user.id)
+    )
+    stmt = result.scalar_one_or_none()
+    if stmt is None:
+        raise HTTPException(status_code=404, detail="Statement not found.")
+    status_val = stmt.status.value if hasattr(stmt.status, 'value') else stmt.status
+    if status_val != 'staged':
         raise HTTPException(status_code=409, detail="Statement is not in staged state")
 
     if body.opening_balance is not None and stmt.account_id is not None:
@@ -218,11 +264,20 @@ async def commit_statement(statement_id: int, body: CommitBody = CommitBody(), d
 
 
 @router.post("/{statement_id}/discard")
-async def discard_statement(statement_id: int, db: AsyncSession = Depends(get_db)):
+async def discard_statement(
+    statement_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Delete all staged transactions and mark statement as discarded."""
-    stmt = await db.get(Statement, statement_id)
-    status_val = stmt.status.value if hasattr(stmt.status, 'value') else stmt.status if stmt else None
-    if stmt is None or status_val != 'staged':
+    result = await db.execute(
+        select(Statement).where(Statement.id == statement_id, Statement.user_id == current_user.id)
+    )
+    stmt = result.scalar_one_or_none()
+    if stmt is None:
+        raise HTTPException(status_code=404, detail="Statement not found.")
+    status_val = stmt.status.value if hasattr(stmt.status, 'value') else stmt.status
+    if status_val != 'staged':
         raise HTTPException(status_code=409, detail="Statement is not in staged state")
 
     await db.execute(
@@ -235,11 +290,20 @@ async def discard_statement(statement_id: int, db: AsyncSession = Depends(get_db
 
 
 @router.post("/{statement_id}/flip-directions")
-async def flip_statement_directions(statement_id: int, db: AsyncSession = Depends(get_db)):
+async def flip_statement_directions(
+    statement_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Flip DEBIT↔CREDIT on all staged transactions for a statement."""
-    stmt = await db.get(Statement, statement_id)
-    status_val = stmt.status.value if hasattr(stmt.status, 'value') else stmt.status if stmt else None
-    if stmt is None or status_val != 'staged':
+    result = await db.execute(
+        select(Statement).where(Statement.id == statement_id, Statement.user_id == current_user.id)
+    )
+    stmt = result.scalar_one_or_none()
+    if stmt is None:
+        raise HTTPException(status_code=404, detail="Statement not found.")
+    status_val = stmt.status.value if hasattr(stmt.status, 'value') else stmt.status
+    if status_val != 'staged':
         raise HTTPException(status_code=409, detail="Statement is not in staged state")
 
     from sqlalchemy import Enum, case, cast, literal
@@ -259,9 +323,15 @@ async def flip_statement_directions(statement_id: int, db: AsyncSession = Depend
 
 
 @router.delete("/{id}", status_code=204)
-async def delete_statement(id: int, db: AsyncSession = Depends(get_db)) -> None:
+async def delete_statement(
+    id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> None:
     """Delete a statement and its file. Transactions get statement_id=NULL via FK cascade."""
-    result = await db.execute(select(Statement).where(Statement.id == id))
+    result = await db.execute(
+        select(Statement).where(Statement.id == id, Statement.user_id == current_user.id)
+    )
     statement = result.scalar_one_or_none()
     if statement is None:
         raise HTTPException(status_code=404, detail="Statement not found.")

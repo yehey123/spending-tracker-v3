@@ -155,7 +155,7 @@ async def create_transaction(
     db.add(tx)
     await db.commit()
     await db.refresh(tx)
-    cache.clear()
+    cache.clear_for_user(current_user.id)
 
     result = await db.execute(
         select(Transaction)
@@ -197,7 +197,7 @@ async def patch_transaction(
         for field, value in changed.items():
             setattr(tx, field, value)
         await db.commit()
-        cache.clear()
+        cache.clear_for_user(current_user.id)
         result2 = await db.execute(
             select(Transaction).options(selectinload(Transaction.category)).where(Transaction.id == id)
         )
@@ -265,7 +265,7 @@ async def patch_transaction(
         ))
 
     await db.commit()
-    cache.clear()
+    cache.clear_for_user(current_user.id)
 
     final_id = correction.id if financial_changes else tx.id
     return TransactionPatchResult(
@@ -317,7 +317,7 @@ async def reverse_transactions(
         reversed_ids.append(tx_id)
 
     await db.commit()
-    cache.clear()
+    cache.clear_for_user(current_user.id)
     return {"reversed": reversed_ids, "skipped": skipped_ids}
 
 

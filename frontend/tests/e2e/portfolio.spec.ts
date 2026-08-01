@@ -1,10 +1,10 @@
-import { test, expect, request } from '@playwright/test';
-import { apiURL } from './fixtures';
+import { test, expect } from '@playwright/test';
+import { apiURL, authedApiContext } from './fixtures';
 
 let brokerAccountId: number;
 
 test('portfolio shows empty holdings for new broker account', async ({ page }) => {
-  const ctx = await request.newContext();
+  const ctx = await authedApiContext();
   const resp = await ctx.post(`${apiURL()}/accounts`, {
     data: {
       name: 'E2E Broker Portfolio',
@@ -23,7 +23,7 @@ test('portfolio shows empty holdings for new broker account', async ({ page }) =
 
 test('cleanup — delete E2E broker account', async ({ page }) => {
   if (!brokerAccountId) return;
-  const ctx = await request.newContext();
+  const ctx = await authedApiContext();
   await ctx.delete(`${apiURL()}/accounts/${brokerAccountId}`);
   await ctx.dispose();
 

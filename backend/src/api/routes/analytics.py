@@ -7,8 +7,9 @@ from collections import defaultdict
 from datetime import datetime
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from src.core import cache
+from src.core.currencies import SUPPORTED_CURRENCIES
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -82,6 +83,9 @@ async def by_category(
     breakdown="parent" (default) rolls sub-categories up to their parent.
     breakdown="subcategory" groups by the leaf category as stored.
     """
+    if display_currency is not None and display_currency not in SUPPORTED_CURRENCIES:
+        raise HTTPException(status_code=422, detail=f"Unsupported currency: {display_currency}")
+
     cache_key = (current_user.id, "by_category", month, display_currency, breakdown)
     cached = cache.get(cache_key)
     if cached is not cache.MISS:
@@ -198,6 +202,9 @@ async def cash_flow(
     current_user: User = Depends(get_current_user),
 ):
     """Monthly credit/debit totals for the last N calendar months."""
+    if display_currency is not None and display_currency not in SUPPORTED_CURRENCIES:
+        raise HTTPException(status_code=422, detail=f"Unsupported currency: {display_currency}")
+
     cache_key = (current_user.id, "cash_flow", months, display_currency)
     cached = cache.get(cache_key)
     if cached is not cache.MISS:

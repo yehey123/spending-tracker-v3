@@ -1,8 +1,10 @@
 import enum
+import uuid
 from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import DateTime, Enum, ForeignKey, Numeric, String, TIMESTAMP
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.db.base import Base
@@ -51,7 +53,7 @@ class Transaction(Base):
     corrected_by: Mapped[int | None] = mapped_column(
         ForeignKey("transactions.id"), nullable=True)
 
-    # Added in migration 0010
+    # Added in migration 0001
     account_id: Mapped[int | None] = mapped_column(
         ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True)
     transfer_peer_id: Mapped[int | None] = mapped_column(
@@ -59,6 +61,10 @@ class Transaction(Base):
     transfer_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
     duplicate_status: Mapped[str | None] = mapped_column(String(30), nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+
+    # Added in migration 0010 (E13 multitenancy)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=True)
 
     category: Mapped["Category | None"] = relationship(back_populates="transactions")
     statement: Mapped["Statement | None"] = relationship(back_populates="transactions")

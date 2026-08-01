@@ -4,7 +4,7 @@ import io
 import anthropic
 from PIL import Image
 
-from .base import OCRProvider, _build_prompt
+from .base import OCRProvider, _build_prompt, SYSTEM_PROMPT
 
 
 class ClaudeVisionProvider(OCRProvider):
@@ -24,6 +24,9 @@ class ClaudeVisionProvider(OCRProvider):
         message = self.client.messages.create(
             model=self.model,
             max_tokens=self.max_tokens,
+            system=SYSTEM_PROMPT,                # RULE-AI-EXEC-1 + system prompt policy
+            tools=[],                            # RULE-AI-EXEC-1: disable tool registration
+            tool_choice={"type": "none"},        # RULE-AI-EXEC-1: explicitly forbid tool calls
             messages=[
                 {
                     "role": "user",

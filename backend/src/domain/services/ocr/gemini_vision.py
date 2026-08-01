@@ -4,7 +4,7 @@ import io
 from openai import OpenAI
 from PIL import Image
 
-from .base import OCRProvider, _build_prompt
+from .base import OCRProvider, _build_prompt, SYSTEM_PROMPT
 
 _GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 
@@ -25,7 +25,17 @@ class GeminiVisionProvider(OCRProvider):
         response = self.client.chat.completions.create(
             model=self.model,
             max_tokens=self.max_tokens,
+            tool_choice="none",                  # RULE-AI-EXEC-1
+            extra_body={                         # Gemini-native function calling disable
+                "tool_config": {
+                    "function_calling_config": {"mode": "NONE"}
+                }
+            },
             messages=[
+                {
+                    "role": "system",
+                    "content": SYSTEM_PROMPT,
+                },
                 {
                     "role": "user",
                     "content": [
@@ -35,7 +45,7 @@ class GeminiVisionProvider(OCRProvider):
                         },
                         {"type": "text", "text": prompt},
                     ],
-                }
+                },
             ],
         )
         return response.choices[0].message.content

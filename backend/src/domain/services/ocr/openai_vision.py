@@ -4,7 +4,7 @@ import io
 from openai import OpenAI
 from PIL import Image
 
-from .base import OCRProvider, _build_prompt
+from .base import OCRProvider, _build_prompt, SYSTEM_PROMPT
 
 
 class OpenAIVisionProvider(OCRProvider):
@@ -24,7 +24,12 @@ class OpenAIVisionProvider(OCRProvider):
         response = self.client.chat.completions.create(
             model=self.model,
             max_tokens=self.max_tokens,
+            tool_choice="none",                  # RULE-AI-EXEC-1
             messages=[
+                {
+                    "role": "system",
+                    "content": SYSTEM_PROMPT,    # system prompt policy
+                },
                 {
                     "role": "user",
                     "content": [
@@ -34,7 +39,7 @@ class OpenAIVisionProvider(OCRProvider):
                         },
                         {"type": "text", "text": prompt},
                     ],
-                }
+                },
             ],
         )
         return response.choices[0].message.content

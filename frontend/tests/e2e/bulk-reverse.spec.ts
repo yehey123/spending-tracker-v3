@@ -1,10 +1,10 @@
-import { test, expect, request } from '@playwright/test';
-import { apiURL } from './fixtures';
+import { test, expect } from '@playwright/test';
+import { apiURL, authedApiContext } from './fixtures';
 
 const SEED_DESCS = ['E2E_BULK_TX_1', 'E2E_BULK_TX_2', 'E2E_BULK_TX_3'];
 
 test.beforeAll(async () => {
-  const ctx = await request.newContext();
+  const ctx = await authedApiContext();
 
   // Reverse any leftover E2E_BULK transactions from previous runs
   const listResp = await ctx.get(`${apiURL()}/transactions?limit=200`);

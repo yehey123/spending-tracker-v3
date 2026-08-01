@@ -53,6 +53,21 @@ BANK_ACCT_RE = re.compile(r'\b\d{10,14}\b')
 _OPENING_BALANCE_RE = re.compile(r'^OPENING_BALANCE:\s*([\d,]+\.?\d*)', re.MULTILINE)
 
 
+def _text_divergence(a: str, b: str) -> float:
+    """Word-level Jaccard divergence: 0.0 = identical, 1.0 = completely different."""
+    if not a and not b:
+        return 0.0
+    if not a or not b:
+        return 1.0
+    words_a = set(re.sub(r'\s+', ' ', a.lower()).split())
+    words_b = set(re.sub(r'\s+', ' ', b.lower()).split())
+    if not words_a and not words_b:
+        return 0.0
+    intersection = words_a & words_b
+    union = words_a | words_b
+    return 1.0 - len(intersection) / len(union)
+
+
 def _extract_opening_balance(raw_text: str) -> Decimal | None:
     m = _OPENING_BALANCE_RE.search(raw_text)
     if m:
@@ -186,30 +201,71 @@ def _resolve_ocr(settings_row: AppSettings):
     return TesseractProvider()
 
 
+async def _resolve_ocr_with_credits(
+    settings_row,
+    user_id,
+    statement_id: int,
+    db: AsyncSession,
+):
+    """Select OCR provider, checking and debiting credits. Falls back to Tesseract on zero balance."""
+    from src.domain.services.credits import atomic_debit, InsufficientCredits
+
+    provider_name = settings_row.ocr_provider
+
+    if user_id is None or provider_name == "tesseract":
+        return TesseractProvider()
+
+    try:
+        await atomic_debit(user_id=user_id, provider=provider_name,
+                           statement_id=statement_id, db=db)
+        return _resolve_ocr(settings_row)
+    except InsufficientCredits as exc:
+        logger.warning(
+            "User %s has insufficient credits (balance=%d, cost=%d) — falling back to Tesseract",
+            user_id, exc.balance, exc.cost,
+        )
+        return TesseractProvider()
+
+
 class StatementPipeline:
     """Multi-stage statement processing pipeline."""
 
     async def run(self, statement: Statement, content: bytes, content_type: str,
-                  db: AsyncSession, account_id: int | None = None) -> tuple[list[Transaction], bool]:
+                  db: AsyncSession, account_id: int | None = None,
+                  user_id=None) -> tuple[list[Transaction], bool]:
         """Run OCR → parse → (categorize) → staged insert. Returns (transactions, account_created)."""
+        from uuid import UUID
+        from sqlalchemy import select as _sel_settings
         from src.domain.services.pdf_parser import extract_pdf_text
         from src.domain.services.preprocessor import preprocess
         from src.domain.services.statement_parser import parse_statement
 
-        settings = await db.get(AppSettings, 1)
+        settings = None
+        if user_id is not None:
+            uid = user_id if isinstance(user_id, UUID) else UUID(str(user_id))
+            result = await db.execute(
+                _sel_settings(AppSettings).where(AppSettings.user_id == uid)
+            )
+            settings = result.scalar_one_or_none()
         if settings is None:
-            from src.domain.models.app_settings import AppSettings as AS
             from src.core.config import settings as _cfg
-            settings = AS(
-                id=1,
+            settings = AppSettings(
                 ocr_provider=_cfg.ocr_provider,
                 anthropic_api_key=_cfg.anthropic_api_key,
                 openai_api_key=_cfg.openai_api_key,
                 gemini_api_key=_cfg.gemini_api_key,
             )
 
-        ocr_provider = _resolve_ocr(settings)
-        statement.ocr_provider = settings.ocr_provider
+        uid = user_id if isinstance(user_id, UUID) else (UUID(str(user_id)) if user_id else None)
+        ocr_provider = await _resolve_ocr_with_credits(
+            settings_row=settings,
+            user_id=uid,
+            statement_id=statement.id,
+            db=db,
+        )
+        statement.ocr_provider = (
+            "tesseract" if type(ocr_provider).__name__ == "TesseractProvider" else settings.ocr_provider
+        )
         inferred_type = "pdf" if content_type == "application/pdf" else "image"
         dev_mode = getattr(settings, 'dev_mode', False)
 
@@ -256,25 +312,66 @@ class StatementPipeline:
                         content, ocr_provider,
                         categories=categories_list if bundle_categories else None,
                     )
+                    # Dual-extraction diff for AI providers: run a second pass and compare.
+                    # >15% word-level divergence suggests injection or hallucination.
+                    if settings.ocr_provider != "tesseract" and raw_text:
+                        try:
+                            raw_text_2 = await extract_pdf_text(
+                                content, ocr_provider,
+                                categories=categories_list if bundle_categories else None,
+                            )
+                            divergence = _text_divergence(raw_text, raw_text_2)
+                            if divergence > 0.15:
+                                logger.warning(
+                                    "PDF dual-extraction divergence=%.2f%% (statement %d) — "
+                                    "possible injection; rejecting.",
+                                    divergence * 100, statement.id,
+                                )
+                                statement.status = 'parse_failed'
+                                statement.error_message = (
+                                    f"Dual-extraction divergence {divergence:.0%} — "
+                                    "document rejected as potentially adversarial."
+                                )
+                                await db.flush()
+                                return [], False
+                        except Exception as e:
+                            logger.warning("Dual-extraction second pass failed: %s", e)
                 else:
                     if PILImage is None:
                         raise RuntimeError("Pillow is required for image processing.")
-                    try:
-                        img = PILImage.open(io.BytesIO(content))
-                        # open() parses the header only, so size is known before any
-                        # pixel data is decoded — check it explicitly rather than relying
-                        # on PIL's own guard, which only raises above 2 * MAX_IMAGE_PIXELS
-                        # and merely warns between 1x and 2x.
-                        w, h = img.size
+                    import asyncio
+
+                    def _open_and_load(data: bytes) -> "PILImage.Image":
+                        im = PILImage.open(io.BytesIO(data))
+                        w, h = im.size
                         if w * h > MAX_IMAGE_PIXELS:
                             raise ValueError(
                                 "Image exceeds maximum allowed pixel dimensions."
                             )
-                        img.load()
+                        im.load()
+                        return im
+
+                    try:
+                        loop = asyncio.get_running_loop()
+                        img = await asyncio.wait_for(
+                            loop.run_in_executor(None, _open_and_load, content),
+                            timeout=30.0,
+                        )
+                    except asyncio.TimeoutError:
+                        raise ValueError(
+                            "Image processing timed out (>30 s). File may be malformed."
+                        )
                     except PILImage.DecompressionBombError as e:
                         raise ValueError(
                             "Image exceeds maximum allowed pixel dimensions."
                         ) from e
+
+                    # Strip all embedded metadata (EXIF, ICC profile, tEXt chunks)
+                    # by re-encoding from raw pixel bytes.
+                    _mode = 'L' if img.mode == 'L' else 'RGB'
+                    _conv = img.convert(_mode)
+                    img = PILImage.frombytes(_mode, _conv.size, _conv.tobytes())
+
                     # Preprocessing (grayscale + threshold) helps Tesseract but hurts
                     # AI vision models — send the original color image to those.
                     if settings.ocr_provider == "tesseract":
@@ -395,6 +492,7 @@ class StatementPipeline:
                 account_id=account_id,
                 status='staged',
                 transaction_origin='uploaded',
+                user_id=user_id,
             )
             # Apply category assigned by the bundled OCR call (if any)
             if bundle_categories and p.category_name:
