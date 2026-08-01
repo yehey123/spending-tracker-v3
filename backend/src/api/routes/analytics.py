@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import uuid
 from collections import defaultdict
 from datetime import datetime
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, Query
+from src.core import cache
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,10 +18,12 @@ from src.api.schemas.analytics import (
     CategoryBreakdown,
     MonthCashFlow,
 )
+from src.core.deps import get_current_user
 from src.db.session import get_db
 from src.domain.models.app_settings import AppSettings
 from src.domain.models.category import Category
 from src.domain.models.transaction import Transaction
+from src.domain.models.user import User
 from src.domain.services.exchange_rate import exchange_rate_service
 
 router = APIRouter()
@@ -36,8 +40,8 @@ def _month_bounds(month: str) -> tuple[datetime, datetime]:
     return first_day, datetime(next_year, next_mon, 1)
 
 
-async def _get_home_currency(db: AsyncSession) -> str | None:
-    result = await db.execute(select(AppSettings).where(AppSettings.id == 1))
+async def _get_home_currency(db: AsyncSession, user_id: uuid.UUID) -> str | None:
+    result = await db.execute(select(AppSettings).where(AppSettings.user_id == user_id))
     row = result.scalar_one_or_none()
     return row.home_currency if row else None
 
@@ -67,6 +71,7 @@ async def by_category(
     display_currency: str | None = Query(default=None),
     breakdown: str = Query(default="parent"),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Spending (debits only) grouped by category for the given month.
 
@@ -77,8 +82,13 @@ async def by_category(
     breakdown="parent" (default) rolls sub-categories up to their parent.
     breakdown="subcategory" groups by the leaf category as stored.
     """
+    cache_key = (current_user.id, "by_category", month, display_currency, breakdown)
+    cached = cache.get(cache_key)
+    if cached is not cache.MISS:
+        return cached
+
     first_day, first_day_next = _month_bounds(month)
-    home_currency = await _get_home_currency(db)
+    home_currency = await _get_home_currency(db, current_user.id)
     effective_display_currency = display_currency or home_currency
 
     # Fetch individual rows (not aggregated) so we can get per-row currency
@@ -90,6 +100,7 @@ async def by_category(
             Transaction.date,
         )
         .where(
+            Transaction.user_id == current_user.id,
             Transaction.direction == "debit",
             Transaction.date >= first_day,
             Transaction.date < first_day_next,
@@ -167,7 +178,7 @@ async def by_category(
 
     totals_available = effective_display_currency is not None
 
-    return ByCategoryResponse(
+    response = ByCategoryResponse(
         month=month,
         total_debit=total_debit,
         breakdown=breakdown,
@@ -175,6 +186,8 @@ async def by_category(
         unconverted_count=unconverted_count,
         totals_available=totals_available,
     )
+    cache.set(cache_key, response, ttl=60)
+    return response
 
 
 @router.get("/cash-flow", response_model=CashFlowResponse)
@@ -182,10 +195,16 @@ async def cash_flow(
     months: int = Query(default=6, ge=1, le=24),
     display_currency: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Monthly credit/debit totals for the last N calendar months."""
+    cache_key = (current_user.id, "cash_flow", months, display_currency)
+    cached = cache.get(cache_key)
+    if cached is not cache.MISS:
+        return cached
+
     now = datetime.now()
-    home_currency = await _get_home_currency(db)
+    home_currency = await _get_home_currency(db, current_user.id)
     effective_display_currency = display_currency or home_currency
 
     month_list: list[tuple[int, int]] = []
@@ -218,6 +237,7 @@ async def cash_flow(
                 Transaction.date,
             )
             .where(
+                Transaction.user_id == current_user.id,
                 Transaction.date >= first_day,
                 Transaction.date < first_day_next,
                 Transaction.status == "active",
@@ -263,9 +283,11 @@ async def cash_flow(
 
     totals_available = effective_display_currency is not None
 
-    return CashFlowResponse(
+    response = CashFlowResponse(
         months=result_months,
         display_currency=effective_display_currency,
         unconverted_count=total_unconverted,
         totals_available=totals_available,
     )
+    cache.set(cache_key, response, ttl=60)
+    return response

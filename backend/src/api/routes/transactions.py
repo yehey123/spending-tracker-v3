@@ -20,10 +20,13 @@ from src.api.schemas.transactions import (
     TransactionPatch,
     TransactionPatchResult,
 )
+from src.core import cache
+from src.core.deps import get_current_user
 from src.db.session import get_db
 from src.domain.models.audit_log import AuditLog
 from src.domain.models.category import Category
 from src.domain.models.transaction import Transaction
+from src.domain.models.user import User
 
 router = APIRouter()
 
@@ -49,11 +52,13 @@ async def list_transactions(
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """List transactions (active only by default); ordered by date DESC."""
     stmt = (
         select(Transaction)
         .options(selectinload(Transaction.category))
+        .where(Transaction.user_id == current_user.id)
         .order_by(Transaction.date.desc())
         .limit(limit)
         .offset(offset)
@@ -86,12 +91,14 @@ async def search_transactions(
     cursor: str | None = Query(default=None),
     linkable_only: bool = Query(default=False),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Full-text search over transaction descriptions using pg_trgm similarity."""
     stmt = (
         select(Transaction)
         .options(selectinload(Transaction.category))
         .where(
+            Transaction.user_id == current_user.id,
             Transaction.status == 'active',
             Transaction.reversed_by.is_(None),
             Transaction.reversal_of.is_(None),
@@ -122,7 +129,11 @@ async def search_transactions(
 
 
 @router.post("", response_model=TransactionOut, status_code=201)
-async def create_transaction(body: TransactionCreate, db: AsyncSession = Depends(get_db)):
+async def create_transaction(
+    body: TransactionCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Create a manual transaction (no statement source)."""
     if body.category_id is not None:
         cat_result = await db.execute(select(Category).where(Category.id == body.category_id))
@@ -139,10 +150,12 @@ async def create_transaction(body: TransactionCreate, db: AsyncSession = Depends
         statement_id=None,
         status='active',
         transaction_origin='manual',
+        user_id=current_user.id,
     )
     db.add(tx)
     await db.commit()
     await db.refresh(tx)
+    cache.clear()
 
     result = await db.execute(
         select(Transaction)
@@ -153,10 +166,17 @@ async def create_transaction(body: TransactionCreate, db: AsyncSession = Depends
 
 
 @router.patch("/{id}", response_model=TransactionPatchResult)
-async def patch_transaction(id: int, body: TransactionPatch, db: AsyncSession = Depends(get_db)):
+async def patch_transaction(
+    id: int,
+    body: TransactionPatch,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Partial update — financial changes trigger reversal+correction on committed transactions."""
     result = await db.execute(
-        select(Transaction).options(selectinload(Transaction.category)).where(Transaction.id == id)
+        select(Transaction)
+        .options(selectinload(Transaction.category))
+        .where(Transaction.id == id, Transaction.user_id == current_user.id)
     )
     tx = result.scalar_one_or_none()
     if tx is None:
@@ -177,6 +197,7 @@ async def patch_transaction(id: int, body: TransactionPatch, db: AsyncSession = 
         for field, value in changed.items():
             setattr(tx, field, value)
         await db.commit()
+        cache.clear()
         result2 = await db.execute(
             select(Transaction).options(selectinload(Transaction.category)).where(Transaction.id == id)
         )
@@ -201,6 +222,7 @@ async def patch_transaction(id: int, body: TransactionPatch, db: AsyncSession = 
             transaction_origin=tx.transaction_origin if isinstance(tx.transaction_origin, str) else tx.transaction_origin.value,
             reversal_of=tx.id,
             reversal_reason='user_correction',
+            user_id=current_user.id,
         )
         db.add(reversal)
         await db.flush()
@@ -216,6 +238,7 @@ async def patch_transaction(id: int, body: TransactionPatch, db: AsyncSession = 
             'status': 'active',
             'transaction_origin': tx.transaction_origin if isinstance(tx.transaction_origin, str) else tx.transaction_origin.value,
             'correction_of': tx.id,
+            'user_id': current_user.id,
         }
         correction_data.update(financial_changes)
         correction = Transaction(**correction_data)
@@ -242,6 +265,7 @@ async def patch_transaction(id: int, body: TransactionPatch, db: AsyncSession = 
         ))
 
     await db.commit()
+    cache.clear()
 
     final_id = correction.id if financial_changes else tx.id
     return TransactionPatchResult(
@@ -256,13 +280,17 @@ async def patch_transaction(id: int, body: TransactionPatch, db: AsyncSession = 
 async def reverse_transactions(
     body: ReverseRequest,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Reverse one or more committed transactions. Already-reversed rows are silently skipped."""
     reversed_ids: list[int] = []
     skipped_ids: list[int] = []
 
     for tx_id in body.ids:
-        tx = await db.get(Transaction, tx_id)
+        result = await db.execute(
+            select(Transaction).where(Transaction.id == tx_id, Transaction.user_id == current_user.id)
+        )
+        tx = result.scalar_one_or_none()
         if not tx or tx.reversed_by is not None or tx.reversal_of is not None:
             skipped_ids.append(tx_id)
             continue
@@ -281,6 +309,7 @@ async def reverse_transactions(
             transaction_origin=tx.transaction_origin if isinstance(tx.transaction_origin, str) else tx.transaction_origin.value,
             reversal_of=tx.id,
             reversal_reason=body.reason,
+            user_id=current_user.id,
         )
         db.add(reversal)
         await db.flush()
@@ -288,12 +317,23 @@ async def reverse_transactions(
         reversed_ids.append(tx_id)
 
     await db.commit()
+    cache.clear()
     return {"reversed": reversed_ids, "skipped": skipped_ids}
 
 
 @router.get("/{id}/history", response_model=list[AuditLogOut])
-async def get_transaction_history(id: int, db: AsyncSession = Depends(get_db)):
+async def get_transaction_history(
+    id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Return audit log entries for a transaction, oldest first."""
+    # Verify the transaction belongs to the current user before exposing its audit log.
+    tx_result = await db.execute(
+        select(Transaction.id).where(Transaction.id == id, Transaction.user_id == current_user.id)
+    )
+    if tx_result.scalar_one_or_none() is None:
+        raise HTTPException(status_code=404, detail="Transaction not found.")
     result = await db.execute(
         select(AuditLog)
         .where(AuditLog.transaction_id == id)
@@ -303,9 +343,17 @@ async def get_transaction_history(id: int, db: AsyncSession = Depends(get_db)):
 
 
 @router.patch("/{id}/parent")
-async def set_parent(id: int, body: ParentPatch, db: AsyncSession = Depends(get_db)):
+async def set_parent(
+    id: int,
+    body: ParentPatch,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Link or unlink a transaction's parent (receipt decomposition)."""
-    tx = await db.get(Transaction, id)
+    result = await db.execute(
+        select(Transaction).where(Transaction.id == id, Transaction.user_id == current_user.id)
+    )
+    tx = result.scalar_one_or_none()
     if not tx:
         raise HTTPException(status_code=404, detail="Transaction not found.")
     tx.parent_transaction_id = body.parent_transaction_id
