@@ -73,3 +73,14 @@ async def seed_default_categories(db: AsyncSession) -> None:
             )
 
     await db.commit()
+
+
+if __name__ == "__main__":
+    import asyncio
+    from src.db.session import AsyncSessionLocal
+
+    async def _run() -> None:
+        async with AsyncSessionLocal() as db:
+            await seed_default_categories(db)
+
+    asyncio.run(_run())
