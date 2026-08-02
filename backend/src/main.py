@@ -13,7 +13,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.core.auth import require_token
 from src.core.config import settings as app_settings
 from src.db.session import AsyncSessionLocal, engine
-from src.domain.services.category_seeder import seed_default_categories
 from src.domain.services.exchange_rate import exchange_rate_service
 import src.domain.models  # noqa: F401 — registers all ORM models with SQLAlchemy
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -30,8 +29,6 @@ _scheduler.add_job(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with AsyncSessionLocal() as db:
-        await seed_default_categories(db)
     _scheduler.start()
     await exchange_rate_service.init_db()
     asyncio.create_task(sync_models())
