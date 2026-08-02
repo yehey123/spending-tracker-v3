@@ -161,9 +161,7 @@ jobs:
 
       - name: Build web assets for Capacitor
         working-directory: frontend
-        env:
-          CAPACITOR_BUILD: "1"
-        run: npm run build
+        run: npm run build:capacitor
 
       - name: Sync Capacitor Android
         working-directory: frontend
@@ -226,9 +224,7 @@ jobs:
 
       - name: Build web assets for Capacitor
         working-directory: frontend
-        env:
-          CAPACITOR_BUILD: "1"
-        run: npm run build
+        run: npm run build:capacitor
 
       - name: Sync Capacitor iOS
         working-directory: frontend
