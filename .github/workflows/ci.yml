@@ -159,6 +159,10 @@ jobs:
         working-directory: frontend
         run: npm install
 
+      - name: Remove server-only API routes for static export
+        working-directory: frontend
+        run: rm -rf src/app/api
+
       - name: Build web assets for Capacitor
         working-directory: frontend
         env:
@@ -223,6 +227,10 @@ jobs:
       - name: Install frontend deps
         working-directory: frontend
         run: npm install
+
+      - name: Remove server-only API routes for static export
+        working-directory: frontend
+        run: rm -rf src/app/api
 
       - name: Build web assets for Capacitor
         working-directory: frontend
