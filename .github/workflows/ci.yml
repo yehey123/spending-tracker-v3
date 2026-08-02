@@ -192,7 +192,7 @@ jobs:
 
   android-maestro:
     name: Android Maestro E2E
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: android-build
 
     steps:
@@ -217,6 +217,11 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+
+      - name: Diagnose KVM and CPU
+        run: |
+          ls -l /dev/kvm
+          grep -cE 'vmx|svm' /proc/cpuinfo
 
       - name: Run Maestro on Android emulator
         uses: reactivecircus/android-emulator-runner@v2
