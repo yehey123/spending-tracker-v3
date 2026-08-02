@@ -118,22 +118,22 @@ jobs:
           # Use 127.0.0.1 — Ubuntu 24 resolves 'localhost' to ::1 (IPv6) but Docker publishes on 0.0.0.0 (IPv4)
           timeout 300 bash -c 'until curl -sf http://127.0.0.1/api/health | grep -q "healthy"; do sleep 2; done'
 
-      - name: Dump backend logs on health failure
-        if: failure()
-        run: |
-          echo "=== docker compose ps ==="
-          docker compose ps
-          echo "=== backend logs (last 100 lines) ==="
-          docker compose logs backend --tail 100
-          echo "=== nginx logs ==="
-          docker compose logs nginx --tail 20
-
       - name: Run Playwright tests
         working-directory: frontend
         env:
           BASE_URL: "http://127.0.0.1"
           CI: "true"
         run: npx playwright test
+
+      - name: Dump backend logs on failure
+        if: failure()
+        run: |
+          echo "=== docker compose ps ==="
+          docker compose ps
+          echo "=== backend logs (last 150 lines) ==="
+          docker compose logs backend --tail 150
+          echo "=== nginx logs ==="
+          docker compose logs nginx --tail 30
 
       - name: Upload Playwright report
         if: always()
@@ -208,6 +208,9 @@ jobs:
         run: |
           curl -Ls "https://get.maestro.mobile.dev" | bash
           echo "$HOME/.maestro/bin" >> $GITHUB_PATH
+
+      - name: Install emulator system dependencies
+        run: sudo apt-get install -y libpulse0
 
       - name: Run Maestro on Android emulator
         uses: reactivecircus/android-emulator-runner@v2
