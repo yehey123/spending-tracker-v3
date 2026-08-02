@@ -115,8 +115,18 @@ jobs:
 
       - name: Wait for stack to be healthy
         run: |
-          # /api/health queries all required DB tables — a 200+body confirms migrations ran
-          timeout 180 bash -c 'until curl -sf http://localhost/api/health | grep -q "healthy"; do sleep 1; done'
+          # Use 127.0.0.1 — Ubuntu 24 resolves 'localhost' to ::1 (IPv6) but Docker publishes on 0.0.0.0 (IPv4)
+          timeout 300 bash -c 'until curl -sf http://127.0.0.1/api/health | grep -q "healthy"; do sleep 2; done'
+
+      - name: Dump backend logs on health failure
+        if: failure()
+        run: |
+          echo "=== docker compose ps ==="
+          docker compose ps
+          echo "=== backend logs (last 100 lines) ==="
+          docker compose logs backend --tail 100
+          echo "=== nginx logs ==="
+          docker compose logs nginx --tail 20
 
       - name: Run Playwright tests
         working-directory: frontend
@@ -204,9 +214,13 @@ jobs:
         with:
           api-level: 34
           arch: x86_64
+          emulator-options: "-no-snapshot -no-audio -no-boot-anim -gpu swiftshader_indirect"
+          disable-animations: true
           script: |
             adb install apk/app-debug.apk
             maestro test .maestro/smoke.yaml
+        env:
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: "300000"
 
   ios-build:
     name: iOS Build (Simulator)
