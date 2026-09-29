@@ -12,6 +12,7 @@ from sqlalchemy.orm import sessionmaker
 
 # Must be set before src.main is imported (Settings() runs at import time)
 os.environ.setdefault("APP_SECRET", "test-secret-key-that-is-at-least-32-chars!")
+os.environ.setdefault("ADMIN_LINK_SECRET", "test-admin-link-secret-at-least-32-chars!")
 os.environ.setdefault("JWT_SECRET", "test-jwt-secret-that-is-at-least-32-chars!")
 
 from src.main import app

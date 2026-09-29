@@ -2,8 +2,8 @@
 
 Public routes (no require_token):
   POST /request-access              — submit an access request
-  GET  /admin/approve/{id}?sig=...  — operator approves (HMAC-gated)
-  GET  /admin/deny/{id}?sig=...     — operator denies  (HMAC-gated)
+  GET  /admin/approve/{id}?exp=..&sig=..  — operator approves (HMAC-gated)
+  GET  /admin/deny/{id}?exp=..&sig=..     — operator denies  (HMAC-gated)
 """
 
 import logging
@@ -16,10 +16,9 @@ from src.core.config import settings
 from src.core.email import (
     generate_invite_token,
     invite_expires_at,
-    make_hmac_sig,
     send_operator_request_email,
     send_user_invite_email,
-    verify_hmac_sig,
+    verify_admin_link,
 )
 from src.db.session import get_db
 from src.domain.models.access_request import AccessRequest
@@ -103,15 +102,16 @@ async def request_access(
 @router.get("/admin/approve/{request_id}")
 async def admin_approve(
     request_id: str,
+    exp: int = Query(...),
     sig: str = Query(...),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Approve an access request and send an invite email.
 
     Idempotent: if already approved, returns 200 with a note.
-    HMAC signature validated against 'approve:{request_id}'.
+    HMAC signature covers action, request id and expiry (48h).
     """
-    if not verify_hmac_sig(f"approve:{request_id}", sig):
+    if not verify_admin_link("approve", request_id, exp, sig):
         raise HTTPException(status_code=403, detail="Invalid or expired signature.")
 
     req = await db.get(AccessRequest, request_id)
@@ -170,15 +170,16 @@ async def admin_approve(
 @router.get("/admin/deny/{request_id}")
 async def admin_deny(
     request_id: str,
+    exp: int = Query(...),
     sig: str = Query(...),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Deny an access request.
 
     Idempotent: if already denied or approved, returns 200 with a note.
-    HMAC signature validated against 'deny:{request_id}'.
+    HMAC signature covers action, request id and expiry (48h).
     """
-    if not verify_hmac_sig(f"deny:{request_id}", sig):
+    if not verify_admin_link("deny", request_id, exp, sig):
         raise HTTPException(status_code=403, detail="Invalid or expired signature.")
 
     req = await db.get(AccessRequest, request_id)
