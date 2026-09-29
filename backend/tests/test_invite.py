@@ -10,10 +10,18 @@ from httpx import AsyncClient, ASGITransport
 from sqlalchemy import select
 from unittest.mock import AsyncMock, patch
 
-from src.core.email import make_hmac_sig
+from datetime import datetime, timedelta, timezone
+
+from src.core.email import invite_expires_at, make_hmac_sig
 from src.domain.models.access_request import AccessRequest
 from src.domain.models.invite_token import InviteToken
 from src.main import app
+
+
+def test_invite_expires_in_24_hours():
+    """RULE-SEC-07: invite tokens live 24h, matching admin resend-invite (INVITE_TOKEN_EXPIRE_HOURS)."""
+    remaining = invite_expires_at() - datetime.now(timezone.utc)
+    assert timedelta(hours=23, minutes=59) < remaining <= timedelta(hours=24)
 
 
 # ---------------------------------------------------------------------------

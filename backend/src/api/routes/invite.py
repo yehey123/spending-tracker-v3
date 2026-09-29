@@ -127,6 +127,10 @@ async def admin_approve(
             "message": "This request was already denied. Approve is a no-op.",
         }
 
+    # Read before rollback: db.rollback() expires req, and attribute access afterwards
+    # would trigger a lazy load outside the async greenlet (MissingGreenlet).
+    applicant_email = req.email
+
     # Commit approval status first — this is idempotent state, always safe to persist.
     req.status = "approved"
     await db.commit()
@@ -134,11 +138,11 @@ async def admin_approve(
     # Generate token but hold in session — only commit after email succeeds.
     raw_token, token_hash = generate_invite_token()
     expires_at = invite_expires_at()
-    db.add(InviteToken(token_hash=token_hash, email=req.email, expires_at=expires_at, consumed_at=None))
+    db.add(InviteToken(token_hash=token_hash, email=applicant_email, expires_at=expires_at, consumed_at=None))
 
     try:
         await send_user_invite_email(
-            to_email=req.email,
+            to_email=applicant_email,
             raw_token=raw_token,
             expires_at=expires_at,
             base_url=settings.app_base_url,
@@ -149,14 +153,14 @@ async def admin_approve(
         logger.exception(
             "Access request %s approved but invite email failed for %s — token not saved.",
             request_id,
-            req.email,
+            applicant_email,
         )
         raise HTTPException(
             status_code=502,
             detail="Request approved but invite email could not be sent. Use resend-invite to retry once the mail server is fixed.",
         )
 
-    return {"status": "approved", "email": req.email}
+    return {"status": "approved", "email": applicant_email}
 
 
 # ---------------------------------------------------------------------------

@@ -61,8 +61,8 @@ def generate_invite_token() -> tuple[str, str]:
 
 
 def invite_expires_at() -> datetime:
-    """Return UTC expiry timestamp 7 days from now."""
-    return datetime.now(timezone.utc) + timedelta(days=7)
+    """Return UTC expiry timestamp 24 hours from now (RULE-SEC-07)."""
+    return datetime.now(timezone.utc) + timedelta(hours=24)
 
 
 # ---------------------------------------------------------------------------
