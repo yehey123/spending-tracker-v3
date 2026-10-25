@@ -24,6 +24,12 @@ class Settings(BaseSettings):
     google_project_id: str | None = None   # Vertex AI project
     google_location: str = "us-central1"  # Vertex AI region
 
+    # Ollama (OCR_PROVIDER=ollama) — any OpenAI-compatible /v1 endpoint. Default = the
+    # opt-in compose service (`docker compose --profile ollama up`). Point it at
+    # http://host.docker.internal:11434/v1 for native Ollama on the host (Metal GPU on macOS),
+    # or at an external server.
+    ollama_base_url: str = "http://ollama:11434/v1"
+
     # Account fingerprinting — must be ≥ 32 chars when account numbers are stored
     app_secret: str = ""
 
@@ -36,9 +42,12 @@ class Settings(BaseSettings):
     # Comma-separated list of allowed CORS origins; empty falls back to dev/Capacitor defaults
     cors_origins: str = ""
 
-    # JWT / HMAC secret — used for signing admin approve/deny links (E11).
-    # Must be ≥ 32 chars in production. Falls back to app_secret when empty.
+    # JWT signing secret (core/auth.py). Must be ≥ 32 chars in production.
     jwt_secret: str = ""
+
+    # HMAC secret for admin approve/deny email links (E11, RULE-SEC-03).
+    # Independent of jwt_secret; ≥ 32 chars in production. No fallback.
+    admin_link_secret: str = ""
 
     # Gmail SMTP (E11 — invite gate)
     smtp_host: str = "smtp.gmail.com"

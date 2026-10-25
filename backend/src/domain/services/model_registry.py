@@ -21,6 +21,11 @@ SEED: dict[str, list[tuple[str, str, int | None]]] = {
         ("o3",           "o3",          100000),
         ("o4-mini",      "o4-mini",     100000),
     ],
+    "ollama": [  # vision-capable; pull first: `ollama pull <model_id>`
+        ("ornith-1.5:9b",   "Ornith 1.5 9B (6.6 GB)",       8192),
+        ("qwen3.8:27b",     "Qwen 3.8 27B (18 GB, 32 GB+ RAM)", 8192),
+        ("qwen3.8:27b-mlx", "Qwen 3.8 27B MLX (Apple Silicon, native Ollama)", 8192),
+    ],
     "anthropic": [
         ("claude-opus-4-8",           "Claude Opus 4.8",   32000),
         ("claude-sonnet-4-6",         "Claude Sonnet 4.6", 64000),

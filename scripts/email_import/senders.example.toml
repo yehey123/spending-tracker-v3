@@ -1,0 +1,14 @@
+# Copy to secrets/email_senders.toml (gitignored) and edit.
+# address:  exact From address; anything else is rejected.
+# kind:     bank_account | credit_card | receipt  (sent as the upload's statement_kind)
+# password: optional template for encrypted PDFs. {NAME} placeholders are read from
+#           .env, so this file holds the FORMAT only, never the real values.
+
+[[sender]]
+address = "estatement@mybank.com"
+kind = "credit_card"
+password = "{BIRTHDATE_DDMMYYYY}{CARD_LAST4}"
+
+[[sender]]
+address = "receipts@grab.com"
+kind = "receipt"

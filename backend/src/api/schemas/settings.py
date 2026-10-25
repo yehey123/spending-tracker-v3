@@ -21,7 +21,7 @@ class SettingsOut(BaseModel):
 
 
 class SettingsPut(BaseModel):
-    ocr_provider: Literal["tesseract", "anthropic", "openai", "gemini", "vertex", "claude"] | None = None
+    ocr_provider: Literal["tesseract", "anthropic", "openai", "gemini", "vertex", "ollama", "claude"] | None = None
     anthropic_api_key: str | None = None
     openai_api_key: str | None = None
     home_currency: str | None = None

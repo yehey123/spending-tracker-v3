@@ -255,6 +255,7 @@ export default function SettingsPage() {
           <option value="openai">OpenAI Vision</option>
           <option value="gemini">Gemini (Google AI Studio)</option>
           <option value="vertex">Google Vertex AI</option>
+          <option value="ollama">Ollama (self-hosted)</option>
         </select>
         {ocrProvider === 'anthropic' && (
           <input value={anthropicKey} onChange={(e) => setAnthropicKey(e.target.value)}
@@ -279,6 +280,11 @@ export default function SettingsPage() {
               placeholder="Region (e.g. us-central1)" className="border rounded-lg px-3 py-2 text-sm w-full" />
             <p className="text-xs text-gray-500">Uses Application Default Credentials (GOOGLE_APPLICATION_CREDENTIALS env var).</p>
           </>
+        )}
+        {ocrProvider === 'ollama' && (
+          <p className="text-xs text-gray-500">
+            Runs on your own Ollama server (OLLAMA_BASE_URL in .env): the bundled container, native Ollama on this machine, or an external host. Statements stay off third-party AI unless you point it elsewhere.
+          </p>
         )}
         {ocrProvider !== 'tesseract' && (
           <>
