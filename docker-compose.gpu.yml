@@ -1,0 +1,15 @@
+# NVIDIA GPU for the ollama service (Linux host, e.g. RTX 3060 12 GB).
+# Requires the NVIDIA driver and nvidia-container-toolkit on the host:
+#   sudo apt install nvidia-container-toolkit
+#   sudo nvidia-ctk runtime configure --runtime=docker && sudo systemctl restart docker
+# Run: docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile ollama up -d
+# ornith-1.5:9b (~6.6 GB) fits fully in 12 GB VRAM; qwen3.8:27b does not and spills to CPU.
+services:
+  ollama:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

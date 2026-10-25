@@ -65,7 +65,8 @@ services:
   # Opt-in local AI: `docker compose --profile ollama up -d`, then
   # `docker compose exec ollama ollama pull ornith-1.5:9b`. CPU-only on macOS (Docker has no
   # Metal GPU) — for speed on a Mac, run native Ollama instead and set
-  # OLLAMA_BASE_URL=http://host.docker.internal:11434/v1 in .env.
+  # OLLAMA_BASE_URL=http://host.docker.internal:11434/v1 in .env. On Linux with an NVIDIA
+  # GPU, add `-f docker-compose.gpu.yml` (see that file).
   ollama:
     image: ollama/ollama:latest
     profiles: ["ollama"]
