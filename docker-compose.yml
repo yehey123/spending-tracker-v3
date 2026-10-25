@@ -62,18 +62,34 @@ services:
       "
     restart: "no"
 
-  # Opt-in local AI: `docker compose --profile ollama up -d`, then
-  # `docker compose exec ollama ollama pull ornith-1.5:9b`. CPU-only on macOS (Docker has no
-  # Metal GPU) — for speed on a Mac, run native Ollama instead and set
+  # Local AI. Starts and stops with the app (`docker compose up` / `down`); a model only
+  # occupies memory while loaded and unloads after 5 min idle. CPU-only on macOS (Docker has
+  # no Metal GPU) — for speed on a Mac, run native Ollama and set
   # OLLAMA_BASE_URL=http://host.docker.internal:11434/v1 in .env. On Linux with an NVIDIA
   # GPU, add `-f docker-compose.gpu.yml` (see that file).
   ollama:
     image: ollama/ollama:latest
-    profiles: ["ollama"]
     expose:
       - "11434"
     volumes:
       - ollama_models:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Pulls the default OCR model on first start; a no-op once it is in the volume.
+  ollama-init:
+    image: ollama/ollama:latest
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-ornith-1.5:9b}
+    entrypoint: ["sh", "-c", "ollama pull \"$$OLLAMA_MODEL\""]
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: "no"
 
   db:
     image: postgres:16-alpine

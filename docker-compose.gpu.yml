@@ -2,7 +2,7 @@
 # Requires the NVIDIA driver and nvidia-container-toolkit on the host:
 #   sudo apt install nvidia-container-toolkit
 #   sudo nvidia-ctk runtime configure --runtime=docker && sudo systemctl restart docker
-# Run: docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile ollama up -d
+# Run: docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
 # ornith-1.5:9b (~6.6 GB) fits fully in 12 GB VRAM; qwen3.8:27b does not and spills to CPU.
 services:
   ollama:
