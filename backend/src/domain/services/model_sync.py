@@ -178,6 +178,32 @@ async def sync_anthropic(db, settings: AppSettings) -> int:
         return await _seed_provider(db, "anthropic")
 
 
+async def sync_ollama(db, settings: AppSettings) -> int:
+    """List models already pulled on the Ollama server (OpenAI-compatible /models)."""
+    from src.core.config import settings as _cfg
+    try:
+        now = datetime.now(timezone.utc)
+        async with httpx.AsyncClient(timeout=5) as client:
+            resp = await client.get(f"{_cfg.ollama_base_url.rstrip('/')}/models")
+            resp.raise_for_status()
+            data = resp.json()
+        rows = [
+            {
+                "provider": "ollama",
+                "model_id": m["id"],
+                "display_name": m["id"],
+                "max_output_tokens": get_limit(m["id"]) or 8192,
+                "source": "api",
+                "refreshed_at": now,
+            }
+            for m in data.get("data", [])
+        ]
+        return await _upsert(db, rows) or await _seed_provider(db, "ollama")
+    except Exception as exc:
+        logger.warning("sync_ollama failed (%s); seeding fallback", exc)
+        return await _seed_provider(db, "ollama")
+
+
 async def sync_all() -> dict[str, int]:
     async with AsyncSessionLocal() as db:
         settings = await db.get(AppSettings, 1)
@@ -189,12 +215,13 @@ async def sync_all() -> dict[str, int]:
             sync_vertex(db, settings),
             sync_openai(db, settings),
             sync_anthropic(db, settings),
+            sync_ollama(db, settings),
             return_exceptions=True,
         )
 
         await db.commit()
 
     counts = {}
-    for provider, result in zip(["gemini", "vertex", "openai", "anthropic"], results):
+    for provider, result in zip(["gemini", "vertex", "openai", "anthropic", "ollama"], results):
         counts[provider] = result if isinstance(result, int) else 0
     return counts

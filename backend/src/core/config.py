@@ -24,6 +24,12 @@ class Settings(BaseSettings):
     google_project_id: str | None = None   # Vertex AI project
     google_location: str = "us-central1"  # Vertex AI region
 
+    # Ollama (OCR_PROVIDER=ollama) — any OpenAI-compatible /v1 endpoint. Default = the
+    # opt-in compose service (`docker compose --profile ollama up`). Point it at
+    # http://host.docker.internal:11434/v1 for native Ollama on the host (Metal GPU on macOS),
+    # or at an external server.
+    ollama_base_url: str = "http://ollama:11434/v1"
+
     # Account fingerprinting — must be ≥ 32 chars when account numbers are stored
     app_secret: str = ""
 

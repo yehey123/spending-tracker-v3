@@ -198,6 +198,11 @@ def _resolve_ocr(settings_row: AppSettings):
         model = getattr(settings_row, 'ai_model', None) or "google/gemini-2.5-flash"
         return VertexVisionProvider(project_id=settings_row.google_project_id,
                                     location=location, model=model, max_tokens=_max or 8192)
+    elif provider == "ollama":
+        from src.core.config import settings as _cfg
+        model = getattr(settings_row, 'ai_model', None) or "ornith-1.5:9b"
+        return OpenAIVisionProvider(api_key="ollama", model=model, max_tokens=_max or 4096,
+                                    base_url=_cfg.ollama_base_url, reasoning_effort="none")
     return TesseractProvider()
 
 
