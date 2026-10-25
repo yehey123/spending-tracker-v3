@@ -66,7 +66,7 @@ services:
   # occupies memory while loaded and unloads after 5 min idle. CPU-only on macOS (Docker has
   # no Metal GPU) — for speed on a Mac, run native Ollama and set
   # OLLAMA_BASE_URL=http://host.docker.internal:11434/v1 in .env. On Linux with an NVIDIA
-  # GPU, add `-f docker-compose.gpu.yml` (see that file).
+  # GPU, start with `scripts/compose.sh up -d` to use it when present.
   ollama:
     image: ollama/ollama:latest
     expose:
