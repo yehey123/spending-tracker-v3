@@ -4,8 +4,10 @@ Revision ID: 0004
 Revises: 0003
 Create Date: 2026-07-20
 """
-from alembic import op
+
 import sqlalchemy as sa
+
+from alembic import op
 
 revision = "0004"
 down_revision = "0003"
@@ -28,7 +30,9 @@ def upgrade() -> None:
     )
 
     op.add_column("app_settings", sa.Column("max_output_tokens", sa.Integer(), nullable=True))
-    op.add_column("app_settings", sa.Column("dev_mode", sa.Boolean(), nullable=False, server_default="false"))
+    op.add_column(
+        "app_settings", sa.Column("dev_mode", sa.Boolean(), nullable=False, server_default="false")
+    )
 
     op.add_column("statements", sa.Column("file_hash", sa.String(64), nullable=True))
     op.create_index("ix_statements_file_hash", "statements", ["file_hash"])

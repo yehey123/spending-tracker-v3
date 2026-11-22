@@ -15,22 +15,25 @@ import pytest
 
 from tests.conftest import TEST_DB_RAW
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 async def _make_category(client, name="Misc", color="#123456"):
     return (await client.post("/categories", json={"name": name, "color": color})).json()
 
 
 async def _make_tx(client, description="Coffee Shop"):
-    res = await client.post("/transactions", json={
-        "date": "2026-05-15T00:00:00",
-        "amount": "50.00",
-        "description": description,
-        "direction": "debit",
-    })
+    res = await client.post(
+        "/transactions",
+        json={
+            "date": "2026-05-15T00:00:00",
+            "amount": "50.00",
+            "description": description,
+            "direction": "debit",
+        },
+    )
     assert res.status_code == 201
     return res.json()
 
@@ -39,10 +42,12 @@ async def _create_flag(tx_id: int, cat_id: int) -> int:
     conn = await asyncpg.connect(TEST_DB_RAW)
     try:
         row = await conn.fetchrow(
-            """INSERT INTO transaction_flags (transaction_id, flag_type, status, metadata)
+            """INSERT INTO transaction_flags
+                 (transaction_id, flag_type, status, metadata)
                VALUES ($1, 'category_suggestion', 'open', $2::jsonb) RETURNING id""",
             tx_id,
-            f'{{"suggested_category_id": {cat_id}, "confidence": 0.9, "merchant_key": "coffee shop"}}',
+            f'{{"suggested_category_id": {cat_id}, "confidence": 0.9, '
+            '"merchant_key": "coffee shop"}',
         )
         return row["id"]
     finally:
@@ -52,6 +57,7 @@ async def _create_flag(tx_id: int, cat_id: int) -> int:
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_get_flags_empty(client):
@@ -236,7 +242,7 @@ async def test_get_flags_flag_metadata_present(client):
     """GET /flags includes flag_metadata with suggested_category_id."""
     cat = await _make_category(client, name="Coffee")
     tx = await _make_tx(client)
-    flag_id = await _create_flag(tx["id"], cat["id"])
+    await _create_flag(tx["id"], cat["id"])
 
     res = await client.get("/flags")
     assert res.status_code == 200

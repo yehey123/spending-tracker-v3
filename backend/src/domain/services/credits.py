@@ -3,6 +3,7 @@
 All balance mutations are append-only (INSERT into credit_ledger only).
 Never UPDATE or DELETE credit_ledger rows — it is a financial audit trail.
 """
+
 from __future__ import annotations
 
 import logging
@@ -31,6 +32,7 @@ async def _get_weights(db: AsyncSession) -> dict[str, int]:
     """Core default is tesseract=0; installed plugins add their descriptor weight;
     the DB `credit_weights` row overrides both."""
     from src.plugins import registry
+
     weights: dict[str, int] = {"tesseract": 0}
     for key, desc in registry.available().items():
         weights[key] = int(getattr(desc, "credit_weight", 0))
@@ -46,14 +48,15 @@ async def _get_monthly_grant_amount(db: AsyncSession) -> int:
         return 30
     try:
         return int(row.value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return 30
 
 
 async def get_balance(user_id: uuid.UUID, db: AsyncSession) -> int:
     result = await db.execute(
-        select(func.coalesce(func.sum(CreditLedger.amount), 0))
-        .where(CreditLedger.user_id == user_id)
+        select(func.coalesce(func.sum(CreditLedger.amount), 0)).where(
+            CreditLedger.user_id == user_id
+        )
     )
     return int(result.scalar_one())
 
@@ -104,8 +107,13 @@ async def atomic_debit(
         logger.warning("Duplicate debit key %s — already debited, skipping", idempotency_key)
         return 0
 
-    logger.info("Debited %d credits from user %s for %s (statement=%s)",
-                cost, user_id, provider, statement_id)
+    logger.info(
+        "Debited %d credits from user %s for %s (statement=%s)",
+        cost,
+        user_id,
+        provider,
+        statement_id,
+    )
     return cost
 
 

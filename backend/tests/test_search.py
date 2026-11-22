@@ -3,6 +3,7 @@ import json
 
 import asyncpg
 import pytest
+
 from tests.conftest import TEST_DB_RAW
 
 
@@ -10,19 +11,28 @@ async def _set_reversed_by(tx_id: int, reverse_tx_id: int):
     """Mark tx as reversed via direct DB write (avoids reversal endpoint timezone bug)."""
     conn = await asyncpg.connect(TEST_DB_RAW)
     try:
-        await conn.execute("UPDATE transactions SET reversed_by = $1 WHERE id = $2", reverse_tx_id, tx_id)
-        await conn.execute("UPDATE transactions SET reversal_of = $1 WHERE id = $2", tx_id, reverse_tx_id)
+        await conn.execute(
+            "UPDATE transactions SET reversed_by = $1 WHERE id = $2", reverse_tx_id, tx_id
+        )
+        await conn.execute(
+            "UPDATE transactions SET reversal_of = $1 WHERE id = $2", tx_id, reverse_tx_id
+        )
     finally:
         await conn.close()
 
 
-async def _make_tx(client, description: str, amount: str = "50.00", date: str = "2026-05-15T00:00:00"):
-    res = await client.post("/transactions", json={
-        "date": date,
-        "amount": amount,
-        "description": description,
-        "direction": "debit",
-    })
+async def _make_tx(
+    client, description: str, amount: str = "50.00", date: str = "2026-05-15T00:00:00"
+):
+    res = await client.post(
+        "/transactions",
+        json={
+            "date": date,
+            "amount": amount,
+            "description": description,
+            "direction": "debit",
+        },
+    )
     assert res.status_code == 201, res.text
     return res.json()
 
@@ -55,8 +65,8 @@ async def test_search_limit(client):
 
 @pytest.mark.asyncio
 async def test_search_cursor_pagination(client):
-    tx1 = await _make_tx(client, "Coffee Shop Visit", date="2026-05-15T00:00:00")
-    tx2 = await _make_tx(client, "Coffee Beans Online", date="2026-05-14T00:00:00")
+    await _make_tx(client, "Coffee Shop Visit", date="2026-05-15T00:00:00")
+    await _make_tx(client, "Coffee Beans Online", date="2026-05-14T00:00:00")
 
     # First page
     res1 = await client.get("/transactions/search?q=coffee&limit=1")

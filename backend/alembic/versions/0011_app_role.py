@@ -11,17 +11,18 @@ that tables added in future migrations inherit the same grants automatically.
 
 import os
 import re
+
 from alembic import op
 
-revision = '0011'
-down_revision = '0010'
+revision = "0011"
+down_revision = "0010"
 branch_labels = None
 depends_on = None
 
 
 def upgrade() -> None:
-    pwd = os.environ.get('APP_DB_PASSWORD', 'app_password')
-    if not re.match(r'^[A-Za-z0-9_@#$!%^&*()\-+=.]+$', pwd):
+    pwd = os.environ.get("APP_DB_PASSWORD", "app_password")
+    if not re.match(r"^[A-Za-z0-9_@#$!%^&*()\-+=.]+$", pwd):
         raise ValueError("APP_DB_PASSWORD contains characters that are not allowed")
 
     # Create or update the app_user role (idempotent).
@@ -47,9 +48,7 @@ def upgrade() -> None:
     """)
 
     op.execute("GRANT USAGE ON SCHEMA public TO app_user")
-    op.execute(
-        "GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_user"
-    )
+    op.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_user")
     op.execute("GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO app_user")
 
     # Future tables / sequences created by the superuser inherit these grants.

@@ -21,7 +21,7 @@ class UserContextMiddleware(BaseHTTPMiddleware):
 
         auth_header = request.headers.get("Authorization", "")
         if auth_header.lower().startswith("bearer "):
-            token = auth_header[len("Bearer "):]
+            token = auth_header[len("Bearer ") :]
             try:
                 payload = decode_jwt(token)
                 request.state.user_id = payload.get("sub")

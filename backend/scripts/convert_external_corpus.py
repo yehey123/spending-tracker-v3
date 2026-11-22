@@ -4,6 +4,7 @@ Usage: python3 -I convert_external_corpus.py <dir>
 Pure stdlib; reads JSON only. Skips failed (zero-amount) rows. Warns if
 opening + credits - debits != closing balance (source data has seeded anomalies).
 """
+
 import json
 import sys
 from datetime import datetime
@@ -37,7 +38,10 @@ def convert(src: Path) -> dict:
     deb = sum((Decimal(r["amount"]) for r in rows if r["direction"] == "debit"), Decimal(0))
     cre = sum((Decimal(r["amount"]) for r in rows if r["direction"] == "credit"), Decimal(0))
     if j["opening_balance"] + cre - deb != j["closing_balance"]:
-        print(f"WARN {src.name}: opening+credits-debits != closing (source balance anomaly)", file=sys.stderr)
+        print(
+            f"WARN {src.name}: opening+credits-debits != closing (source balance anomaly)",
+            file=sys.stderr,
+        )
     return {"rows": rows, "total_debits": f"{deb:.2f}", "total_credits": f"{cre:.2f}"}
 
 

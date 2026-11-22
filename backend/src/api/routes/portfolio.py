@@ -22,7 +22,7 @@ async def get_portfolio(
     acc = await db.get(Account, account_id)
     if not acc:
         raise HTTPException(404, "Account not found")
-    if acc.type != 'broker':
+    if acc.type != "broker":
         raise HTTPException(422, "Account is not a broker account")
 
     result = await db.execute(
@@ -31,22 +31,22 @@ async def get_portfolio(
             InvestmentTransaction.currency,
             func.sum(
                 case(
-                    (InvestmentTransaction.direction == 'buy', InvestmentTransaction.shares),
+                    (InvestmentTransaction.direction == "buy", InvestmentTransaction.shares),
                     else_=-InvestmentTransaction.shares,
                 )
-            ).label('net_shares'),
+            ).label("net_shares"),
             func.sum(
                 case(
-                    (InvestmentTransaction.direction == 'buy', InvestmentTransaction.amount),
-                    else_=Decimal('0'),
+                    (InvestmentTransaction.direction == "buy", InvestmentTransaction.amount),
+                    else_=Decimal("0"),
                 )
-            ).label('total_cost'),
+            ).label("total_cost"),
             func.sum(
                 case(
-                    (InvestmentTransaction.direction == 'buy', InvestmentTransaction.shares),
-                    else_=Decimal('0'),
+                    (InvestmentTransaction.direction == "buy", InvestmentTransaction.shares),
+                    else_=Decimal("0"),
                 )
-            ).label('total_buy_shares'),
+            ).label("total_buy_shares"),
         )
         .where(InvestmentTransaction.account_id == account_id)
         .group_by(InvestmentTransaction.symbol, InvestmentTransaction.currency)
@@ -55,22 +55,24 @@ async def get_portfolio(
 
     holdings = []
     for row in rows:
-        net_shares = row.net_shares or Decimal('0')
-        total_cost = row.total_cost or Decimal('0')
-        total_buy_shares = row.total_buy_shares or Decimal('0')
+        net_shares = row.net_shares or Decimal("0")
+        total_cost = row.total_cost or Decimal("0")
+        total_buy_shares = row.total_buy_shares or Decimal("0")
 
         if net_shares <= 0 and not include_closed:
             continue
 
-        avg_cost = total_cost / total_buy_shares if total_buy_shares else Decimal('0')
-        holdings.append({
-            "symbol": row.symbol,
-            "currency": row.currency,
-            "shares_held": str(net_shares),
-            "avg_cost_per_share": str(avg_cost),
-            "total_cost_basis": str(net_shares * avg_cost),
-            "last_price": None,
-        })
+        avg_cost = total_cost / total_buy_shares if total_buy_shares else Decimal("0")
+        holdings.append(
+            {
+                "symbol": row.symbol,
+                "currency": row.currency,
+                "shares_held": str(net_shares),
+                "avg_cost_per_share": str(avg_cost),
+                "total_cost_basis": str(net_shares * avg_cost),
+                "last_price": None,
+            }
+        )
 
     return {
         "account_id": account_id,

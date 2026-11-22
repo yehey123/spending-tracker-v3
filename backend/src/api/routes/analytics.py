@@ -8,8 +8,6 @@ from datetime import datetime
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from src.core import cache
-from src.core.currencies import SUPPORTED_CURRENCIES
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,6 +17,8 @@ from src.api.schemas.analytics import (
     CategoryBreakdown,
     MonthCashFlow,
 )
+from src.core import cache
+from src.core.currencies import SUPPORTED_CURRENCIES
 from src.core.deps import get_current_user
 from src.db.session import get_db
 from src.domain.models.app_settings import AppSettings
@@ -102,8 +102,7 @@ async def by_category(
             Transaction.amount,
             Transaction.currency,
             Transaction.date,
-        )
-        .where(
+        ).where(
             Transaction.user_id == current_user.id,
             Transaction.direction == "debit",
             Transaction.date >= first_day,
@@ -114,7 +113,7 @@ async def by_category(
             Transaction.deleted_at.is_(None),
             or_(
                 Transaction.transfer_status.is_(None),
-                Transaction.transfer_status != 'confirmed',
+                Transaction.transfer_status != "confirmed",
             ),
         )
     )
@@ -137,8 +136,12 @@ async def by_category(
         date_str = row.date.strftime("%Y-%m-%d") if row.date else "2000-01-01"
         if effective_display_currency:
             amount = await _convert_amount(
-                row.amount, row.currency, effective_display_currency,
-                date_str, unconverted_ref, home_currency
+                row.amount,
+                row.currency,
+                effective_display_currency,
+                date_str,
+                unconverted_ref,
+                home_currency,
             )
         else:
             amount = row.amount
@@ -164,21 +167,25 @@ async def by_category(
         percent = float(amount / total_debit * 100) if total_debit else 0.0
         if cat_id is not None and cat_id in cats:
             cat = cats[cat_id]
-            breakdown.append(CategoryBreakdown(
-                category_id=cat_id,
-                category_name=cat.name,
-                color=cat.color or "#6B7280",
-                amount=amount,
-                percent=round(percent, 1),
-            ))
+            breakdown.append(
+                CategoryBreakdown(
+                    category_id=cat_id,
+                    category_name=cat.name,
+                    color=cat.color or "#6B7280",
+                    amount=amount,
+                    percent=round(percent, 1),
+                )
+            )
         else:
-            breakdown.append(CategoryBreakdown(
-                category_id=None,
-                category_name="Uncategorized",
-                color="#6B7280",
-                amount=amount,
-                percent=round(percent, 1),
-            ))
+            breakdown.append(
+                CategoryBreakdown(
+                    category_id=None,
+                    category_name="Uncategorized",
+                    color="#6B7280",
+                    amount=amount,
+                    percent=round(percent, 1),
+                )
+            )
 
     totals_available = effective_display_currency is not None
 
@@ -242,8 +249,7 @@ async def cash_flow(
                 Transaction.amount,
                 Transaction.currency,
                 Transaction.date,
-            )
-            .where(
+            ).where(
                 Transaction.user_id == current_user.id,
                 Transaction.date >= first_day,
                 Transaction.date < first_day_next,
@@ -253,7 +259,7 @@ async def cash_flow(
                 Transaction.deleted_at.is_(None),
                 or_(
                     Transaction.transfer_status.is_(None),
-                    Transaction.transfer_status != 'confirmed',
+                    Transaction.transfer_status != "confirmed",
                 ),
             )
         )
@@ -267,13 +273,17 @@ async def cash_flow(
             date_str = row.date.strftime("%Y-%m-%d") if row.date else f"{year:04d}-{mon:02d}-01"
             if effective_display_currency:
                 amount = await _convert_amount(
-                    row.amount, row.currency, effective_display_currency,
-                    date_str, month_unconverted_ref, home_currency
+                    row.amount,
+                    row.currency,
+                    effective_display_currency,
+                    date_str,
+                    month_unconverted_ref,
+                    home_currency,
                 )
             else:
                 amount = row.amount
 
-            direction = row.direction.value if hasattr(row.direction, 'value') else row.direction
+            direction = row.direction.value if hasattr(row.direction, "value") else row.direction
             if direction == "credit":
                 total_credit += amount
             else:
@@ -281,12 +291,14 @@ async def cash_flow(
 
         total_unconverted += month_unconverted_ref[0]
 
-        result_months.append(MonthCashFlow(
-            month=month_str,
-            total_credit=total_credit,
-            total_debit=total_debit,
-            net=total_credit - total_debit,
-        ))
+        result_months.append(
+            MonthCashFlow(
+                month=month_str,
+                total_credit=total_credit,
+                total_debit=total_debit,
+                net=total_credit - total_debit,
+            )
+        )
 
     totals_available = effective_display_currency is not None
 

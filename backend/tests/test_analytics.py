@@ -8,20 +8,26 @@ from src.core.currencies import SUPPORTED_CURRENCIES
 async def _seed(client, month="2026-05", n_debit=2, n_credit=1):
     cat = (await client.post("/categories", json={"name": "Food", "color": "#FF0000"})).json()
     for i in range(n_debit):
-        await client.post("/transactions", json={
-            "date": f"{month}-0{i+1}T00:00:00",
-            "amount": "100.00",
-            "description": f"Expense {i}",
-            "direction": "debit",
-            "category_id": cat["id"],
-        })
+        await client.post(
+            "/transactions",
+            json={
+                "date": f"{month}-0{i + 1}T00:00:00",
+                "amount": "100.00",
+                "description": f"Expense {i}",
+                "direction": "debit",
+                "category_id": cat["id"],
+            },
+        )
     for i in range(n_credit):
-        await client.post("/transactions", json={
-            "date": f"{month}-0{i+1}T00:00:00",
-            "amount": "5000.00",
-            "description": "Salary",
-            "direction": "credit",
-        })
+        await client.post(
+            "/transactions",
+            json={
+                "date": f"{month}-0{i + 1}T00:00:00",
+                "amount": "5000.00",
+                "description": "Salary",
+                "direction": "credit",
+            },
+        )
     return cat
 
 
@@ -57,6 +63,7 @@ async def test_cash_flow(client):
 
 
 # --- currency allowlist ---
+
 
 @pytest.mark.asyncio
 async def test_by_category_rejects_unknown_currency(client):

@@ -25,19 +25,13 @@ def test_layout_c_description_before_date():
 
 
 def test_slash_dates_infer_day_first_from_statement():
-    text = (
-        "BAYANIHAN BOOKSTORE 05/10/2026 12,262.57\n"
-        "GRAB* TRIP 14/10/2026 10,374.77\n"
-    )
+    text = "BAYANIHAN BOOKSTORE 05/10/2026 12,262.57\nGRAB* TRIP 14/10/2026 10,374.77\n"
     parsed = parse_statement(text)
     assert [(t.date.month, t.date.day) for t in parsed] == [(10, 5), (10, 14)]
 
 
 def test_slash_dates_infer_month_first_from_statement():
-    text = (
-        "10/02/2026 MANGO TREE 4,610.17\n"
-        "10/14/2026 JOLLIBEE 5,859.08\n"
-    )
+    text = "10/02/2026 MANGO TREE 4,610.17\n10/14/2026 JOLLIBEE 5,859.08\n"
     parsed = parse_statement(text)
     assert [(t.date.month, t.date.day) for t in parsed] == [(10, 2), (10, 14)]
 

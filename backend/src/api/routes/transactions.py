@@ -30,7 +30,7 @@ from src.domain.models.user import User
 
 router = APIRouter()
 
-FINANCIAL_FIELDS = {'amount', 'date', 'direction', 'description', 'currency'}
+FINANCIAL_FIELDS = {"amount", "date", "direction", "description", "currency"}
 
 
 def _month_bounds(month: str) -> tuple[datetime, datetime]:
@@ -67,7 +67,7 @@ async def list_transactions(
     if status is not None:
         stmt = stmt.where(Transaction.status == status)
     else:
-        stmt = stmt.where(Transaction.status == 'active')
+        stmt = stmt.where(Transaction.status == "active")
     # Exclude reversal rows and reversed rows from default view
     stmt = stmt.where(Transaction.reversed_by.is_(None))
     stmt = stmt.where(Transaction.reversal_of.is_(None))
@@ -99,12 +99,12 @@ async def search_transactions(
         .options(selectinload(Transaction.category))
         .where(
             Transaction.user_id == current_user.id,
-            Transaction.status == 'active',
+            Transaction.status == "active",
             Transaction.reversed_by.is_(None),
             Transaction.reversal_of.is_(None),
             or_(
                 func.similarity(Transaction.description, q) > 0.3,
-                Transaction.description.ilike(f'%{q}%'),
+                Transaction.description.ilike(f"%{q}%"),
             ),
         )
     )
@@ -115,8 +115,8 @@ async def search_transactions(
     if cursor is not None:
         try:
             payload = json.loads(base64.b64decode(cursor).decode())
-            cursor_date = datetime.fromisoformat(payload['date'])
-            cursor_id = int(payload['id'])
+            cursor_date = datetime.fromisoformat(payload["date"])
+            cursor_id = int(payload["id"])
             stmt = stmt.where(
                 tuple_(Transaction.date, Transaction.id) < tuple_(cursor_date, cursor_id)
             )
@@ -148,8 +148,8 @@ async def create_transaction(
         category_id=body.category_id,
         currency=body.currency,
         statement_id=None,
-        status='active',
-        transaction_origin='manual',
+        status="active",
+        transaction_origin="manual",
         user_id=current_user.id,
     )
     db.add(tx)
@@ -184,22 +184,23 @@ async def patch_transaction(
 
     changed = body.model_dump(exclude_unset=True)
     financial_changes = {k: v for k, v in changed.items() if k in FINANCIAL_FIELDS}
-    category_change = changed.get('category_id')
 
     re_categorized = 0
     reversal_id = None
     correction_id = None
 
-    tx_status = tx.status.value if hasattr(tx.status, 'value') else tx.status
+    tx_status = tx.status.value if hasattr(tx.status, "value") else tx.status
 
-    if tx_status == 'staged':
+    if tx_status == "staged":
         # Staged: direct update, no reversal, no audit log
         for field, value in changed.items():
             setattr(tx, field, value)
         await db.commit()
         cache.clear_for_user(current_user.id)
         result2 = await db.execute(
-            select(Transaction).options(selectinload(Transaction.category)).where(Transaction.id == id)
+            select(Transaction)
+            .options(selectinload(Transaction.category))
+            .where(Transaction.id == id)
         )
         updated = result2.scalar_one()
         return TransactionPatchResult(id=updated.id)
@@ -207,38 +208,42 @@ async def patch_transaction(
     # Committed transaction path
     correction = None
     if financial_changes:
-        tx_direction = tx.direction.value if hasattr(tx.direction, 'value') else tx.direction
+        tx_direction = tx.direction.value if hasattr(tx.direction, "value") else tx.direction
         # Strip timezone info: asyncpg may return tz-aware datetimes for TIMESTAMP WITHOUT TIME ZONE
         tx_date = tx.date.replace(tzinfo=None) if tx.date and tx.date.tzinfo else tx.date
         reversal = Transaction(
             date=tx_date,
             amount=tx.amount,
             description=tx.description,
-            direction='credit' if tx_direction == 'debit' else 'debit',
+            direction="credit" if tx_direction == "debit" else "debit",
             category_id=tx.category_id,
             statement_id=tx.statement_id,
             currency=tx.currency,
-            status='active',
-            transaction_origin=tx.transaction_origin if isinstance(tx.transaction_origin, str) else tx.transaction_origin.value,
+            status="active",
+            transaction_origin=tx.transaction_origin
+            if isinstance(tx.transaction_origin, str)
+            else tx.transaction_origin.value,
             reversal_of=tx.id,
-            reversal_reason='user_correction',
+            reversal_reason="user_correction",
             user_id=current_user.id,
         )
         db.add(reversal)
         await db.flush()
 
         correction_data = {
-            'date': tx_date,
-            'amount': tx.amount,
-            'description': tx.description,
-            'direction': tx.direction,
-            'category_id': tx.category_id,
-            'statement_id': tx.statement_id,
-            'currency': tx.currency,
-            'status': 'active',
-            'transaction_origin': tx.transaction_origin if isinstance(tx.transaction_origin, str) else tx.transaction_origin.value,
-            'correction_of': tx.id,
-            'user_id': current_user.id,
+            "date": tx_date,
+            "amount": tx.amount,
+            "description": tx.description,
+            "direction": tx.direction,
+            "category_id": tx.category_id,
+            "statement_id": tx.statement_id,
+            "currency": tx.currency,
+            "status": "active",
+            "transaction_origin": tx.transaction_origin
+            if isinstance(tx.transaction_origin, str)
+            else tx.transaction_origin.value,
+            "correction_of": tx.id,
+            "user_id": current_user.id,
         }
         correction_data.update(financial_changes)
         correction = Transaction(**correction_data)
@@ -250,19 +255,21 @@ async def patch_transaction(
         reversal_id = reversal.id
         correction_id = correction.id
 
-    if 'category_id' in changed:
+    if "category_id" in changed:
         target = correction if financial_changes else tx
         old_value = str(target.category_id) if target.category_id else None
-        new_cat_id = changed.get('category_id')
+        new_cat_id = changed.get("category_id")
         target.category_id = new_cat_id
 
-        db.add(AuditLog(
-            transaction_id=target.id,
-            field='category_id',
-            old_value=old_value,
-            new_value=str(new_cat_id) if new_cat_id is not None else None,
-            changed_by='user',
-        ))
+        db.add(
+            AuditLog(
+                transaction_id=target.id,
+                field="category_id",
+                old_value=old_value,
+                new_value=str(new_cat_id) if new_cat_id is not None else None,
+                changed_by="user",
+            )
+        )
 
     await db.commit()
     cache.clear_for_user(current_user.id)
@@ -288,25 +295,29 @@ async def reverse_transactions(
 
     for tx_id in body.ids:
         result = await db.execute(
-            select(Transaction).where(Transaction.id == tx_id, Transaction.user_id == current_user.id)
+            select(Transaction).where(
+                Transaction.id == tx_id, Transaction.user_id == current_user.id
+            )
         )
         tx = result.scalar_one_or_none()
         if not tx or tx.reversed_by is not None or tx.reversal_of is not None:
             skipped_ids.append(tx_id)
             continue
 
-        tx_direction = tx.direction.value if hasattr(tx.direction, 'value') else tx.direction
+        tx_direction = tx.direction.value if hasattr(tx.direction, "value") else tx.direction
         tx_date = tx.date.replace(tzinfo=None) if tx.date and tx.date.tzinfo else tx.date
         reversal = Transaction(
             date=tx_date,
             amount=tx.amount,
             description=tx.description,
-            direction='credit' if tx_direction == 'debit' else 'debit',
+            direction="credit" if tx_direction == "debit" else "debit",
             category_id=tx.category_id,
             statement_id=tx.statement_id,
             currency=tx.currency,
-            status='active',
-            transaction_origin=tx.transaction_origin if isinstance(tx.transaction_origin, str) else tx.transaction_origin.value,
+            status="active",
+            transaction_origin=tx.transaction_origin
+            if isinstance(tx.transaction_origin, str)
+            else tx.transaction_origin.value,
             reversal_of=tx.id,
             reversal_reason=body.reason,
             user_id=current_user.id,
@@ -335,9 +346,7 @@ async def get_transaction_history(
     if tx_result.scalar_one_or_none() is None:
         raise HTTPException(status_code=404, detail="Transaction not found.")
     result = await db.execute(
-        select(AuditLog)
-        .where(AuditLog.transaction_id == id)
-        .order_by(AuditLog.changed_at.asc())
+        select(AuditLog).where(AuditLog.transaction_id == id).order_by(AuditLog.changed_at.asc())
     )
     return result.scalars().all()
 

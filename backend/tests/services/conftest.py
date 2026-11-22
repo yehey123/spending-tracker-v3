@@ -5,9 +5,7 @@ for its session-scope fixtures.  Services tests are pure unit tests that only ne
 so we override those fixtures here to make the suite runnable without a live DB.
 """
 
-import pytest
 import pytest_asyncio
-
 
 # Override the session-scope Postgres fixtures from the parent conftest so they are no-ops.
 

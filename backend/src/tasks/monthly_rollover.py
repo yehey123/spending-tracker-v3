@@ -2,6 +2,7 @@
 
 Idempotent: credit_rollovers PRIMARY KEY (user_id, period) prevents double-grant.
 """
+
 from __future__ import annotations
 
 import logging
@@ -12,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 async def run_monthly_rollover() -> None:
     from sqlalchemy import select
+
     from src.db.session import AsyncSessionLocal
     from src.domain.models.user import User
     from src.domain.services.credits import grant_monthly
@@ -32,5 +34,7 @@ async def run_monthly_rollover() -> None:
         await db.commit()
         logger.info(
             "Monthly rollover complete: granted=%d, skipped=%d, period=%s",
-            granted, skipped, period,
+            granted,
+            skipped,
+            period,
         )

@@ -2,6 +2,7 @@
 
 Uses redis.asyncio so all Redis I/O is non-blocking and safe from FastAPI's async loop.
 """
+
 from __future__ import annotations
 
 import json
@@ -18,10 +19,12 @@ async def get_redis():
     if _client is not None:
         return _client
     from src.core.config import settings
+
     if not settings.upstash_redis_url:
         return None
     try:
         import redis.asyncio as aioredis
+
         _client = aioredis.from_url(settings.upstash_redis_url, decode_responses=True)
         await _client.ping()
         logger.info("Upstash Redis connected")

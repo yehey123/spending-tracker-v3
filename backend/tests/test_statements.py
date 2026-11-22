@@ -1,7 +1,8 @@
-import pytest
-from unittest.mock import AsyncMock, patch
-from PIL import Image
 import io
+from unittest.mock import AsyncMock, patch
+
+import pytest
+from PIL import Image
 
 
 def _make_png_bytes():
@@ -14,7 +15,11 @@ def _make_png_bytes():
 @pytest.mark.asyncio
 async def test_upload_statement_image(client):
     png = _make_png_bytes()
-    mock_ocr = AsyncMock(return_value="01/05/2026 | GRAB FOOD | 150.00 | DEBIT\n01/05/2026 | SALARY | 50000.00 | CREDIT")
+    mock_ocr = AsyncMock(
+        return_value=(
+            "01/05/2026 | GRAB FOOD | 150.00 | DEBIT\n01/05/2026 | SALARY | 50000.00 | CREDIT"
+        )
+    )
     with patch("src.domain.services.statement_pipeline.TesseractProvider") as MockProv:
         instance = MockProv.return_value
         instance.extract_text = mock_ocr
@@ -69,7 +74,9 @@ async def test_delete_statement(client):
     with patch("src.domain.services.statement_pipeline.TesseractProvider") as MockProv:
         instance = MockProv.return_value
         instance.extract_text = mock_ocr
-        stmt = (await client.post("/statements/upload", files={"file": ("del.png", png, "image/png")})).json()
+        stmt = (
+            await client.post("/statements/upload", files={"file": ("del.png", png, "image/png")})
+        ).json()
     res = await client.delete(f"/statements/{stmt['id']}")
     assert res.status_code == 204
 
@@ -82,7 +89,11 @@ async def test_delete_removes_statement_no_storage(client):
     with patch("src.domain.services.statement_pipeline.TesseractProvider") as MockProv:
         instance = MockProv.return_value
         instance.extract_text = mock_ocr
-        stmt = (await client.post("/statements/upload", files={"file": ("receipt.png", png, "image/png")})).json()
+        stmt = (
+            await client.post(
+                "/statements/upload", files={"file": ("receipt.png", png, "image/png")}
+            )
+        ).json()
 
     res = await client.delete(f"/statements/{stmt['id']}")
     assert res.status_code == 204

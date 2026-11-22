@@ -55,6 +55,7 @@ def _clean_registry():
 # Service-level: grant_monthly
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_grant_monthly_credits_user(test_user, db_session):
     """grant_monthly deposits default 30 credits and returns True."""
@@ -96,6 +97,7 @@ async def test_grant_monthly_different_periods(test_user, db_session):
 # ---------------------------------------------------------------------------
 # Service-level: atomic_debit
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_atomic_debit_reduces_balance(test_user, db_session, monkeypatch):
@@ -177,6 +179,7 @@ async def test_plugin_weight_exposed_in_weights(db_session, monkeypatch):
 # ---------------------------------------------------------------------------
 # Route-level: GET /credits/balance
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_credits_balance_zero_for_new_user(client):

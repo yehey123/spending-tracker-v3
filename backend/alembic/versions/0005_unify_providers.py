@@ -4,8 +4,10 @@ Revision ID: 0005
 Revises: 0004
 Create Date: 2026-07-21
 """
-from alembic import op
+
 import sqlalchemy as sa
+
+from alembic import op
 
 revision = "0005"
 down_revision = "0004"
@@ -24,8 +26,9 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.add_column("app_settings", sa.Column("ai_api_url", sa.Text(), nullable=True))
-    op.add_column("app_settings", sa.Column(
-        "ai_provider", sa.String(20), nullable=False, server_default="anthropic"
-    ))
+    op.add_column(
+        "app_settings",
+        sa.Column("ai_provider", sa.String(20), nullable=False, server_default="anthropic"),
+    )
     op.execute("UPDATE app_settings SET ocr_provider = 'claude' WHERE ocr_provider = 'anthropic'")
     op.execute("UPDATE model_cache SET provider = 'claude' WHERE provider = 'anthropic'")

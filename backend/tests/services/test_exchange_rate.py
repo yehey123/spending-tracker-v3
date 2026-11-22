@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.domain.services.exchange_rate import ExchangeRateService
 import src.domain.services.exchange_rate as _er_module
-
+from src.domain.services.exchange_rate import ExchangeRateService
 
 # ---------------------------------------------------------------------------
 # Helpers

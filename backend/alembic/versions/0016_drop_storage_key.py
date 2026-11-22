@@ -2,17 +2,18 @@
 
 from alembic import op
 
-revision = '0016'
-down_revision = '0015'
+revision = "0016"
+down_revision = "0015"
 
 
 def upgrade():
-    op.drop_column('statements', 'storage_key')
+    op.drop_column("statements", "storage_key")
 
 
 def downgrade():
     import sqlalchemy as sa
+
     op.add_column(
-        'statements',
-        sa.Column('storage_key', sa.String(512), nullable=True),
+        "statements",
+        sa.Column("storage_key", sa.String(512), nullable=True),
     )

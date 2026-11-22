@@ -31,6 +31,7 @@ class _TesseractDescriptor:
 
     def build(self, settings: Any, ctx: ProviderContext):
         from src.domain.services.ocr.tesseract import TesseractProvider
+
         return TesseractProvider()
 
     def has_credentials(self, settings: Any) -> bool:
@@ -60,12 +61,21 @@ def _load_group(group: str, protocol: type) -> dict[str, Any]:
             if inspect.isclass(obj):
                 obj = obj()
             if not isinstance(obj, protocol):
-                logger.warning("Plugin %r in %s does not satisfy %s — skipped",
-                               ep.name, group, protocol.__name__)
+                logger.warning(
+                    "Plugin %r in %s does not satisfy %s — skipped",
+                    ep.name,
+                    group,
+                    protocol.__name__,
+                )
                 continue
             if getattr(obj, "api_version", None) != API_VERSION:
-                logger.warning("Plugin %r in %s has api_version=%r, core needs %d — skipped",
-                               ep.name, group, getattr(obj, "api_version", None), API_VERSION)
+                logger.warning(
+                    "Plugin %r in %s has api_version=%r, core needs %d — skipped",
+                    ep.name,
+                    group,
+                    getattr(obj, "api_version", None),
+                    API_VERSION,
+                )
                 continue
             found[obj.key] = obj
         except Exception as exc:
@@ -114,6 +124,7 @@ def get_categorizer(key: str) -> CategorizerLike | None:
 def make_context(settings: Any) -> ProviderContext:
     from src.core.config import settings as cfg
     from src.core.crypto import decrypt_secret
+
     return ProviderContext(
         decrypt_secret=decrypt_secret,
         ollama_base_url=getattr(cfg, "ollama_base_url", None),
@@ -135,7 +146,9 @@ async def sync_all_models() -> dict[str, int]:
     from src.domain.models.app_settings import AppSettings
     from src.domain.models.model_cache import ModelCache
 
-    listers = {k: d for k, d in _ocr_providers().items() if callable(getattr(d, "list_models", None))}
+    listers = {
+        k: d for k, d in _ocr_providers().items() if callable(getattr(d, "list_models", None))
+    }
     if not listers:
         return {}
     counts: dict[str, int] = {}

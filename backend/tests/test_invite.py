@@ -5,12 +5,12 @@ admin_approve, so SMTP failures are swallowed. admin_deny has no email.
 The resend_invite in admin.py is tested separately in test_admin.py.
 """
 
-import pytest
-from httpx import AsyncClient, ASGITransport
-from sqlalchemy import select
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, patch
 
-from datetime import datetime, timedelta, timezone
+import pytest
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy import select
 
 from src.core.config import settings
 from src.core.email import invite_expires_at, make_admin_link_sig, make_hmac_sig, verify_hmac_sig
@@ -25,7 +25,10 @@ def _link(action, req_id, ttl=timedelta(hours=1)):
 
 
 def test_invite_expires_in_24_hours():
-    """RULE-SEC-07: invite tokens live 24h, matching admin resend-invite (INVITE_TOKEN_EXPIRE_HOURS)."""
+    """RULE-SEC-07: invite tokens live 24h, matching admin resend-invite.
+
+    (INVITE_TOKEN_EXPIRE_HOURS)
+    """
     remaining = invite_expires_at() - datetime.now(timezone.utc)
     assert timedelta(hours=23, minutes=59) < remaining <= timedelta(hours=24)
 
@@ -33,6 +36,7 @@ def test_invite_expires_in_24_hours():
 # ---------------------------------------------------------------------------
 # POST /request-access
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_request_access_creates_pending_row(client, db_session):
@@ -77,6 +81,7 @@ async def test_request_access_email_failure_returns_502(client, db_session):
 # ---------------------------------------------------------------------------
 # GET /admin/approve/{request_id}
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_invalid_hmac_rejected_on_approve(client, db_session):
@@ -242,6 +247,7 @@ async def test_invite_token_consumed_on_register(db_session):
 
     # Token must be consumed
     import hashlib
+
     token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
     result = await db_session.execute(
         select(InviteToken).where(InviteToken.token_hash == token_hash)

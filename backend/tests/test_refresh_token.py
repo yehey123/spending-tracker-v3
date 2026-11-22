@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 import pytest
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 
 from src.core.auth import generate_refresh_token, hash_refresh_token
@@ -32,7 +32,9 @@ async def _insert_rt(
         token_hash=token_hash,
         user_id=user_id,
         expires_at=(now - timedelta(hours=1)) if window_expired else (now + timedelta(days=7)),
-        absolute_expires_at=(now - timedelta(hours=1)) if abs_expired else (now + timedelta(days=30)),
+        absolute_expires_at=(now - timedelta(hours=1))
+        if abs_expired
+        else (now + timedelta(days=30)),
         session_id=session_id,
         device_name="test-device",
         rotated_at=now if rotated else None,

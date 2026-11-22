@@ -1,6 +1,7 @@
 """Transaction flag review routes."""
 
 from __future__ import annotations
+
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -23,9 +24,7 @@ class FlagPatch(BaseModel):
 # GET /flags/count MUST be registered BEFORE GET /{flag_id} to avoid routing conflict
 @router.get("/count")
 async def get_flag_count(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        select(TransactionFlag).where(TransactionFlag.status == 'open')
-    )
+    result = await db.execute(select(TransactionFlag).where(TransactionFlag.status == "open"))
     return {"count": len(result.scalars().all())}
 
 
@@ -34,7 +33,7 @@ async def list_flags(
     statement_id: int | None = None,
     db: AsyncSession = Depends(get_db),
 ):
-    stmt = select(TransactionFlag).where(TransactionFlag.status == 'open')
+    stmt = select(TransactionFlag).where(TransactionFlag.status == "open")
     if statement_id is not None:
         # join to transaction to filter by statement
         stmt = stmt.join(Transaction, TransactionFlag.transaction_id == Transaction.id)
@@ -62,23 +61,28 @@ async def resolve_flag(flag_id: int, body: FlagPatch, db: AsyncSession = Depends
     flag = await db.get(TransactionFlag, flag_id)
     if flag is None:
         raise HTTPException(status_code=404, detail="Flag not found.")
-    if flag.status != 'open':
+    if flag.status != "open":
         raise HTTPException(status_code=409, detail="Flag is already resolved.")
 
     if body.status == "confirmed":
         tx = await db.get(Transaction, flag.transaction_id)
         if tx is not None:
             meta = flag.flag_metadata or {}
-            cat_id = body.category_id if body.category_id is not None else meta.get("suggested_category_id")
+            cat_id = (
+                body.category_id
+                if body.category_id is not None
+                else meta.get("suggested_category_id")
+            )
             tx.category_id = cat_id
 
             merchant_key = meta.get("merchant_key")
             if merchant_key and cat_id is not None:
                 from src.domain.services.categorizer import categorizer_service
+
                 await categorizer_service.bulk_recategorize_by_merchant(merchant_key, cat_id, db)
 
     flag.status = body.status
-    flag.resolved_by = 'user'
+    flag.resolved_by = "user"
     flag.resolved_at = datetime.now(UTC)
     await db.commit()
     return {"id": flag_id, "status": body.status}

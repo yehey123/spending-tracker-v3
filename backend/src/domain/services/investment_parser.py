@@ -12,19 +12,19 @@ from decimal import Decimal, InvalidOperation
 @dataclass
 class ParsedInvestmentRow:
     symbol: str
-    direction: str      # 'buy' | 'sell'
+    direction: str  # 'buy' | 'sell'
     shares: Decimal
     price: Decimal
     amount: Decimal
     commission: Decimal | None = None
 
 
-TICKER_RE = re.compile(r'\b([A-Z]{1,5}(?:\.[A-Z]{1,2})?)\b')
-BUY_RE = re.compile(r'\b(buy|bought|purchase)\b', re.IGNORECASE)
-SELL_RE = re.compile(r'\b(sell|sold)\b', re.IGNORECASE)
-SHARES_RE = re.compile(r'(\d+(?:\.\d+)?)\s*(?:shs?|shares?)?', re.IGNORECASE)
-PRICE_RE = re.compile(r'\$\s*([\d,]+\.?\d*)')
-COMMISSION_RE = re.compile(r'(?:commission|fee|comm)[:\s]+\$\s*([\d,]+\.?\d*)', re.IGNORECASE)
+TICKER_RE = re.compile(r"\b([A-Z]{1,5}(?:\.[A-Z]{1,2})?)\b")
+BUY_RE = re.compile(r"\b(buy|bought|purchase)\b", re.IGNORECASE)
+SELL_RE = re.compile(r"\b(sell|sold)\b", re.IGNORECASE)
+SHARES_RE = re.compile(r"(\d+(?:\.\d+)?)\s*(?:shs?|shares?)?", re.IGNORECASE)
+PRICE_RE = re.compile(r"\$\s*([\d,]+\.?\d*)")
+COMMISSION_RE = re.compile(r"(?:commission|fee|comm)[:\s]+\$\s*([\d,]+\.?\d*)", re.IGNORECASE)
 
 
 def parse_investment_rows(text: str) -> tuple[list[ParsedInvestmentRow], list[dict]]:
@@ -44,9 +44,9 @@ def parse_investment_rows(text: str) -> tuple[list[ParsedInvestmentRow], list[di
             continue
 
         if BUY_RE.search(line):
-            direction = 'buy'
+            direction = "buy"
         elif SELL_RE.search(line):
-            direction = 'sell'
+            direction = "sell"
         else:
             errors.append({"raw_line": line, "reason": "missing_direction"})
             continue
@@ -58,7 +58,7 @@ def parse_investment_rows(text: str) -> tuple[list[ParsedInvestmentRow], list[di
 
         try:
             shares = Decimal(shares_m.group(1))
-            price = Decimal(price_m.group(1).replace(',', ''))
+            price = Decimal(price_m.group(1).replace(",", ""))
             amount = shares * price
         except (InvalidOperation, Exception) as exc:
             errors.append({"raw_line": line, "reason": str(exc)})
@@ -68,17 +68,19 @@ def parse_investment_rows(text: str) -> tuple[list[ParsedInvestmentRow], list[di
         comm_m = COMMISSION_RE.search(line)
         if comm_m:
             try:
-                commission = Decimal(comm_m.group(1).replace(',', ''))
+                commission = Decimal(comm_m.group(1).replace(",", ""))
             except InvalidOperation:
                 pass
 
-        rows.append(ParsedInvestmentRow(
-            symbol=ticker_m.group(1),
-            direction=direction,
-            shares=shares,
-            price=price,
-            amount=amount,
-            commission=commission,
-        ))
+        rows.append(
+            ParsedInvestmentRow(
+                symbol=ticker_m.group(1),
+                direction=direction,
+                shares=shares,
+                price=price,
+                amount=amount,
+                commission=commission,
+            )
+        )
 
     return rows, errors

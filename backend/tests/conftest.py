@@ -1,13 +1,13 @@
-import asyncio
 import os
 import subprocess
 import uuid
+
+import asyncpg
 import pytest
 import pytest_asyncio
-import asyncpg
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select, text
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
 # Must be set before src.main is imported (Settings() runs at import time)
@@ -15,22 +15,26 @@ os.environ.setdefault("APP_SECRET", "test-secret-key-that-is-at-least-32-chars!"
 os.environ.setdefault("ADMIN_LINK_SECRET", "test-admin-link-secret-at-least-32-chars!")
 os.environ.setdefault("JWT_SECRET", "test-jwt-secret-that-is-at-least-32-chars!")
 
-from src.main import app
+import os
+
 from src.core import cache
 from src.core.auth import create_access_token, hash_password
 from src.core.deps import get_current_user
 from src.db.session import get_db
 from src.domain.models.user import User
-
-import os
+from src.main import app
 
 # Allow overriding host/credentials for CI
 _DB_HOST = os.environ.get("TEST_DB_HOST", "db")
 _DB_USER = os.environ.get("DB_USER", "user")
 _DB_PASSWORD = os.environ.get("DB_PASSWORD", "password")
-TEST_DB_URL = f"postgresql+asyncpg://{_DB_USER}:{_DB_PASSWORD}@{_DB_HOST}:5432/spending_tracker_test"
+TEST_DB_URL = (
+    f"postgresql+asyncpg://{_DB_USER}:{_DB_PASSWORD}@{_DB_HOST}:5432/spending_tracker_test"
+)
 TEST_DB_RAW = f"postgresql://{_DB_USER}:{_DB_PASSWORD}@{_DB_HOST}:5432/spending_tracker_test"
-TEST_DB_ASYNCPG = f"postgresql+asyncpg://{_DB_USER}:{_DB_PASSWORD}@{_DB_HOST}:5432/spending_tracker_test"
+TEST_DB_ASYNCPG = (
+    f"postgresql+asyncpg://{_DB_USER}:{_DB_PASSWORD}@{_DB_HOST}:5432/spending_tracker_test"
+)
 
 _TEST_USER_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
 _TEST_USER_EMAIL = "testuser@test.com"
@@ -109,15 +113,17 @@ async def setup_db():
         result = await db.execute(select(User).where(User.email == _TEST_USER_EMAIL))
         existing = result.scalar_one_or_none()
         if existing is None:
-            from sqlalchemy.dialects.postgresql import UUID as PG_UUID
             # Insert with a fixed UUID so tests are deterministic
             await db.execute(
                 text(
                     "INSERT INTO users (id, email, password_hash, is_admin) "
                     "VALUES (:id, :email, :pw, true) ON CONFLICT DO NOTHING"
                 ),
-                {"id": str(_TEST_USER_ID), "email": _TEST_USER_EMAIL,
-                 "pw": hash_password("testpassword")},
+                {
+                    "id": str(_TEST_USER_ID),
+                    "email": _TEST_USER_EMAIL,
+                    "pw": hash_password("testpassword"),
+                },
             )
             await db.commit()
             result2 = await db.execute(select(User).where(User.email == _TEST_USER_EMAIL))
@@ -145,9 +151,7 @@ async def clean_tables():
             "RESTART IDENTITY CASCADE"
         )
         # Remove any extra users created by individual auth tests; keep the shared test user
-        await conn.execute(
-            f"DELETE FROM users WHERE email != '{_TEST_USER_EMAIL}'"
-        )
+        await conn.execute(f"DELETE FROM users WHERE email != '{_TEST_USER_EMAIL}'")
     finally:
         await conn.close()
 

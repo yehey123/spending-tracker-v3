@@ -17,6 +17,7 @@ separators stripped, value otherwise untouched). Dates become ISO only when
 unambiguous, else null (counted). Nothing is invented. Currency is a
 dataset-level constant (SROIE = Malaysian receipts, CORD = Indonesian receipts).
 """
+
 import json
 import re
 import shutil
@@ -24,8 +25,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
-MONTHS = {m: i + 1 for i, m in enumerate(
-    "JAN FEB MAR APR MAY JUN JUL AUG SEP OCT NOV DEC".split())}
+MONTHS = {m: i + 1 for i, m in enumerate("JAN FEB MAR APR MAY JUN JUL AUG SEP OCT NOV DEC".split())}
 
 
 def _iso(y, m, d):
@@ -87,13 +87,18 @@ def parse_total(raw):
     if not seps:
         out = body
     elif "." in body and "," in body:
-        dec = body[max(body.rfind("."), body.rfind(",")) ]
+        dec = body[max(body.rfind("."), body.rfind(","))]
         thou = "," if dec == "." else "."
         head, _, frac = body.rpartition(dec)
         groups = head.split(thou)
-        ok = (dec not in head and 1 <= len(groups[0]) <= 3 and
-              all(len(g) == 3 for g in groups[1:]) and frac.isdigit() and
-              1 <= len(frac) <= 2 and groups[0] != "")
+        ok = (
+            dec not in head
+            and 1 <= len(groups[0]) <= 3
+            and all(len(g) == 3 for g in groups[1:])
+            and frac.isdigit()
+            and 1 <= len(frac) <= 2
+            and groups[0] != ""
+        )
         if ok:
             out = "".join(groups) + "." + frac
     else:
@@ -120,7 +125,8 @@ def write_sample(src_root, dst, sample, exp):
         return False
     shutil.copyfile(src, dst / (rel.stem + rel.suffix.lower()))
     (dst / (rel.stem + ".expected.json")).write_text(
-        json.dumps(exp, ensure_ascii=False), encoding="utf-8")
+        json.dumps(exp, ensure_ascii=False), encoding="utf-8"
+    )
     return True
 
 
@@ -146,7 +152,9 @@ def main(argv):
             n += 1
         else:
             missing += 1
-    print(f"{kind}: written={n} missing_image={missing} date_null={date_null} total_null={total_null}")
+    print(
+        f"{kind}: written={n} missing_image={missing} date_null={date_null} total_null={total_null}"
+    )
     return 0
 
 

@@ -38,4 +38,6 @@ def test_native_resolution_pdf_not_oversampled():
     asyncio.run(pdf_parser.extract_pdf_text(buf.getvalue(), provider, []))
 
     assert provider.widths, "OCR provider was never called for the image-only PDF"
-    assert max(provider.widths) <= 600, f"rendered {max(provider.widths)} px wide from a 600 px source"
+    assert max(provider.widths) <= 600, (
+        f"rendered {max(provider.widths)} px wide from a 600 px source"
+    )

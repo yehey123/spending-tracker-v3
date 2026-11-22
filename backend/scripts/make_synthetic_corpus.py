@@ -34,8 +34,7 @@ PAGE = (int(8.5 * DPI), 11 * DPI)  # US Letter at 300 DPI
 DEFAULT_OUT = Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "ocr_synthetic"
 STATEMENT_YEAR = 2026
 STATEMENT_MONTH = 10
-MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-          "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 BANK = "SAMPLE BANK"
 FONT_PATHS = [
     "/System/Library/Fonts/Supplemental/Arial.ttf",
@@ -116,16 +115,32 @@ def _cells_c(r: Row, i: int) -> list:
 
 
 LAYOUTS = [
-    Layout("bank_a", "CREDIT CARD STATEMENT", 14,
-           (("Date", 150, "la"), ("Description", 520, "la"), ("Amount", 2400, "ra")),
-           _cells_a),
-    Layout("bank_b", "CARD ACTIVITY", 18,
-           (("Posted", 150, "la"), ("Reference", 420, "la"),
-            ("Description", 900, "la"), ("Amount", 2400, "ra")),
-           _cells_b),
-    Layout("bank_c", "CARDMEMBER STATEMENT", 9,
-           (("Description", 150, "la"), ("Date", 1700, "la"), ("Amount", 2400, "ra")),
-           _cells_c),
+    Layout(
+        "bank_a",
+        "CREDIT CARD STATEMENT",
+        14,
+        (("Date", 150, "la"), ("Description", 520, "la"), ("Amount", 2400, "ra")),
+        _cells_a,
+    ),
+    Layout(
+        "bank_b",
+        "CARD ACTIVITY",
+        18,
+        (
+            ("Posted", 150, "la"),
+            ("Reference", 420, "la"),
+            ("Description", 900, "la"),
+            ("Amount", 2400, "ra"),
+        ),
+        _cells_b,
+    ),
+    Layout(
+        "bank_c",
+        "CARDMEMBER STATEMENT",
+        9,
+        (("Description", 150, "la"), ("Date", 1700, "la"), ("Amount", 2400, "ra")),
+        _cells_c,
+    ),
 ]
 
 
@@ -136,11 +151,20 @@ def _rows(rng: random.Random, count: int) -> list[Row]:
     for i, day in enumerate(days):
         cents = rng.randint(2500, 1_250_000)
         if i in credit_idx:
-            rows.append(Row(date(STATEMENT_YEAR, STATEMENT_MONTH, day),
-                            rng.choice(CREDITS), cents, "credit"))
+            rows.append(
+                Row(
+                    date(STATEMENT_YEAR, STATEMENT_MONTH, day), rng.choice(CREDITS), cents, "credit"
+                )
+            )
         else:
-            rows.append(Row(date(STATEMENT_YEAR, STATEMENT_MONTH, day),
-                            rng.choice(MERCHANTS), cents, "debit"))
+            rows.append(
+                Row(
+                    date(STATEMENT_YEAR, STATEMENT_MONTH, day),
+                    rng.choice(MERCHANTS),
+                    cents,
+                    "debit",
+                )
+            )
     return rows
 
 
@@ -148,8 +172,9 @@ def _expected(rows: list[Row]) -> dict:
     debits = sum((Decimal(r.amount) for r in rows if r.direction == "debit"), Decimal(0))
     credits = sum((Decimal(r.amount) for r in rows if r.direction == "credit"), Decimal(0))
     return {
-        "rows": [{"date": r.date.isoformat(), "amount": r.amount, "direction": r.direction}
-                 for r in rows],
+        "rows": [
+            {"date": r.date.isoformat(), "amount": r.amount, "direction": r.direction} for r in rows
+        ],
         "total_debits": f"{debits:.2f}",
         "total_credits": f"{credits:.2f}",
     }
@@ -163,8 +188,14 @@ def _items(layout: Layout, rows: list[Row]) -> list[tuple]:
     exp = _expected(rows)
     items: list[tuple] = [
         ("text", 150, 150, BANK, "la", 64),
-        ("text", 150, 240,
-         f"{layout.title} - {MONTHS[STATEMENT_MONTH - 1].upper()} {STATEMENT_YEAR}", "la", 38),
+        (
+            "text",
+            150,
+            240,
+            f"{layout.title} - {MONTHS[STATEMENT_MONTH - 1].upper()} {STATEMENT_YEAR}",
+            "la",
+            38,
+        ),
         ("text", 150, 300, "Account ending 0000 (SAMPLE ONLY)", "la", 34),
     ]
     y = 480
@@ -179,11 +210,9 @@ def _items(layout: Layout, rows: list[Row]) -> list[tuple]:
     y += 60
     items.append(("rule", y - 30))
     items.append(("text", 150, y, "TOTAL DEBITS", "la", 38))
-    items.append(("text", 2400, y,
-                  _money(int(Decimal(exp["total_debits"]) * 100)), "ra", 38))
+    items.append(("text", 2400, y, _money(int(Decimal(exp["total_debits"]) * 100)), "ra", 38))
     items.append(("text", 150, y + 75, "TOTAL CREDITS", "la", 38))
-    items.append(("text", 2400, y + 75,
-                  _money(int(Decimal(exp["total_credits"]) * 100)), "ra", 38))
+    items.append(("text", 2400, y + 75, _money(int(Decimal(exp["total_credits"]) * 100)), "ra", 38))
     return items
 
 
@@ -207,14 +236,26 @@ def _write_digital(path: Path, layout: Layout, rows: list[Row]) -> None:
         for item in _items(layout, rows):
             if item[0] == "rule":
                 fy = 1 - item[1] / h
-                fig.add_artist(Line2D([150 / w, (w - 150) / w], [fy, fy],
-                                      transform=fig.transFigure, color="black",
-                                      linewidth=3 * 72 / DPI))
+                fig.add_artist(
+                    Line2D(
+                        [150 / w, (w - 150) / w],
+                        [fy, fy],
+                        transform=fig.transFigure,
+                        color="black",
+                        linewidth=3 * 72 / DPI,
+                    )
+                )
             else:
                 _, x, y, text, anchor, size = item
-                fig.text(x / w, 1 - y / h, text,
-                         ha="left" if anchor == "la" else "right", va="top",
-                         fontsize=size * 72 / DPI, color="black")
+                fig.text(
+                    x / w,
+                    1 - y / h,
+                    text,
+                    ha="left" if anchor == "la" else "right",
+                    va="top",
+                    fontsize=size * 72 / DPI,
+                    color="black",
+                )
         fig.savefig(path, format="pdf")
 
 

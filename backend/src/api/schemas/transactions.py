@@ -13,7 +13,7 @@ class TransactionCreate(BaseModel):
     category_id: int | None = None
     currency: str | None = None  # ISO-4217 3-letter code; null = home currency
 
-    @field_validator('date')
+    @field_validator("date")
     @classmethod
     def make_date_naive(cls, v: datetime) -> datetime:
         if v.tzinfo is not None:
@@ -25,7 +25,7 @@ class TransactionPatch(BaseModel):
     amount: Decimal | None = Field(default=None, gt=0)
     date: datetime | None = None
 
-    @field_validator('date')
+    @field_validator("date")
     @classmethod
     def make_date_naive(cls, v: datetime | None) -> datetime | None:
         if v is None:
@@ -33,6 +33,7 @@ class TransactionPatch(BaseModel):
         if v.tzinfo is not None:
             return v.astimezone(timezone.utc).replace(tzinfo=None)
         return v
+
     description: str | None = Field(default=None, min_length=1, max_length=500)
     direction: Literal["debit", "credit"] | None = None
     category_id: int | None = None
@@ -44,11 +45,17 @@ class ReverseRequest(BaseModel):
     reason: str
     notes: str | None = None
 
-    @field_validator('reason')
+    @field_validator("reason")
     @classmethod
     def reason_must_be_valid(cls, v: str) -> str:
-        valid = {'duplicate', 'bank_reversal', 'user_error',
-                 'receipt_superseded', 'user_correction', 'other'}
+        valid = {
+            "duplicate",
+            "bank_reversal",
+            "user_error",
+            "receipt_superseded",
+            "user_correction",
+            "other",
+        }
         if v not in valid:
             raise ValueError(f"reason must be one of {valid}")
         return v

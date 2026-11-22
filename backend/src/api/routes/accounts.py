@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.config import settings
 from src.db.session import get_db
-from src.domain.models.account import Account, ACCOUNT_TYPES
+from src.domain.models.account import ACCOUNT_TYPES, Account
 from src.domain.models.transaction import Transaction
 
 router = APIRouter()
@@ -56,7 +56,7 @@ def _account_dict(acc: Account, current_balance: Decimal) -> dict:
 
 @router.get("")
 async def list_accounts(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Account).where(Account.is_active == True))
+    result = await db.execute(select(Account).where(Account.is_active.is_(True)))
     accounts = result.scalars().all()
     out = []
     for acc in accounts:
@@ -65,22 +65,21 @@ async def list_accounts(db: AsyncSession = Depends(get_db)):
                 func.coalesce(
                     func.sum(
                         case(
-                            (Transaction.direction == 'credit', Transaction.amount),
+                            (Transaction.direction == "credit", Transaction.amount),
                             else_=-Transaction.amount,
                         )
                     ),
-                    Decimal('0'),
+                    Decimal("0"),
                 )
             ).where(
                 Transaction.account_id == acc.id,
-
-                Transaction.status == 'active',
+                Transaction.status == "active",
                 Transaction.reversed_by.is_(None),
                 Transaction.reversal_of.is_(None),
                 Transaction.deleted_at.is_(None),
             )
         )
-        txn_delta = balance_result.scalar() or Decimal('0')
+        txn_delta = balance_result.scalar() or Decimal("0")
         out.append(_account_dict(acc, acc.opening_balance + txn_delta))
     return out
 
@@ -107,7 +106,6 @@ async def create_account(body: AccountCreate, db: AsyncSession = Depends(get_db)
         last_four=last_four,
         fingerprint=fingerprint,
         opening_balance=Decimal(str(body.opening_balance)),
-
     )
     db.add(acc)
     await db.commit()
@@ -126,9 +124,7 @@ async def create_account(body: AccountCreate, db: AsyncSession = Depends(get_db)
 
 
 @router.patch("/{account_id}")
-async def update_account(
-    account_id: int, body: AccountUpdate, db: AsyncSession = Depends(get_db)
-):
+async def update_account(account_id: int, body: AccountUpdate, db: AsyncSession = Depends(get_db)):
     acc = await db.get(Account, account_id)
     if not acc:
         raise HTTPException(404, "Account not found")
@@ -145,9 +141,7 @@ async def delete_account(account_id: int, db: AsyncSession = Depends(get_db)):
     if not acc:
         raise HTTPException(404, "Account not found")
     await db.execute(
-        update(Transaction)
-        .where(Transaction.account_id == account_id)
-        .values(account_id=None)
+        update(Transaction).where(Transaction.account_id == account_id).values(account_id=None)
     )
     acc.is_active = False
     await db.commit()
@@ -159,17 +153,18 @@ async def get_account_balance(account_id: int, db: AsyncSession = Depends(get_db
     if not acc:
         raise HTTPException(404, "Account not found")
 
-    if acc.type == 'broker':
+    if acc.type == "broker":
         from sqlalchemy import func, select
+
         from src.domain.models.investment_transaction import InvestmentTransaction
+
         result = await db.execute(
-            select(func.coalesce(func.sum(InvestmentTransaction.amount), 0))
-            .where(
+            select(func.coalesce(func.sum(InvestmentTransaction.amount), 0)).where(
                 InvestmentTransaction.account_id == account_id,
-                InvestmentTransaction.direction == 'buy',
+                InvestmentTransaction.direction == "buy",
             )
         )
-        cost_basis = result.scalar() or Decimal('0')
+        cost_basis = result.scalar() or Decimal("0")
         return {"type": "broker", "cost_basis": str(cost_basis), "current_value": None}
 
     balance_result = await db.execute(
@@ -177,21 +172,21 @@ async def get_account_balance(account_id: int, db: AsyncSession = Depends(get_db
             func.coalesce(
                 func.sum(
                     case(
-                        (Transaction.direction == 'credit', Transaction.amount),
+                        (Transaction.direction == "credit", Transaction.amount),
                         else_=-Transaction.amount,
                     )
                 ),
-                Decimal('0'),
+                Decimal("0"),
             )
         ).where(
             Transaction.account_id == account_id,
-            Transaction.status == 'active',
+            Transaction.status == "active",
             Transaction.reversed_by.is_(None),
             Transaction.reversal_of.is_(None),
             Transaction.deleted_at.is_(None),
         )
     )
-    txn_delta = balance_result.scalar() or Decimal('0')
+    txn_delta = balance_result.scalar() or Decimal("0")
     return {
         "type": acc.type,
         "opening_balance": str(acc.opening_balance),
@@ -202,6 +197,7 @@ async def get_account_balance(account_id: int, db: AsyncSession = Depends(get_db
 @router.post("/transfer-detect")
 async def trigger_transfer_detection(db: AsyncSession = Depends(get_db)):
     from src.domain.services.transfer_detector import detect_transfers
+
     pairs = await detect_transfers(None, db)
     await db.commit()
     return {"pairs_flagged": pairs}

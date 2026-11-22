@@ -94,7 +94,8 @@ def _header_columns(cells: list[str]) -> dict[str, int] | None:
             cols.setdefault("amount", i)
     has_direction = "debit" in cols or "credit" in cols or ("crdr" in cols and "amount" in cols)
     if "date" in cols and "amount" in cols and not has_direction:
-        # OCR often drops the Cr/Dr heading: accept Amount + Balance; direction comes from row tokens.
+        # OCR often drops the Cr/Dr heading: accept Amount + Balance;
+        # direction comes from row tokens.
         for i, c in enumerate(cells):
             if "balance" in c.lower():
                 cols.setdefault("balance", i)
@@ -138,7 +139,8 @@ def _parse_blocks(text: str, day_first: bool) -> list[ParsedTransaction]:
                 and amount != prev_balance
                 and Decimal("0.5") <= amount / prev_balance <= 2
             ):
-                # OCR lost the amount cell; the lone figure is a running balance close to the last one.
+                # OCR lost the amount cell; the lone figure is a running balance
+                # close to the last one.
                 balance, amount = amount, abs(amount - prev_balance)
             if cur["dir"]:
                 direction = cur["dir"]
@@ -148,9 +150,14 @@ def _parse_blocks(text: str, day_first: bool) -> list[ParsedTransaction]:
                 direction = "debit"
             if balance is not None:
                 prev_balance = balance
-            results.append(ParsedTransaction(
-                date=cur["date"], description=" ".join(cur["desc"]).strip(),
-                amount=amount, direction=direction))
+            results.append(
+                ParsedTransaction(
+                    date=cur["date"],
+                    description=" ".join(cur["desc"]).strip(),
+                    amount=amount,
+                    direction=direction,
+                )
+            )
         cur = None
 
     for raw in text.splitlines():
@@ -187,14 +194,16 @@ def _parse_blocks(text: str, day_first: bool) -> list[ParsedTransaction]:
 
 
 def _cell_amount(cell: str) -> Decimal | None:
-    # Watermark letters can sit inside the number ("Rs.D 3,180.55", "47D5,735.30"): keep digits and dots only.
+    # Watermark letters can sit inside the number ("Rs.D 3,180.55", "47D5,735.30"):
+    # keep digits and dots only.
     return _parse_amount(re.sub(r"[^0-9.]", "", cell).lstrip("."))
 
 
 def _parse_table_row(
     cells: list[str], cols: dict[str, int], day_first: bool
 ) -> ParsedTransaction | None:
-    # Watermark letters/spaces can split the date ("22/01 /2024", "10-01-2H024"): drop letters, rejoin.
+    # Watermark letters/spaces can split the date ("22/01 /2024", "10-01-2H024"):
+    # drop letters, rejoin.
     date_txt = re.sub(r"\s*([/-])\s*", r"\1", re.sub(r"[^0-9/\- ]", "", cells[cols["date"]]))
     date_m = re.search(r"\d{1,2}[/-]\d{1,2}[/-]\d{2,4}", date_txt)
     date = _parse_date(date_m.group(), day_first) if date_m else None
@@ -318,7 +327,7 @@ def parse_statement(text: str) -> list[ParsedTransaction]:
         if trailing_minus:
             direction = "credit"
         else:
-            suffix = line[amt_match.end():].strip()
+            suffix = line[amt_match.end() :].strip()
             dir_m = _DIR_RE.search(suffix)
             direction = _direction_from_token(dir_m.group(1)) if dir_m else "debit"
 

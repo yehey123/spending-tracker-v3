@@ -32,6 +32,7 @@ router = APIRouter()
 # Schemas
 # ---------------------------------------------------------------------------
 
+
 class AccessRequestCreate(BaseModel):
     email: EmailStr
     reason: str | None = None
@@ -47,6 +48,7 @@ class AccessRequestResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # POST /request-access
 # ---------------------------------------------------------------------------
+
 
 @router.post("/request-access", response_model=AccessRequestResponse, status_code=202)
 async def request_access(
@@ -84,7 +86,10 @@ async def request_access(
         logger.exception("Email delivery failed for access request from %s.", body.email)
         raise HTTPException(
             status_code=502,
-            detail="Unable to send notification email. Please try again later or contact the administrator.",
+            detail=(
+                "Unable to send notification email. "
+                "Please try again later or contact the administrator."
+            ),
         )
 
     return AccessRequestResponse(
@@ -98,6 +103,7 @@ async def request_access(
 # ---------------------------------------------------------------------------
 # GET /admin/approve/{request_id}
 # ---------------------------------------------------------------------------
+
 
 @router.get("/admin/approve/{request_id}")
 async def admin_approve(
@@ -138,7 +144,11 @@ async def admin_approve(
     # Generate token but hold in session — only commit after email succeeds.
     raw_token, token_hash = generate_invite_token()
     expires_at = invite_expires_at()
-    db.add(InviteToken(token_hash=token_hash, email=applicant_email, expires_at=expires_at, consumed_at=None))
+    db.add(
+        InviteToken(
+            token_hash=token_hash, email=applicant_email, expires_at=expires_at, consumed_at=None
+        )
+    )
 
     try:
         await send_user_invite_email(
@@ -157,7 +167,10 @@ async def admin_approve(
         )
         raise HTTPException(
             status_code=502,
-            detail="Request approved but invite email could not be sent. Use resend-invite to retry once the mail server is fixed.",
+            detail=(
+                "Request approved but invite email could not be sent. "
+                "Use resend-invite to retry once the mail server is fixed."
+            ),
         )
 
     return {"status": "approved", "email": applicant_email}
@@ -166,6 +179,7 @@ async def admin_approve(
 # ---------------------------------------------------------------------------
 # GET /admin/deny/{request_id}
 # ---------------------------------------------------------------------------
+
 
 @router.get("/admin/deny/{request_id}")
 async def admin_deny(

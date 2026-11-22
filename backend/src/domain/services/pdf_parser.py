@@ -21,7 +21,9 @@ _WATERMARK_LINE_RE = re.compile(r"^[A-Za-z]$")
 def _clean_cell(cell: object) -> str:
     """Join a table cell's lines, dropping lone letters a diagonal watermark injects."""
     lines = str(cell or "").splitlines()
-    return " ".join(ln.strip() for ln in lines if ln.strip() and not _WATERMARK_LINE_RE.match(ln.strip()))
+    return " ".join(
+        ln.strip() for ln in lines if ln.strip() and not _WATERMARK_LINE_RE.match(ln.strip())
+    )
 
 
 async def extract_pdf_text(
@@ -71,8 +73,11 @@ async def extract_pdf_text(
             if start:
                 start()  # same scan geometry on every page: carry the table header across pages
             for page in pdf.pages:
-                dpis = [72 * i["srcsize"][0] / i["width"] for i in page.images
-                        if i.get("srcsize") and i.get("width")]
+                dpis = [
+                    72 * i["srcsize"][0] / i["width"]
+                    for i in page.images
+                    if i.get("srcsize") and i.get("width")
+                ]
                 dpi = min(OCR_RENDER_DPI, max(dpis)) if dpis else OCR_RENDER_DPI
                 pil_img = page.to_image(resolution=dpi).original
                 text = await ocr_provider.extract_with_categories(pil_img, categories or [])  # type: ignore[attr-defined]

@@ -23,6 +23,7 @@ def _clean_registry():
 def _patch_eps(monkeypatch, groups: dict):
     def fake_entry_points(group=None, **_):
         return groups.get(group, [])
+
     monkeypatch.setattr(importlib.metadata, "entry_points", fake_entry_points)
 
 
@@ -44,17 +45,27 @@ def test_fake_entry_point_registers_descriptor(monkeypatch):
 
 def test_broken_plugin_is_skipped(monkeypatch):
     good = fake_descriptor("good")
-    _patch_eps(monkeypatch, {registry.OCR_GROUP: [
-        FakeEntryPoint("broken", exc=ImportError("boom")),
-        FakeEntryPoint("good", good),
-    ]})
+    _patch_eps(
+        monkeypatch,
+        {
+            registry.OCR_GROUP: [
+                FakeEntryPoint("broken", exc=ImportError("boom")),
+                FakeEntryPoint("good", good),
+            ]
+        },
+    )
     assert set(registry.available()) == {"tesseract", "good"}
 
 
 def test_api_version_mismatch_is_skipped(monkeypatch):
-    _patch_eps(monkeypatch, {registry.OCR_GROUP: [
-        FakeEntryPoint("old", fake_descriptor("old", api_version=999)),
-    ]})
+    _patch_eps(
+        monkeypatch,
+        {
+            registry.OCR_GROUP: [
+                FakeEntryPoint("old", fake_descriptor("old", api_version=999)),
+            ]
+        },
+    )
     assert list(registry.available()) == ["tesseract"]
 
 
@@ -67,9 +78,15 @@ def test_categorizer_entry_point_and_version_mismatch(monkeypatch):
     ok = FakeCategorizer("fakeai")
     bad = FakeCategorizer("stale")
     bad.api_version = 0
-    _patch_eps(monkeypatch, {registry.CATEGORIZER_GROUP: [
-        FakeEntryPoint("fakeai", ok), FakeEntryPoint("stale", bad),
-    ]})
+    _patch_eps(
+        monkeypatch,
+        {
+            registry.CATEGORIZER_GROUP: [
+                FakeEntryPoint("fakeai", ok),
+                FakeEntryPoint("stale", bad),
+            ]
+        },
+    )
     assert registry.get_categorizer("fakeai") is ok
     assert registry.get_categorizer("stale") is None
 
@@ -90,7 +107,9 @@ def test_ocr_anthropic_without_plugin_returns_422(monkeypatch):
 
 
 def test_resolve_ocr_builds_via_plugin(monkeypatch):
-    _patch_eps(monkeypatch, {registry.OCR_GROUP: [FakeEntryPoint("fakeai", fake_descriptor("fakeai"))]})
+    _patch_eps(
+        monkeypatch, {registry.OCR_GROUP: [FakeEntryPoint("fakeai", fake_descriptor("fakeai"))]}
+    )
     row = SimpleNamespace(ocr_provider="fakeai", max_output_tokens=None, ai_model=None)
     assert _resolve_ocr(row).built_for == "fakeai"
 
@@ -98,13 +117,16 @@ def test_resolve_ocr_builds_via_plugin(monkeypatch):
 @pytest.mark.asyncio
 async def test_categorizer_without_plugin_is_memory_only(monkeypatch):
     _patch_eps(monkeypatch, {})
-    row = SimpleNamespace(ocr_provider="anthropic", anthropic_api_key="sk-x", max_output_tokens=None)
+    row = SimpleNamespace(
+        ocr_provider="anthropic", anthropic_api_key="sk-x", max_output_tokens=None
+    )
     assert _has_ai_credentials(row) is False
     assert await categorizer_service._call_ai(["acme"], [], row) == []
 
 
 def test_resolve_ocr_tesseract_works_without_plugins(monkeypatch):
     from src.domain.services.ocr.tesseract import TesseractProvider
+
     _patch_eps(monkeypatch, {})
     row = SimpleNamespace(ocr_provider="tesseract", max_output_tokens=None, ai_model=None)
     assert isinstance(_resolve_ocr(row), TesseractProvider)
@@ -145,6 +167,7 @@ async def test_sync_all_models_passes_ctx_to_list_models(monkeypatch):
             pass
 
     import src.db.session as session_mod
+
     _patch_eps(monkeypatch, {registry.OCR_GROUP: [FakeEntryPoint("lister", Lister())]})
     monkeypatch.setattr(session_mod, "AsyncSessionLocal", lambda: FakeSession())
     assert await registry.sync_all_models() == {"lister": 0}

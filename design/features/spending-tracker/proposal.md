@@ -645,7 +645,7 @@ The `receipt_unlinked` flag (created on upload) resolves the moment the user mak
 GET /receipts
   ?status=unlinked|linked|all    # default: all
   &cursor=<token>                # keyset cursor, 50 per page
-  
+
 Response 200:
 {
   "data": [
