@@ -84,3 +84,19 @@ repo owner via an explicit decision gate on 2026-07-26.
   `proposal.md` carries a dated amendment note; Ollama moved behind the `ai` compose profile
   (`docker compose --profile ai up -d` or `COMPOSE_PROFILES=ai`); `.env.example` notes AI is optional.
 - **Status**: CLOSED — design updated in the same commit.
+
+---
+
+## 2026-11-22 — AI providers extracted to a plugin repo
+
+### DSC-7 — AI providers in core vs. optional plugin
+- **Design**: `contracts/ocr-pipeline.md`, `contracts/api.md`, `contracts/db-schema.md` and
+  `contracts/frontend-ux.md` described Claude/OpenAI/Gemini/Vertex/Ollama providers as part of core.
+- **Code (before)**: provider code, prompts and model sync lived in `backend/src/domain/services/ocr/`
+  and related modules; `ai.txt` requirements were installed via `INSTALL_AI`.
+- **Decision**: repo owner, 2026-11-22 — AI is optional; move it to a separate private repo.
+- **Resolution**: (b) amend design to match. AI extracted to plugin repo
+  `yehey123/spending-tracker-ai`; core ships a plugin registry (`backend/src/plugins`) and Tesseract
+  only. AI key/model columns stay in `app_settings`, plugin-owned, no migration. Missing provider
+  returns 422 and the Settings page shows a warning.
+- **Status**: CLOSED — design updated in the same branch (`feat/ai-plugin`).

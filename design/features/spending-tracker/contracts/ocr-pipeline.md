@@ -27,7 +27,7 @@ No OpenCV step runs on any path. Tesseract's own binarisation scores better on t
 
 Operations (in order):
 1. Re-encode from raw pixel bytes (L or RGB) to strip EXIF, ICC and text chunks
-2. AI vision providers only: downscale so the longest side is ≤ 1536 px (LANCZOS)
+2. Providers whose descriptor sets `max_side` only: downscale so the longest side is ≤ `max_side` px (LANCZOS). Tesseract sets none, so it receives the original size
 
 ---
 
@@ -41,29 +41,26 @@ class OCRProvider(ABC):
 
 All providers receive the original image (no preprocessing) and return raw text (no structured parsing at this stage).
 
-**Tesseract is the default. AI vision providers (Claude, OpenAI, Gemini, Vertex, Ollama) are optional, opt-in alternatives.** The default path needs no API key and no AI service; categorisation falls back to merchant-category memory when no AI is configured.
+**Tesseract is the default and the only provider shipped in core. AI vision providers (Claude, OpenAI, Gemini, Vertex, Ollama) live in the separate plugin repo `yehey123/spending-tracker-ai` and are optional, opt-in alternatives.** The default path needs no API key and no AI service; categorisation falls back to merchant-category memory when no AI plugin is installed or configured.
 
-### Provider: TesseractProvider
+### Plugin registry
+Providers are discovered through `backend/src/plugins/registry.py` using `importlib.metadata` entry-point groups:
+- `spending_tracker.ocr_providers`: each entry point resolves to a provider descriptor
+- `spending_tracker.categorizers`: each entry point resolves to an AI categoriser
+
+The contract (Protocols and `API_VERSION = 1`) lives in `backend/src/plugins/api.py`. A plugin never imports core. A plugin with a mismatched `api_version`, or one that fails to load, is logged and skipped.
+
+A provider descriptor exposes: `key`, `label`, `api_version`, `config_fields`, `build(settings, ctx)`, `has_credentials(settings)`, `credit_weight`, and optionally `list_models(settings, ctx)` and `max_side`. The registry always includes the built-in `tesseract` descriptor.
+
+### Provider: TesseractProvider (core)
 - Default; no API key, no AI
 - Lines are rebuilt from word boxes (not from Tesseract's own line output); a skewed page is detected and re-OCR'd
 - Table-like rows are emitted as header-aligned pipe-delimited cells
 
-### Provider: ClaudeVisionProvider
-- Constructor: `__init__(self, api_key: str)`
-- Model: `claude-sonnet-4-6`
-- Prompt instructs Claude to return one transaction per line: `DATE | DESCRIPTION | AMOUNT | DEBIT or CREDIT`
-- Dates: MM/DD/YYYY; amounts: numeric only
+### Optional providers (plugin repo)
+Claude, OpenAI (also serves Ollama through its OpenAI-compatible `/v1` endpoint), Gemini and Vertex vision providers, plus their prompts and model-list sync, ship in `spending-tracker-ai`. Prompt building and injection sanitisation stay in core; the categoriser plugin receives the finished prompt. Provider output format is the pipe-delimited line format described in Stage 4.
 
-### Provider: OpenAIVisionProvider
-- Constructor: `__init__(self, api_key: str)`
-- Model: `gpt-4o`
-- Same prompt and output format as ClaudeVisionProvider
-- Also serves Ollama (OpenAI-compatible `/v1` endpoint)
-
-### Other optional providers
-- `GeminiVisionProvider`, `VertexVisionProvider`: same role as the other AI vision providers; opt-in only.
-
-Provider is resolved at upload time from `app_settings.ocr_provider` (default `tesseract`). If an AI provider is selected and its required API key is missing, the upload returns 422.
+Provider is resolved at upload time from `app_settings.ocr_provider` (default `tesseract`) through the registry. If the selected provider is not installed, the upload returns 422 `Provider '<key>' is not installed`. If it is installed but `has_credentials` is false, the upload returns 422.
 
 ---
 
@@ -116,11 +113,12 @@ class ParsedTransaction:
 ## Provider Selection Logic (backend)
 
 ```
-GET /settings → ocr_provider value
-    "tesseract" → TesseractProvider()          (default)
-    "anthropic" → ClaudeVisionProvider(api_key=app_settings.anthropic_api_key)   (optional)
-    "openai"    → OpenAIVisionProvider(api_key=app_settings.openai_api_key)      (optional)
-    "gemini" / "vertex" / "ollama" → optional AI vision providers
+app_settings.ocr_provider
+    registry.find_ocr(key) is None        → HTTP 422 "Provider '<key>' is not installed"
+    "tesseract"                           → TesseractProvider()   (default, core)
+    any plugin key (anthropic, openai, gemini, vertex, ollama, ...)
+        not descriptor.has_credentials(app_settings) → HTTP 422
+        else descriptor.build(app_settings, ctx)     → provider; image resized to descriptor.max_side if set
 ```
 
-If an AI provider is selected and its API key is null → raise HTTP 422 before processing. Tesseract needs no key.
+Tesseract needs no key. The 422 is raised before processing.
