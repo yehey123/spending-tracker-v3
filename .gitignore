@@ -47,3 +47,9 @@ frontend/playwright-report/
 
 # Email importer secrets: Gmail OAuth + sender/password templates (scripts/email_import)
 secrets/
+
+# Public OCR corpora: PDFs/images are re-downloadable (see SOURCES.md); keep answers + notes only
+backend/tests/fixtures/ocr_external/**/*.pdf
+backend/tests/fixtures/ocr_external/**/*.png
+backend/tests/fixtures/ocr_external/**/*.jpg
+backend/.claude/
