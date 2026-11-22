@@ -1,10 +1,16 @@
 import NextAuth, { type NextAuthConfig } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 
-const API_BASE =
-  process.env.INTERNAL_API_URL ??
-  process.env.NEXT_PUBLIC_API_URL ??
-  "http://backend:8000";
+import { authConfig as edgeAuthConfig } from "@/auth.config";
+import {
+  API_BASE,
+  jwtExpiresMs,
+  readRefreshCookie,
+  refreshBackendToken,
+} from "@/lib/token-refresh";
+
+// Refresh the backend access token this long before it expires.
+const REFRESH_SKEW_MS = 60_000;
 
 export const authConfig: NextAuthConfig = {
   providers: [
@@ -26,23 +32,53 @@ export const authConfig: NextAuthConfig = {
         });
         if (!res.ok) return null;
         const data = await res.json();
-        return { id: credentials.email as string, accessToken: data.access_token, isAdmin: data.is_admin ?? false };
+        const refreshToken = readRefreshCookie(res);
+        let accessTokenExpires: number | undefined;
+        try {
+          accessTokenExpires = jwtExpiresMs(data.access_token);
+        } catch {
+          accessTokenExpires = undefined;
+        }
+        return {
+          id: credentials.email as string,
+          accessToken: data.access_token,
+          accessTokenExpires,
+          refreshToken,
+          isAdmin: data.is_admin ?? false,
+        };
       },
     }),
   ],
   callbacks: {
-    authorized({ auth }) {
-      return !!auth?.user;
-    },
+    ...edgeAuthConfig.callbacks,
     async jwt({ token, user }) {
       if (user) {
+        // Sign-in: store everything the backend gave us.
         token.accessToken = (user as any).accessToken;
+        token.accessTokenExpires = (user as any).accessTokenExpires;
+        token.refreshToken = (user as any).refreshToken ?? undefined;
         token.isAdmin = (user as any).isAdmin ?? false;
+        delete token.error;
+        return token;
+      }
+      // Unknown expiry or no refresh token (older session): leave as is.
+      if (!token.accessTokenExpires || !token.refreshToken) return token;
+      if (Date.now() < token.accessTokenExpires - REFRESH_SKEW_MS) return token;
+      try {
+        const r = await refreshBackendToken(token.refreshToken);
+        token.accessToken = r.accessToken;
+        token.accessTokenExpires = r.accessTokenExpires;
+        token.refreshToken = r.refreshToken;
+        delete token.error;
+      } catch {
+        token.error = "RefreshTokenError";
       }
       return token;
     },
     async session({ session, token }) {
+      // The refresh token is never exposed to the client session.
       session.accessToken = token.accessToken as string | undefined;
+      session.error = token.error;
       (session as any).isAdmin = token.isAdmin ?? false;
       return session;
     },

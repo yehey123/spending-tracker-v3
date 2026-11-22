@@ -33,21 +33,45 @@ export function clearSessionTokenCache(): void {
   sessionTokenCache = null;
 }
 
+function jwtExpMs(jwt: string): number | null {
+  try {
+    const part = jwt.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const exp = JSON.parse(atob(part)).exp;
+    return typeof exp === 'number' ? exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
 async function getSessionToken(): Promise<string | null> {
   if (typeof window === 'undefined') return null;
   const now = Date.now();
   if (sessionTokenCache && sessionTokenCache.expires > now) return sessionTokenCache.promise;
-  const promise = (async () => {
+  const entry = { promise: null as unknown as Promise<string | null>, expires: now + SESSION_TOKEN_TTL_MS };
+  entry.promise = (async () => {
     try {
-      const { getSession } = await import('next-auth/react');
+      const { getSession, signOut } = await import('next-auth/react');
       const session = await getSession();
-      return session?.accessToken ?? null;
+      if (session?.error === 'RefreshTokenError') {
+        // Backend refresh failed (expired/revoked session): back to login.
+        sessionTokenCache = null;
+        void signOut({ callbackUrl: '/login' });
+        return null;
+      }
+      const token = session?.accessToken ?? null;
+      // The server refreshes tokens within 60 s of expiry, so a fresh token has >= 60 s left;
+      // cap the cache at the token's own exp (minus 10 s) so a cached token never outlives it.
+      const exp = token ? jwtExpMs(token) : null;
+      if (exp) {
+        entry.expires = Date.now() + Math.max(0, Math.min(SESSION_TOKEN_TTL_MS, exp - Date.now() - 10_000));
+      }
+      return token;
     } catch {
       return null;
     }
   })();
-  sessionTokenCache = { promise, expires: now + SESSION_TOKEN_TTL_MS };
-  return promise;
+  sessionTokenCache = entry;
+  return entry.promise;
 }
 
 async function getAuthToken(): Promise<string | null> {
