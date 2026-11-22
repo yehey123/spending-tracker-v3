@@ -34,7 +34,6 @@ from PIL import Image
 from src.domain.services.ocr.tesseract import TesseractProvider
 from src.domain.services.ocr.vertex_vision import VertexVisionProvider
 from src.domain.services.pdf_parser import extract_pdf_text
-from src.domain.services.preprocessor import preprocess
 from src.domain.services.receipt_parser import detect_kind, parse_receipt
 from src.domain.services.statement_parser import parse_statement
 
@@ -73,9 +72,7 @@ async def _ocr(path: Path, provider, is_tesseract: bool) -> str:
     if path.suffix.lower() == ".pdf":
         return await extract_pdf_text(content, provider)
     img = Image.open(io.BytesIO(content)).convert("RGB")
-    if is_tesseract:
-        img = preprocess(img)
-    elif max(img.size) > MAX_SIDE:
+    if not is_tesseract and max(img.size) > MAX_SIDE:
         s = MAX_SIDE / max(img.size)
         img = img.resize((int(img.width * s), int(img.height * s)), Image.LANCZOS)
     return await provider.extract_text(img)

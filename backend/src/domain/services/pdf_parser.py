@@ -14,8 +14,6 @@ try:
 except ImportError:  # pragma: no cover
     pdfplumber = None  # type: ignore[assignment]
 
-from src.domain.services.preprocessor import preprocess
-
 OCR_RENDER_DPI = 300
 _WATERMARK_LINE_RE = re.compile(r"^[A-Za-z]$")
 
@@ -66,12 +64,15 @@ async def extract_pdf_text(
         full_text = "\n".join(page_texts)
 
         if not full_text.strip():
-            # Image-based PDF — rasterize each page, preprocess, then OCR
+            # Image-based PDF — rasterize each page at its native scan DPI
+            # (capped at OCR_RENDER_DPI), then OCR
             ocr_texts: list[str] = []
             for page in pdf.pages:
-                pil_img = page.to_image(resolution=OCR_RENDER_DPI).original
-                preprocessed = preprocess(pil_img)
-                text = await ocr_provider.extract_with_categories(preprocessed, categories or [])  # type: ignore[attr-defined]
+                dpis = [72 * i["srcsize"][0] / i["width"] for i in page.images
+                        if i.get("srcsize") and i.get("width")]
+                dpi = min(OCR_RENDER_DPI, max(dpis)) if dpis else OCR_RENDER_DPI
+                pil_img = page.to_image(resolution=dpi).original
+                text = await ocr_provider.extract_with_categories(pil_img, categories or [])  # type: ignore[attr-defined]
                 ocr_texts.append(text)
             full_text = "\n".join(ocr_texts)
 
