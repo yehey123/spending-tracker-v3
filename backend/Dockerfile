@@ -2,17 +2,21 @@
 FROM python:3.14-slim
 
 ARG TARGET_ENV=production
+ARG INSTALL_AI=0
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY requirements/base.txt requirements/dev.txt ./requirements/
+COPY requirements/ ./requirements/
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install -r requirements/base.txt
+# Optional AI SDKs (anthropic, openai); dev.txt already includes them.
 RUN --mount=type=cache,target=/root/.cache/pip \
-    [ "$TARGET_ENV" = "development" ] && pip install -r requirements/dev.txt || true
+    if [ "$INSTALL_AI" = "1" ]; then pip install -r requirements/ai.txt; fi
+RUN --mount=type=cache,target=/root/.cache/pip \
+    if [ "$TARGET_ENV" = "development" ]; then pip install -r requirements/dev.txt; fi
 
 COPY . .
 

@@ -1,10 +1,9 @@
 import base64
 import io
 
-import anthropic
 from PIL import Image
 
-from .base import OCRProvider, _build_prompt, SYSTEM_PROMPT
+from .base import OCRProvider, require_sdk, _build_prompt, SYSTEM_PROMPT
 
 
 class ClaudeVisionProvider(OCRProvider):
@@ -14,7 +13,7 @@ class ClaudeVisionProvider(OCRProvider):
         self.api_key = api_key
         self.model = model
         self.max_tokens = max_tokens
-        self.client = anthropic.Anthropic(api_key=api_key)
+        self.client = require_sdk("anthropic", "anthropic").Anthropic(api_key=api_key)
 
     async def _call(self, image: Image.Image, prompt: str) -> str:
         buf = io.BytesIO()

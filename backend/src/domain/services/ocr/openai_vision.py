@@ -1,10 +1,9 @@
 import base64
 import io
 
-from openai import OpenAI
 from PIL import Image
 
-from .base import OCRProvider, _build_prompt, SYSTEM_PROMPT
+from .base import OCRProvider, require_sdk, _build_prompt, SYSTEM_PROMPT
 
 
 class OpenAIVisionProvider(OCRProvider):
@@ -16,7 +15,7 @@ class OpenAIVisionProvider(OCRProvider):
         self.reasoning_effort = reasoning_effort  # "none" disables thinking on Ollama (~2x faster OCR)
         self.model = model
         self.max_tokens = max_tokens
-        self.client = OpenAI(api_key=api_key, base_url=base_url)  # base_url: Ollama / OpenAI-compatible
+        self.client = require_sdk("openai", "openai").OpenAI(api_key=api_key, base_url=base_url)  # base_url: Ollama / OpenAI-compatible
 
     async def _call(self, image: Image.Image, prompt: str) -> str:
         buf = io.BytesIO()

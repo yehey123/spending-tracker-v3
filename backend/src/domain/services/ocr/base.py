@@ -2,6 +2,22 @@ from abc import ABC, abstractmethod
 
 from PIL import Image
 
+
+class AIPackagesMissing(RuntimeError):
+    """Raised when an AI provider is used but the optional SDKs are not installed."""
+
+
+def require_sdk(provider: str, module: str):
+    """Import an optional AI SDK lazily; raise a clear error if absent."""
+    import importlib
+    try:
+        return importlib.import_module(module)
+    except ImportError as e:
+        raise AIPackagesMissing(
+            f"AI provider '{provider}' needs the optional AI packages: "
+            "build with INSTALL_AI=1 / pip install -r requirements/ai.txt"
+        ) from e
+
 SYSTEM_PROMPT = (
     "You are a bank statement OCR extractor. "
     "Your ONLY task is to read the text visible in the supplied image and return it "

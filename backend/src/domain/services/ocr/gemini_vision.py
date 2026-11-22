@@ -1,10 +1,9 @@
 import base64
 import io
 
-from openai import OpenAI
 from PIL import Image
 
-from .base import OCRProvider, _build_prompt, SYSTEM_PROMPT
+from .base import OCRProvider, require_sdk, _build_prompt, SYSTEM_PROMPT
 
 _GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 
@@ -13,7 +12,7 @@ class GeminiVisionProvider(OCRProvider):
     supports_categories = True
 
     def __init__(self, api_key: str, model: str = "gemini-2.0-flash", max_tokens: int = 8192):
-        self.client = OpenAI(api_key=api_key, base_url=_GEMINI_BASE_URL)
+        self.client = require_sdk("gemini", "openai").OpenAI(api_key=api_key, base_url=_GEMINI_BASE_URL)
         self.model = model
         self.max_tokens = max_tokens
 

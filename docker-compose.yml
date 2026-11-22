@@ -24,7 +24,10 @@ services:
       - backend
 
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+      args:
+        INSTALL_AI: ${INSTALL_AI:-0}
     expose:
       - "8000"
     env_file:
