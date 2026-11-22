@@ -1,2 +1,14 @@
 # Real financial data — never bake into an image (mount it at run time instead)
 **/fixtures/private/
+
+# Public OCR corpus binaries (gitignored, ~1.6G) — host-only; no test reads them in the image
+tests/fixtures/ocr_external/**/*.png
+tests/fixtures/ocr_external/**/*.jpg
+tests/fixtures/ocr_external/**/*.jpeg
+tests/fixtures/ocr_external/**/*.pdf
+
+# Caches / tooling
+**/__pycache__/
+**/*.pyc
+**/.pytest_cache/
+.claude/
