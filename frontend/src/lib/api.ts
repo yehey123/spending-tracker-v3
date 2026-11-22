@@ -24,20 +24,68 @@ async function getCapacitorTokenIfNative(): Promise<string | null> {
   }
 }
 
+// Browser (non-native) token: NextAuth session accessToken, cached briefly so
+// each request does not hit /api/auth/session.
+const SESSION_TOKEN_TTL_MS = 45_000;
+let sessionTokenCache: { promise: Promise<string | null>; expires: number } | null = null;
+
+export function clearSessionTokenCache(): void {
+  sessionTokenCache = null;
+}
+
+async function getSessionToken(): Promise<string | null> {
+  if (typeof window === 'undefined') return null;
+  const now = Date.now();
+  if (sessionTokenCache && sessionTokenCache.expires > now) return sessionTokenCache.promise;
+  const promise = (async () => {
+    try {
+      const { getSession } = await import('next-auth/react');
+      const session = await getSession();
+      return session?.accessToken ?? null;
+    } catch {
+      return null;
+    }
+  })();
+  sessionTokenCache = { promise, expires: now + SESSION_TOKEN_TTL_MS };
+  return promise;
+}
+
+async function getAuthToken(): Promise<string | null> {
+  const nativeToken = await getCapacitorTokenIfNative();
+  if (nativeToken) return nativeToken;
+  return getSessionToken();
+}
+
+/** Authenticated fetch against the backend: attaches Bearer, retries once on 401. */
+export async function authFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  const { headers: initHeaders, ...restInit } = init;
+  const send = async () => {
+    const token = await getAuthToken();
+    return fetch(`${getBaseUrl()}${path}`, {
+      credentials: 'include',
+      ...restInit,
+      headers: {
+        ...(initHeaders as Record<string, string>),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+  };
+  let res = await send();
+  if (res.status === 401) {
+    clearSessionTokenCache();
+    res = await send();
+  }
+  return res;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const { headers: initHeaders, ...restInit } = init ?? {};
   const isFormData = restInit.body instanceof FormData;
-  const nativeToken = await getCapacitorTokenIfNative();
   const headers: Record<string, string> = {
     ...(!isFormData ? { 'Content-Type': 'application/json' } : {}),
     ...(initHeaders as Record<string, string>),
-    ...(nativeToken ? { Authorization: `Bearer ${nativeToken}` } : {}),
   };
-  const res = await fetch(`${getBaseUrl()}${path}`, {
-    headers,
-    credentials: 'include',
-    ...restInit,
-  });
+  const res = await authFetch(path, { ...restInit, headers });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw Object.assign(new Error(err.detail ?? res.statusText), { status: res.status });
