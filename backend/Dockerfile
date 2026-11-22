@@ -5,8 +5,6 @@ ARG TARGET_ENV=production
 
 RUN apt-get update && apt-get install -y \
     tesseract-ocr \
-    libgl1 \
-    libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

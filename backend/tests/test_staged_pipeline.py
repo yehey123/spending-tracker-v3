@@ -4,7 +4,7 @@ import io
 import pytest
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 from PIL import Image
 from sqlalchemy import select
@@ -22,9 +22,7 @@ def _png():
 
 
 async def _upload(client, ocr_text="01/05/2026 | GRAB FOOD | 150.00 | DEBIT"):
-    mock_pre = MagicMock(return_value=Image.new("L", (100, 100)))
-    with patch("src.domain.services.preprocessor.preprocess", mock_pre), \
-         patch("src.domain.services.statement_pipeline.TesseractProvider") as MockProv:
+    with patch("src.domain.services.statement_pipeline.TesseractProvider") as MockProv:
         instance = MockProv.return_value
         instance.extract_text = AsyncMock(return_value=ocr_text)
         res = await client.post(

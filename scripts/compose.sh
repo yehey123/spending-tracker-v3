@@ -14,7 +14,9 @@ if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi -L >/dev/null 2>&1; then
     echo "GPU: NVIDIA found but Docker lacks the nvidia runtime; install nvidia-container-toolkit. Using CPU." >&2
   fi
 else
-  echo "GPU: none detected, Ollama uses CPU." >&2
+  case " ${COMPOSE_PROFILES:-} $* " in
+    *[\ ,]ai[\ ,]*) echo "GPU: none detected, Ollama uses CPU." >&2 ;;
+  esac
 fi
 # shellcheck disable=SC2086
 exec docker compose $files "$@"

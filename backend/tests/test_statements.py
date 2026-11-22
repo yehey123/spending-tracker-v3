@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, patch
 from PIL import Image
 import io
 
@@ -15,9 +15,7 @@ def _make_png_bytes():
 async def test_upload_statement_image(client):
     png = _make_png_bytes()
     mock_ocr = AsyncMock(return_value="01/05/2026 | GRAB FOOD | 150.00 | DEBIT\n01/05/2026 | SALARY | 50000.00 | CREDIT")
-    mock_pre = MagicMock(return_value=Image.new("L", (100, 100)))
-    with patch("src.domain.services.preprocessor.preprocess", mock_pre), \
-         patch("src.domain.services.statement_pipeline.TesseractProvider") as MockProv:
+    with patch("src.domain.services.statement_pipeline.TesseractProvider") as MockProv:
         instance = MockProv.return_value
         instance.extract_text = mock_ocr
         res = await client.post(
@@ -55,9 +53,7 @@ async def test_upload_too_large(client):
 async def test_list_statements(client):
     png = _make_png_bytes()
     mock_ocr = AsyncMock(return_value="")
-    mock_pre = MagicMock(return_value=Image.new("L", (100, 100)))
-    with patch("src.domain.services.preprocessor.preprocess", mock_pre), \
-         patch("src.domain.services.statement_pipeline.TesseractProvider") as MockProv:
+    with patch("src.domain.services.statement_pipeline.TesseractProvider") as MockProv:
         instance = MockProv.return_value
         instance.extract_text = mock_ocr
         await client.post("/statements/upload", files={"file": ("s.png", png, "image/png")})
@@ -70,9 +66,7 @@ async def test_list_statements(client):
 async def test_delete_statement(client):
     png = _make_png_bytes()
     mock_ocr = AsyncMock(return_value="")
-    mock_pre = MagicMock(return_value=Image.new("L", (100, 100)))
-    with patch("src.domain.services.preprocessor.preprocess", mock_pre), \
-         patch("src.domain.services.statement_pipeline.TesseractProvider") as MockProv:
+    with patch("src.domain.services.statement_pipeline.TesseractProvider") as MockProv:
         instance = MockProv.return_value
         instance.extract_text = mock_ocr
         stmt = (await client.post("/statements/upload", files={"file": ("del.png", png, "image/png")})).json()
@@ -85,9 +79,7 @@ async def test_delete_removes_statement_no_storage(client):
     """Files are processed in memory only — no storage backend is called on upload or delete."""
     png = _make_png_bytes()
     mock_ocr = AsyncMock(return_value="")
-    mock_pre = MagicMock(return_value=Image.new("L", (100, 100)))
-    with patch("src.domain.services.preprocessor.preprocess", mock_pre), \
-         patch("src.domain.services.statement_pipeline.TesseractProvider") as MockProv:
+    with patch("src.domain.services.statement_pipeline.TesseractProvider") as MockProv:
         instance = MockProv.return_value
         instance.extract_text = mock_ocr
         stmt = (await client.post("/statements/upload", files={"file": ("receipt.png", png, "image/png")})).json()
