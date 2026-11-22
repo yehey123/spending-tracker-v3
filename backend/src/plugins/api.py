@@ -35,7 +35,7 @@ class OCRProviderLike(Protocol):
 @runtime_checkable
 class ProviderDescriptor(Protocol):
     """Required members. Optional: `max_side: int | None` (image resize cap),
-    `list_models(settings) -> awaitable[list[dict]]` (model sync)."""
+    `list_models(settings, ctx) -> awaitable[list[dict]]` (model sync)."""
 
     key: str
     label: str

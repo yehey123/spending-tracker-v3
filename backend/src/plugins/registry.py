@@ -124,7 +124,7 @@ def make_context(settings: Any) -> ProviderContext:
 async def sync_all_models() -> dict[str, int]:
     """Upsert model lists from every installed descriptor exposing list_models (no-op if none).
 
-    list_models(settings) may be sync or async and returns dicts with keys
+    list_models(settings, ctx) may be sync or async and returns dicts with keys
     model_id, display_name (optional), max_output_tokens (optional).
     """
     from datetime import datetime, timezone
@@ -143,10 +143,11 @@ async def sync_all_models() -> dict[str, int]:
         settings = await db.get(AppSettings, 1)
         if settings is None:
             settings = AppSettings(id=1, ocr_provider="tesseract")
+        ctx = make_context(settings)
         now = datetime.now(timezone.utc)
         for key, desc in listers.items():
             try:
-                models = desc.list_models(settings)
+                models = desc.list_models(settings, ctx)
                 if inspect.isawaitable(models):
                     models = await models
                 rows = [

@@ -101,3 +101,53 @@ async def test_categorizer_without_plugin_is_memory_only(monkeypatch):
     row = SimpleNamespace(ocr_provider="anthropic", anthropic_api_key="sk-x", max_output_tokens=None)
     assert _has_ai_credentials(row) is False
     assert await categorizer_service._call_ai(["acme"], [], row) == []
+
+
+def test_resolve_ocr_tesseract_works_without_plugins(monkeypatch):
+    from src.domain.services.ocr.tesseract import TesseractProvider
+    _patch_eps(monkeypatch, {})
+    row = SimpleNamespace(ocr_provider="tesseract", max_output_tokens=None, ai_model=None)
+    assert isinstance(_resolve_ocr(row), TesseractProvider)
+
+
+@pytest.mark.asyncio
+async def test_sync_all_models_passes_ctx_to_list_models(monkeypatch):
+    seen = {}
+
+    class Lister:
+        key = "lister"
+        label = "Lister"
+        api_version = 1
+        config_fields = ()
+        credit_weight = 0
+
+        def build(self, settings, ctx):
+            return None
+
+        def has_credentials(self, settings):
+            return True
+
+        async def list_models(self, settings, ctx):
+            seen["settings"], seen["ctx"] = settings, ctx
+            return []
+
+    class FakeSession:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def get(self, model, pk):
+            return SimpleNamespace(max_output_tokens=123)
+
+        async def commit(self):
+            pass
+
+    import src.db.session as session_mod
+    _patch_eps(monkeypatch, {registry.OCR_GROUP: [FakeEntryPoint("lister", Lister())]})
+    monkeypatch.setattr(session_mod, "AsyncSessionLocal", lambda: FakeSession())
+    assert await registry.sync_all_models() == {"lister": 0}
+    assert isinstance(seen["ctx"], registry.ProviderContext)
+    assert seen["ctx"].max_output_tokens == 123
+    assert callable(seen["ctx"].decrypt_secret)

@@ -131,8 +131,8 @@ async def main(corpus: Path, specs: list[str], limit: int | None = None) -> None
     if not samples:
         raise SystemExit(f"No samples in {corpus}")
     counter = _TokenCounter()
-    logging.getLogger("src.domain.services.ocr.vertex_vision").addHandler(counter)
-    logging.getLogger("src.domain.services.ocr.vertex_vision").setLevel(logging.INFO)
+    logging.getLogger("spending_tracker_ai.vertex").addHandler(counter)
+    logging.getLogger("spending_tracker_ai.vertex").setLevel(logging.INFO)
 
     if limit:
         samples = samples[:limit]
