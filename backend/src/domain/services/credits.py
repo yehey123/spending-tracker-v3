@@ -28,10 +28,16 @@ class InsufficientCredits(Exception):
 
 
 async def _get_weights(db: AsyncSession) -> dict[str, int]:
+    """Core default is tesseract=0; installed plugins add their descriptor weight;
+    the DB `credit_weights` row overrides both."""
+    from src.plugins import registry
+    weights: dict[str, int] = {"tesseract": 0}
+    for key, desc in registry.available().items():
+        weights[key] = int(getattr(desc, "credit_weight", 0))
     row = await db.get(DbConfig, "credit_weights")
-    if row is None:
-        return {"tesseract": 0, "anthropic": 3, "openai": 3, "gemini": 2, "vertex": 2}
-    return row.value
+    if row is not None:
+        weights.update(row.value)
+    return weights
 
 
 async def _get_monthly_grant_amount(db: AsyncSession) -> int:
@@ -68,12 +74,9 @@ async def atomic_debit(
     """
     weights = await _get_weights(db)
     key = provider.lower()
-    if key in weights:  # DB/config override (or built-in default table)
-        cost = weights[key]
-    else:  # plugin-provided provider: weight comes from its descriptor
-        from src.plugins import registry
-        desc = registry.find_ocr(key)
-        cost = getattr(desc, "credit_weight", 0) if desc else 0
+    # Unknown provider (no plugin, no DB entry): free. Raising here would break the
+    # OCR fallback flow, which only catches InsufficientCredits.
+    cost = weights.get(key, 0)
     if cost == 0:
         return 0
 
