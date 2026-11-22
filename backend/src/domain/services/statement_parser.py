@@ -93,7 +93,97 @@ def _header_columns(cells: list[str]) -> dict[str, int] | None:
         elif "amount" in c:
             cols.setdefault("amount", i)
     has_direction = "debit" in cols or "credit" in cols or ("crdr" in cols and "amount" in cols)
+    if "date" in cols and "amount" in cols and not has_direction:
+        # OCR often drops the Cr/Dr heading: accept Amount + Balance; direction comes from row tokens.
+        for i, c in enumerate(cells):
+            if "balance" in c.lower():
+                cols.setdefault("balance", i)
+        return cols if "balance" in cols else None
     return cols if "date" in cols and has_direction else None
+
+
+_BLOCK_AMT_RE = re.compile(r"(?<![\d.,])(?:\d{1,3}(?:,\d{3})+|\d+)\.\d{2}(?!\d)")
+_BLOCK_DATE_RE = re.compile(r"\b\d{1,2}[/-]\d{1,2}[/-]\d{4}\b")
+# CR/DR token set apart from words and from "/" (so "UPI/CR/123" in a description is not a token)
+_BLOCK_DIR_RE = re.compile(r"(?<![A-Za-z/])(cr|dr)\.?(?![A-Za-z/])", re.IGNORECASE)
+_BLOCK_SKIP_RE = re.compile(r"\b(opening|closing|brought forward|carried forward)\b", re.IGNORECASE)
+
+
+def _is_amount_header(line: str) -> bool:
+    """Digit-free header line naming Amount and Balance columns (Cr/Dr heading may be missing)."""
+    low = line.lower()
+    return (
+        not any(ch.isdigit() for ch in line)
+        and re.search(r"\bamount\b", low) is not None
+        and re.search(r"\bbalance\b", low) is not None
+    )
+
+
+def _parse_blocks(text: str, day_first: bool) -> list[ParsedTransaction]:
+    """Wrapped-row layout: a line with a date starts a transaction; dateless lines attach to it;
+    the first line carrying amounts supplies amount (and balance); direction from a CR/DR token,
+    else from the balance change."""
+    results: list[ParsedTransaction] = []
+    cur: dict | None = None
+    prev_balance: Decimal | None = None
+
+    def flush() -> None:
+        nonlocal cur, prev_balance
+        if cur and cur["amounts"]:
+            amount = cur["amounts"][0]
+            balance = cur["amounts"][1] if len(cur["amounts"]) > 1 else None
+            if (
+                balance is None
+                and prev_balance
+                and amount != prev_balance
+                and Decimal("0.5") <= amount / prev_balance <= 2
+            ):
+                # OCR lost the amount cell; the lone figure is a running balance close to the last one.
+                balance, amount = amount, abs(amount - prev_balance)
+            if cur["dir"]:
+                direction = cur["dir"]
+            elif balance is not None and prev_balance is not None:
+                direction = "credit" if balance > prev_balance else "debit"
+            else:
+                direction = "debit"
+            if balance is not None:
+                prev_balance = balance
+            results.append(ParsedTransaction(
+                date=cur["date"], description=" ".join(cur["desc"]).strip(),
+                amount=amount, direction=direction))
+        cur = None
+
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        if _is_amount_header(line):
+            flush()
+            continue
+        if _BLOCK_SKIP_RE.search(line):
+            flush()
+            continue
+        dm = _BLOCK_DATE_RE.search(line)
+        date = _parse_date(dm.group(), day_first) if dm else None
+        if date is not None:
+            flush()
+            cur = {"date": date, "amounts": [], "dir": None, "desc": []}
+        if cur is None:
+            continue
+        if not cur["amounts"]:
+            amts = [_parse_amount(a) for a in _BLOCK_AMT_RE.findall(line)]
+            amts = [a for a in amts if a is not None and a <= _SKIP_AMOUNT]
+            if amts:
+                cur["amounts"] = amts[:2]
+                tok = _BLOCK_DIR_RE.search(line)
+                if tok:
+                    cur["dir"] = _direction_from_token(tok.group(1))
+                continue
+        desc = _BLOCK_DATE_RE.sub("", line).replace("|", " ").strip()
+        if desc:
+            cur["desc"].append(desc)
+    flush()
+    return results
 
 
 def _cell_amount(cell: str) -> Decimal | None:
@@ -133,6 +223,13 @@ def parse_statement(text: str) -> list[ParsedTransaction]:
     day_first = _is_day_first(text)
     table_cols: dict[str, int] | None = None
     table_width = 0
+    lines = text.splitlines()
+    if any(_is_amount_header(ln) for ln in lines) and not any(
+        (h := _header_columns([c.strip() for c in ln.split("|")])) and "balance" not in h
+        for ln in lines
+        if "|" in ln
+    ):
+        return _parse_blocks(text, day_first)
     for line in text.splitlines():
         line = line.strip()
         if not line:

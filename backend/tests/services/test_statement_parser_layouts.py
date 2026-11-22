@@ -75,3 +75,57 @@ def test_pdf_cell_strips_watermark_letters():
     assert _clean_cell("D\nE\n577725115") == "577725115"
     assert _clean_cell("01-01-2024\n11:30:55") == "01-01-2024 11:30:55"
     assert _clean_cell(None) == ""
+
+
+def _txs(text):
+    return [(t.date.month, t.date.day, t.amount, t.direction) for t in parse_statement(text)]
+
+
+def test_amount_balance_header_without_crdr_heading_uses_row_tokens():
+    text = (
+        "No. ID Date Posted Date Description Amount Balance\n"
+        "$1 | 13/01/2024 | 13/01/2024 12:53:19 PM cR 104,999.07, 338,141.34\n"
+        "$2 | 14/01/2024 | 14/01/2024 DR 5,000.00| 333,141.34\n"
+    )
+    assert _txs(text) == [
+        (1, 13, Decimal("104999.07"), "credit"),
+        (1, 14, Decimal("5000.00"), "debit"),
+    ]
+
+
+def test_wrapped_rows_description_above_and_below():
+    text = (
+        "ID Date Posted Date Description Amount Balance\n"
+        "NEFT-287837415387-PRECISION\n"
+        "$82878420 | 13/01/2024 | 13/01/2024 12:53:19 PM cR 104,999.07, 338,141.34\n"
+        "WORK\n"
+        "UPI/CR/725664555690/Srinivas\n"
+        "17 | $82961328 | 14/01/2024 14/01/2024 Dr 252,626.61| 85,514.73\n"
+        "Krishnan\n"
+        "15/01/2024 15/01/2024\n"
+        "cR 1,000.00\n"
+        "2,000.00\n"
+    )
+    assert _txs(text) == [
+        (1, 13, Decimal("104999.07"), "credit"),
+        (1, 14, Decimal("252626.61"), "debit"),
+        (1, 15, Decimal("1000.00"), "credit"),
+    ]
+
+
+def test_direction_falls_back_to_balance_change():
+    text = (
+        "ID Date Description Amount Balance\n"
+        "1 | 13/01/2024 | A 100.00 1,100.00\n"
+        "2 | 14/01/2024 | B 50.00 1,150.00\n"
+    )
+    assert [t[3] for t in _txs(text)][1] == "credit"
+
+
+def test_lone_balance_figure_yields_amount_from_balance_change():
+    text = (
+        "ID Date Description Amount Balance\n"
+        "1 | 13/01/2024 | A DR 100.00 1,000.00\n"
+        "2 | 14/01/2024 | B 1,250.00\n"
+    )
+    assert _txs(text)[1] == (1, 14, Decimal("250.00"), "credit")

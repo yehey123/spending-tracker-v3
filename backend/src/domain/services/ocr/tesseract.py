@@ -16,7 +16,7 @@ def _words(data: dict) -> list[dict]:
     """Keep confident, non-empty words with their box centres."""
     out = []
     for i, text in enumerate(data["text"]):
-        text = (text or "").strip()
+        text = (text or "").strip().strip("|").strip()  # table grid lines read as "|"
         try:
             conf = float(data["conf"][i])
         except (TypeError, ValueError):
@@ -52,8 +52,11 @@ def _estimate_slope(data: dict) -> float:
     return _skew_slope(words, max(statistics.median(w["h"] for w in words) / 2, 1.0))
 
 
-def words_to_lines(data: dict) -> str:
-    """Rebuild reading-order text lines from Tesseract word boxes, correcting skew."""
+def words_to_lines(data: dict, carry: dict | None = None) -> str:
+    """Rebuild reading-order text lines from Tesseract word boxes, correcting skew.
+
+    `carry` (optional, mutable) holds the table header found on an earlier page of the same
+    document; it is reused here and filled in when this page finds the first header."""
     words = _words(data)
     if not words:
         return ""
@@ -72,7 +75,7 @@ def words_to_lines(data: dict) -> str:
         else:
             lines.append([w])
             ys.append(w["ry"])
-    return "\n".join(_render_lines([sorted(line, key=lambda w: w["x"]) for line in lines], med_h))
+    return "\n".join(_render_lines([sorted(line, key=lambda w: w["x"]) for line in lines], med_h, carry))
 
 
 def _cells(line: list[dict], gap: float) -> list[dict]:
@@ -87,16 +90,20 @@ def _cells(line: list[dict], gap: float) -> list[dict]:
     return cells
 
 
-def _render_lines(lines: list[list[dict]], med_h: float) -> list[str]:
+def _render_lines(
+    lines: list[list[dict]], med_h: float, carry: dict | None = None
+) -> list[str]:
     """Join words with spaces; once a table header row is found, emit pipe-delimited rows
     aligned to the header columns (empty cells kept) so Debit/Credit/Balance stay apart."""
     gap = 1.5 * med_h
     out: list[str] = []
-    header: list[dict] | None = None
+    header: list[dict] | None = carry.get("header") if carry is not None else None
     for line in lines:
         cells = _cells(line, gap)
         if header is None and _header_columns([c["text"] for c in cells]):
             header = cells
+            if carry is not None:
+                carry["header"] = cells
         if header is None:
             out.append(" ".join(w["text"] for w in line))
             continue
@@ -129,6 +136,12 @@ def _ocr_data(image: Image.Image) -> dict:
 
 
 class TesseractProvider(OCRProvider):
+    _carry: dict | None = None
+
+    def start_document(self) -> None:
+        """Begin a multi-page document: later pages reuse the first table header found."""
+        self._carry = {}
+
     async def extract_text(self, image: Image.Image) -> str:
         # Run in executor so the blocking Tesseract call doesn't stall the event loop
         loop = asyncio.get_event_loop()
@@ -136,4 +149,4 @@ class TesseractProvider(OCRProvider):
             None,
             lambda: _ocr_data(image),
         )
-        return words_to_lines(data)
+        return words_to_lines(data, self._carry)

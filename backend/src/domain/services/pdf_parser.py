@@ -67,6 +67,9 @@ async def extract_pdf_text(
             # Image-based PDF — rasterize each page at its native scan DPI
             # (capped at OCR_RENDER_DPI), then OCR
             ocr_texts: list[str] = []
+            start = getattr(ocr_provider, "start_document", None)
+            if start:
+                start()  # same scan geometry on every page: carry the table header across pages
             for page in pdf.pages:
                 dpis = [72 * i["srcsize"][0] / i["width"] for i in page.images
                         if i.get("srcsize") and i.get("width")]
