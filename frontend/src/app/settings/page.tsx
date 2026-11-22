@@ -261,7 +261,7 @@ export default function SettingsPage() {
         </p>
         {settings && settings.provider_installed === false && (
           <div className="bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg px-3 py-2">
-            Your saved provider '{settings.ocr_provider}' is not installed — switch to Tesseract or install the AI plugin.
+            Your saved provider &apos;{settings.ocr_provider}&apos; is not installed — switch to Tesseract or install the AI plugin.
           </div>
         )}
         <select value={ocrProvider} onChange={(e) => setOcrProvider(e.target.value)}

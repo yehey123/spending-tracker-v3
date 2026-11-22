@@ -5,8 +5,8 @@ Never UPDATE or DELETE credit_ledger rows — it is a financial audit trail.
 """
 from __future__ import annotations
 
-import uuid
 import logging
+import uuid
 from datetime import date
 
 from sqlalchemy import func, select, text
@@ -131,7 +131,9 @@ async def grant_monthly(
         await db.flush()
     except IntegrityError:
         await db.rollback()
-        logger.info("Monthly grant for user %s period %s already issued — skipping", user_id, period)
+        logger.info(
+            "Monthly grant for user %s period %s already issued — skipping", user_id, period
+        )
         return False
 
     entry = CreditLedger(

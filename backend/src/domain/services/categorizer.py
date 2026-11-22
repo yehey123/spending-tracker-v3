@@ -10,7 +10,6 @@ import unicodedata
 from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, field_validator
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 

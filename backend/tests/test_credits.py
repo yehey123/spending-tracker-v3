@@ -8,16 +8,12 @@ run_monthly_rollover opens AsyncSessionLocal (the production DB factory) and
 is NOT tested here — only the underlying grant_monthly service is tested.
 """
 
-from datetime import date, datetime, timedelta, timezone
-import uuid
-
 import importlib.metadata
+import uuid
+from datetime import date
 
 import pytest
-from sqlalchemy import select
 
-from src.domain.models.credit_ledger import CreditLedger
-from src.domain.models.credit_rollover import CreditRollover
 from src.domain.models.db_config import DbConfig
 from src.domain.services.credits import (
     InsufficientCredits,

@@ -15,6 +15,7 @@ export default function SpendingDonut({ breakdown, displayCurrency, unconvertedC
   }
   // Recharts Pie requires numeric dataKey values; API returns Decimal as strings.
   // Strip `percent` so Recharts computes its own 0-1 fraction (avoids 100x collision).
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- `percent` is intentionally dropped
   const data = breakdown.map(({ percent: _p, ...b }) => ({ ...b, amount: Number(b.amount) }));
   const cur = displayCurrency ?? '$';
   return (
@@ -37,8 +38,8 @@ export default function SpendingDonut({ breakdown, displayCurrency, unconvertedC
             formatter={(value: number) => [`${cur}${value.toFixed(2)}`, '']}
           />
           <Legend
-            formatter={(_value, entry: any) => {
-              const p = entry.payload ?? {};
+            formatter={(_value, entry) => {
+              const p = (entry.payload ?? {}) as { category_name?: string; amount?: number | string; percent?: number };
               const name = p.category_name ?? _value ?? 'Unknown';
               const amt = Number(p.amount ?? 0).toFixed(2);
               // Recharts sets percent as 0–1 fraction on the payload

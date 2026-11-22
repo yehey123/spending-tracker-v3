@@ -33,14 +33,14 @@ export const authConfig: NextAuthConfig = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.accessToken = (user as any).accessToken;
-        token.isAdmin = (user as any).isAdmin ?? false;
+        token.accessToken = (user as { accessToken?: string }).accessToken;
+        token.isAdmin = (user as { isAdmin?: boolean }).isAdmin ?? false;
       }
       return token;
     },
     async session({ session, token }) {
       session.accessToken = token.accessToken as string | undefined;
-      (session as any).isAdmin = token.isAdmin ?? false;
+      (session as { isAdmin?: boolean }).isAdmin = Boolean(token.isAdmin);
       return session;
     },
   },

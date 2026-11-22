@@ -91,6 +91,7 @@ export default function TransactionsPage() {
     if (settings?.home_currency && !form.draft.currency) {
       form.setDraft((p) => ({ ...p, currency: settings.home_currency! }));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run only when the home currency loads
   }, [settings?.home_currency]);
 
   const handleCreate = () => {
@@ -127,7 +128,7 @@ export default function TransactionsPage() {
   };
 
   const toggleSelect = (id: number) =>
-    setSelectedIds((prev) => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
+    setSelectedIds((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
 
   const confirmReverse = (txId: number) => {
     reverseMutation.mutate(

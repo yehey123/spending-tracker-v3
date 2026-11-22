@@ -2,7 +2,6 @@
 
 import datetime
 import decimal
-from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -76,6 +75,7 @@ def test_no_credentials_skips_ai():
 def test_account_type_included_in_prompt(monkeypatch):
     """account_type is injected into the prompt string when provided."""
     import asyncio
+
     from tests.plugin_fakes import install_fake_categorizer
     fake = install_fake_categorizer(monkeypatch, "openai")
     s = _MockSettings()
@@ -89,6 +89,7 @@ def test_account_type_included_in_prompt(monkeypatch):
 def test_no_account_type_omits_account_line(monkeypatch):
     """When account_type is None, no 'Account type' line appears in the prompt."""
     import asyncio
+
     from tests.plugin_fakes import install_fake_categorizer
     fake = install_fake_categorizer(monkeypatch, "openai")
     s = _MockSettings()
