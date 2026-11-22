@@ -31,6 +31,9 @@ export const authConfig: NextAuthConfig = {
     }),
   ],
   callbacks: {
+    authorized({ auth }) {
+      return !!auth?.user;
+    },
     async jwt({ token, user }) {
       if (user) {
         token.accessToken = (user as any).accessToken;
