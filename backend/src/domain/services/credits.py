@@ -67,7 +67,13 @@ async def atomic_debit(
     fall back to TesseractProvider.
     """
     weights = await _get_weights(db)
-    cost = weights.get(provider.lower(), 0)
+    key = provider.lower()
+    if key in weights:  # DB/config override (or built-in default table)
+        cost = weights[key]
+    else:  # plugin-provided provider: weight comes from its descriptor
+        from src.plugins import registry
+        desc = registry.find_ocr(key)
+        cost = getattr(desc, "credit_weight", 0) if desc else 0
     if cost == 0:
         return 0
 

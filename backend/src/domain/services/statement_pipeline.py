@@ -35,19 +35,6 @@ except ImportError as e:
     logger.error('Import error: %s', e)
     TesseractProvider = None  # type: ignore
 
-# AI providers import their SDKs lazily, so these imports succeed without the AI extras.
-try:
-    from src.domain.services.ocr.claude import ClaudeVisionProvider
-    from src.domain.services.ocr.gemini_vision import GeminiVisionProvider
-    from src.domain.services.ocr.openai_vision import OpenAIVisionProvider
-    from src.domain.services.ocr.vertex_vision import VertexVisionProvider
-except ImportError as e:
-    logger.error('Import error: %s', e)
-    ClaudeVisionProvider = None  # type: ignore
-    OpenAIVisionProvider = None  # type: ignore
-    GeminiVisionProvider = None  # type: ignore
-    VertexVisionProvider = None  # type: ignore
-
 
 import hashlib
 import hmac
@@ -189,36 +176,12 @@ def _resolve_ocr(settings_row: AppSettings):
 
 def _build_ocr(settings_row: AppSettings):
     from fastapi import HTTPException
-    provider = settings_row.ocr_provider
-    _max = settings_row.max_output_tokens
-    if provider == "anthropic":
-        if not settings_row.anthropic_api_key:
-            raise HTTPException(status_code=422, detail="API key not configured for claude.")
-        model = getattr(settings_row, 'ai_model', None) or "claude-sonnet-4-6"
-        return ClaudeVisionProvider(api_key=settings_row.anthropic_api_key, model=model, max_tokens=_max or 4096)
-    elif provider == "openai":
-        if not settings_row.openai_api_key:
-            raise HTTPException(status_code=422, detail="API key not configured for openai.")
-        model = getattr(settings_row, 'ai_model', None) or "gpt-4o"
-        return OpenAIVisionProvider(api_key=settings_row.openai_api_key, model=model, max_tokens=_max or 4096)
-    elif provider == "gemini":
-        if not settings_row.gemini_api_key:
-            raise HTTPException(status_code=422, detail="Gemini API key not configured.")
-        model = getattr(settings_row, 'ai_model', None) or "gemini-2.0-flash"
-        return GeminiVisionProvider(api_key=settings_row.gemini_api_key, model=model, max_tokens=_max or 8192)
-    elif provider == "vertex":
-        if not settings_row.google_project_id:
-            raise HTTPException(status_code=422, detail="Google Project ID not configured for Vertex AI.")
-        location = getattr(settings_row, 'google_location', None) or "us-central1"
-        model = getattr(settings_row, 'ai_model', None) or "google/gemini-2.5-flash"
-        return VertexVisionProvider(project_id=settings_row.google_project_id,
-                                    location=location, model=model, max_tokens=_max or 8192)
-    elif provider == "ollama":
-        from src.core.config import settings as _cfg
-        model = getattr(settings_row, 'ai_model', None) or "ornith-1.5:9b"
-        return OpenAIVisionProvider(api_key="ollama", model=model, max_tokens=_max or 4096,
-                                    base_url=_cfg.ollama_base_url, reasoning_effort="none")
-    return TesseractProvider()
+    from src.plugins import registry
+    key = settings_row.ocr_provider
+    desc = registry.get_ocr(key)  # raises AIPackagesMissing -> 422 in _resolve_ocr
+    if key != "tesseract" and not desc.has_credentials(settings_row):
+        raise HTTPException(status_code=422, detail=f"Credentials not configured for provider '{key}'.")
+    return desc.build(settings_row, registry.make_context(settings_row))
 
 
 async def _resolve_ocr_with_credits(
@@ -393,8 +356,10 @@ class StatementPipeline:
 
                     # No OpenCV preprocessing: Tesseract's own binarisation scores
                     # better on the original image, and AI vision models want color.
-                    MAX_SIDE = 1536
-                    if settings.ocr_provider != "tesseract":
+                    from src.plugins import registry as _registry
+                    _desc = _registry.find_ocr(settings.ocr_provider)
+                    MAX_SIDE = getattr(_desc, "max_side", None) if _desc else None
+                    if settings.ocr_provider != "tesseract" and MAX_SIDE:
                         w, h = img.size
                         if max(w, h) > MAX_SIDE:
                             scale = MAX_SIDE / max(w, h)

@@ -3,6 +3,8 @@ import sys
 
 import pytest
 
+# Provider modules still live in core until step 3 (moving to plugin).
+
 _MODS = [
     "src.domain.services.ocr.claude",
     "src.domain.services.ocr.openai_vision",
@@ -28,7 +30,7 @@ def test_pipeline_and_tesseract_import_without_ai_sdks(no_ai_sdks):
         importlib.reload(importlib.import_module(m))
     p = sys.modules["src.domain.services.statement_pipeline"]
     assert p.TesseractProvider is not None
-    assert p.OpenAIVisionProvider is not None
+    assert not hasattr(p, "OpenAIVisionProvider")  # core no longer imports providers
 
 
 def test_ai_provider_raises_clear_error_without_sdk(no_ai_sdks):

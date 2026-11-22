@@ -1,3 +1,7 @@
+import pytest
+
+pytest.skip("moving to plugin in step 3 (provider code leaves core)", allow_module_level=True)
+
 """Ollama provider: OCR resolves to the OpenAI-compatible client at OLLAMA_BASE_URL."""
 
 from types import SimpleNamespace

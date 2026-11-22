@@ -32,12 +32,11 @@ from pathlib import Path
 from PIL import Image
 
 from src.domain.services.ocr.tesseract import TesseractProvider
-from src.domain.services.ocr.vertex_vision import VertexVisionProvider
+from src.plugins import registry
 from src.domain.services.pdf_parser import extract_pdf_text
 from src.domain.services.receipt_parser import detect_kind, parse_receipt
 from src.domain.services.statement_parser import parse_statement
 
-MAX_SIDE = 1536  # same cap the pipeline applies to AI image uploads
 _TOKENS_RE = re.compile(r"output_tokens=(\d+)")
 
 
@@ -55,25 +54,30 @@ class _TokenCounter(logging.Handler):
 
 
 def _provider(spec: str):
-    if spec == "tesseract":
-        return TesseractProvider()
+    """Resolve `name[:model]` through the plugin registry; returns (provider, max_side)."""
+    from types import SimpleNamespace
     name, _, model = spec.partition(":")
-    if name == "vertex":
-        return VertexVisionProvider(
-            project_id=os.environ["GOOGLE_PROJECT_ID"],
-            location=os.environ.get("GOOGLE_LOCATION", "us-central1"),
-            model=model or "google/gemini-2.5-flash",
-        )
-    raise SystemExit(f"Unknown provider: {spec}")
+    try:
+        desc = registry.get_ocr(name)
+    except Exception as e:
+        raise SystemExit(f"Unknown provider: {spec} ({e})")
+    settings = SimpleNamespace(
+        ocr_provider=name,
+        ai_model=model or None,
+        max_output_tokens=None,
+        google_project_id=os.environ.get("GOOGLE_PROJECT_ID"),
+        google_location=os.environ.get("GOOGLE_LOCATION", "us-central1"),
+    )
+    return desc.build(settings, registry.make_context(settings))
 
 
-async def _ocr(path: Path, provider, is_tesseract: bool) -> str:
+async def _ocr(path: Path, provider, is_tesseract: bool, max_side: int | None = None) -> str:
     content = path.read_bytes()
     if path.suffix.lower() == ".pdf":
         return await extract_pdf_text(content, provider)
     img = Image.open(io.BytesIO(content)).convert("RGB")
-    if not is_tesseract and max(img.size) > MAX_SIDE:
-        s = MAX_SIDE / max(img.size)
+    if not is_tesseract and max_side and max(img.size) > max_side:
+        s = max_side / max(img.size)
         img = img.resize((int(img.width * s), int(img.height * s)), Image.LANCZOS)
     return await provider.extract_text(img)
 
@@ -137,12 +141,14 @@ async def main(corpus: Path, specs: list[str], limit: int | None = None) -> None
     receipt_rows = []
     for spec in specs:
         provider = _provider(spec)
+        _d = registry.find_ocr(spec.partition(":")[0])
+        max_side = getattr(_d, "max_side", None)
         for path in samples:
             expected = json.loads(path.with_suffix(".expected.json").read_text())
             if expected.get("kind") == "receipt":
                 t0 = time.monotonic()
                 try:
-                    r = score_receipt(expected, await _ocr(path, provider, spec == "tesseract"))
+                    r = score_receipt(expected, await _ocr(path, provider, spec == "tesseract", max_side))
                 except Exception as e:  # report and keep going
                     r = {"kind_ok": False, "total_ok": False, "date_ok": None,
                          "error": type(e).__name__}
@@ -155,7 +161,7 @@ async def main(corpus: Path, specs: list[str], limit: int | None = None) -> None
                 continue
             before, t0 = counter.total, time.monotonic()
             try:
-                parsed = parse_statement(await _ocr(path, provider, spec == "tesseract"))
+                parsed = parse_statement(await _ocr(path, provider, spec == "tesseract", max_side))
                 s = score(expected, parsed)
             except Exception as e:  # report and keep going
                 s = {"row_recall": 0.0, "row_precision": 0.0, "amount_match": 0.0,
