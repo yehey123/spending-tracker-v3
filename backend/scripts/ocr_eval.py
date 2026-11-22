@@ -35,6 +35,7 @@ from src.domain.services.ocr.tesseract import TesseractProvider
 from src.domain.services.ocr.vertex_vision import VertexVisionProvider
 from src.domain.services.pdf_parser import extract_pdf_text
 from src.domain.services.preprocessor import preprocess
+from src.domain.services.receipt_parser import detect_kind, parse_receipt
 from src.domain.services.statement_parser import parse_statement
 
 MAX_SIDE = 1536  # same cap the pipeline applies to AI image uploads
@@ -110,7 +111,20 @@ def score(expected: dict, parsed: list) -> dict:
     }
 
 
-async def main(corpus: Path, specs: list[str]) -> None:
+def score_receipt(expected: dict, text: str) -> dict:
+    parsed = parse_receipt(text)
+    want_total = Decimal(expected["total"]) if expected.get("total") is not None else None
+    date_ok = None
+    if expected.get("date"):
+        date_ok = parsed.date is not None and parsed.date.date().isoformat() == expected["date"]
+    return {
+        "kind_ok": detect_kind(text) == "receipt",
+        "total_ok": parsed.total == want_total,
+        "date_ok": date_ok,
+    }
+
+
+async def main(corpus: Path, specs: list[str], limit: int | None = None) -> None:
     samples = sorted(p for p in corpus.iterdir()
                      if p.suffix.lower() in {".pdf", ".png", ".jpg", ".jpeg"})
     if not samples:
@@ -119,11 +133,29 @@ async def main(corpus: Path, specs: list[str]) -> None:
     logging.getLogger("src.domain.services.ocr.vertex_vision").addHandler(counter)
     logging.getLogger("src.domain.services.ocr.vertex_vision").setLevel(logging.INFO)
 
+    if limit:
+        samples = samples[:limit]
+
     rows = []
+    receipt_rows = []
     for spec in specs:
         provider = _provider(spec)
         for path in samples:
             expected = json.loads(path.with_suffix(".expected.json").read_text())
+            if expected.get("kind") == "receipt":
+                t0 = time.monotonic()
+                try:
+                    r = score_receipt(expected, await _ocr(path, provider, spec == "tesseract"))
+                except Exception as e:  # report and keep going
+                    r = {"kind_ok": False, "total_ok": False, "date_ok": None,
+                         "error": type(e).__name__}
+                r.update(provider=spec, sample=path.name)
+                receipt_rows.append(r)
+                date_s = "-" if r["date_ok"] is None else ("Y" if r["date_ok"] else "N")
+                print(f"{spec:40} {path.name:30} kind={'Y' if r['kind_ok'] else 'N'} "
+                      f"total={'Y' if r['total_ok'] else 'N'} date={date_s} "
+                      f"{round(time.monotonic() - t0, 1)}s {r.get('error', '')}")
+                continue
             before, t0 = counter.total, time.monotonic()
             try:
                 parsed = parse_statement(await _ocr(path, provider, spec == "tesseract"))
@@ -140,6 +172,19 @@ async def main(corpus: Path, specs: list[str]) -> None:
                   f"rec={'Y' if s['reconciles'] else 'N'} {s['seconds']}s "
                   f"tok={s['output_tokens']} {s.get('error', '')}")
 
+    if receipt_rows:
+        print("\nRECEIPT SUMMARY")
+        for spec in specs:
+            r = [x for x in receipt_rows if x["provider"] == spec]
+            dated = [x for x in r if x["date_ok"] is not None]
+            print(f"{spec:40} n={len(r)} "
+                  f"kind_acc={sum(x['kind_ok'] for x in r) / len(r):.3f} "
+                  f"total_acc={sum(x['total_ok'] for x in r) / len(r):.3f} "
+                  f"date_acc={sum(x['date_ok'] for x in dated) / len(dated) if dated else 0:.3f} "
+                  f"(date n={len(dated)})")
+
+    if not rows:
+        return
     print("\nSUMMARY (pass bar: amount ≥0.99, recall ≥0.98, reconciles ≥0.95)")
     for spec in specs:
         r = [x for x in rows if x["provider"] == spec]
@@ -160,6 +205,12 @@ async def main(corpus: Path, specs: list[str]) -> None:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 3:
+    argv = sys.argv[1:]
+    limit = None
+    if "--limit" in argv:
+        i = argv.index("--limit")
+        limit = int(argv[i + 1])
+        del argv[i : i + 2]
+    if len(argv) < 2:
         raise SystemExit(__doc__)
-    asyncio.run(main(Path(sys.argv[1]), sys.argv[2:]))
+    asyncio.run(main(Path(argv[0]), argv[1:], limit))
