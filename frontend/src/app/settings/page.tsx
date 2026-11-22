@@ -37,21 +37,22 @@ export default function SettingsPage() {
   });
 
   const [ocrProvider, setOcrProvider] = useState<AppSettings['ocr_provider']>('tesseract');
-  const [anthropicKey, setAnthropicKey] = useState('');
-  const [openaiKey, setOpenaiKey] = useState('');
   const [reviewBeforeCommit, setReviewBeforeCommit] = useState(true);
   const [homeCurrency, setHomeCurrency] = useState('');
   const [maxOutputTokens, setMaxOutputTokens] = useState<string>('');
   const [devMode, setDevMode] = useState(false);
   const [aiModel, setAiModel] = useState('');
-  const [geminiKey, setGeminiKey] = useState('');
-  const [googleProjectId, setGoogleProjectId] = useState('');
-  const [googleLocation, setGoogleLocation] = useState('us-central1');
+  const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
+
+  const providers = settings?.available_providers ?? [];
+  const currentProvider = providers.find((p) => p.key === ocrProvider);
+  const hasAiProvider = providers.some((p) => p.key !== 'tesseract');
+  const showAiOptions = hasAiProvider && ocrProvider !== 'tesseract';
 
   const { data: ocrModels } = useQuery({
     queryKey: ['models', ocrProvider],
     queryFn: () => api.get<ModelsResponse>(`/settings/models?provider=${ocrProvider}`),
-    enabled: ocrProvider !== 'tesseract',
+    enabled: showAiOptions,
   });
 
   const { data: currenciesData } = useQuery({
@@ -71,8 +72,16 @@ export default function SettingsPage() {
       if (settings.review_before_commit !== undefined) setReviewBeforeCommit(!!settings.review_before_commit);
       if (settings.home_currency) setHomeCurrency(settings.home_currency);
       if (settings.ai_model) setAiModel(settings.ai_model);
-      if (settings.google_project_id) setGoogleProjectId(settings.google_project_id);
-      if (settings.google_location) setGoogleLocation(settings.google_location);
+      setFieldValues((prev) => {
+        const next = { ...prev };
+        for (const p of settings.available_providers ?? []) {
+          for (const f of p.config_fields) {
+            const v = (settings as unknown as Record<string, unknown>)[f.name];
+            if (!f.secret && typeof v === 'string' && v && next[f.name] === undefined) next[f.name] = v;
+          }
+        }
+        return next;
+      });
       if (settings.max_output_tokens) setMaxOutputTokens(String(settings.max_output_tokens));
       if (settings.dev_mode !== undefined) setDevMode(!!settings.dev_mode);
     }
@@ -128,8 +137,10 @@ export default function SettingsPage() {
             <span className="text-sm text-gray-500">/ {creditData.monthly_grant} monthly</span>
           </div>
           <p className="text-xs text-gray-400">
-            Tesseract: free · Gemini: {creditData.weights.gemini}cr · Vertex: {creditData.weights.vertex}cr
-            · Claude: {creditData.weights.anthropic}cr · GPT-4V: {creditData.weights.openai}cr
+            Tesseract: free
+            {providers.filter((p) => p.key !== 'tesseract' && creditData.weights[p.key] !== undefined).map((p) => (
+              <span key={p.key}> · {p.label}: {creditData.weights[p.key]}cr</span>
+            ))}
           </p>
           {creditData.balance === 0 && (
             <p className="text-xs text-amber-600">
@@ -248,45 +259,26 @@ export default function SettingsPage() {
         <p className="text-xs text-gray-500">
           AI providers handle both OCR and transaction categorisation in a single call.
         </p>
-        <select value={ocrProvider} onChange={(e) => setOcrProvider(e.target.value as AppSettings['ocr_provider'])}
+        {settings && settings.provider_installed === false && (
+          <div className="bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg px-3 py-2">
+            Your saved provider '{settings.ocr_provider}' is not installed — switch to Tesseract or install the AI plugin.
+          </div>
+        )}
+        <select value={ocrProvider} onChange={(e) => setOcrProvider(e.target.value)}
           className="border rounded-lg px-3 py-2 text-sm w-full">
-          <option value="tesseract">Tesseract (local, no AI categorisation)</option>
-          <option value="anthropic">Claude (Anthropic)</option>
-          <option value="openai">OpenAI Vision</option>
-          <option value="gemini">Gemini (Google AI Studio)</option>
-          <option value="vertex">Google Vertex AI</option>
-          <option value="ollama">Ollama (self-hosted)</option>
+          {providers.length === 0 && <option value={ocrProvider}>{ocrProvider}</option>}
+          {providers.map((p) => (
+            <option key={p.key} value={p.key}>{p.label}</option>
+          ))}
         </select>
-        {ocrProvider === 'anthropic' && (
-          <input value={anthropicKey} onChange={(e) => setAnthropicKey(e.target.value)}
-            placeholder={settings?.anthropic_api_key_set ? '••••••••• (set)' : 'Anthropic API key'}
-            className="border rounded-lg px-3 py-2 text-sm w-full" type="password" />
-        )}
-        {ocrProvider === 'openai' && (
-          <input value={openaiKey} onChange={(e) => setOpenaiKey(e.target.value)}
-            placeholder={settings?.openai_api_key_set ? '••••••••• (set)' : 'OpenAI API key'}
-            className="border rounded-lg px-3 py-2 text-sm w-full" type="password" />
-        )}
-        {ocrProvider === 'gemini' && (
-          <input value={geminiKey} onChange={(e) => setGeminiKey(e.target.value)}
-            placeholder={settings?.gemini_api_key_set ? '••••••••• (set)' : 'Gemini API key (AIza...)'}
-            className="border rounded-lg px-3 py-2 text-sm w-full" type="password" />
-        )}
-        {ocrProvider === 'vertex' && (
-          <>
-            <input value={googleProjectId} onChange={(e) => setGoogleProjectId(e.target.value)}
-              placeholder="Google Cloud Project ID" className="border rounded-lg px-3 py-2 text-sm w-full" />
-            <input value={googleLocation} onChange={(e) => setGoogleLocation(e.target.value)}
-              placeholder="Region (e.g. us-central1)" className="border rounded-lg px-3 py-2 text-sm w-full" />
-            <p className="text-xs text-gray-500">Uses Application Default Credentials (GOOGLE_APPLICATION_CREDENTIALS env var).</p>
-          </>
-        )}
-        {ocrProvider === 'ollama' && (
-          <p className="text-xs text-gray-500">
-            Runs on your own Ollama server (OLLAMA_BASE_URL in .env): the bundled container, native Ollama on this machine, or an external host. Statements stay off third-party AI unless you point it elsewhere.
-          </p>
-        )}
-        {ocrProvider !== 'tesseract' && (
+        {currentProvider?.config_fields.map((f) => (
+          <input key={f.name} value={fieldValues[f.name] ?? ''}
+            onChange={(e) => setFieldValues((prev) => ({ ...prev, [f.name]: e.target.value }))}
+            placeholder={f.secret && f.set ? '••••••••• (set)' : f.label}
+            className="border rounded-lg px-3 py-2 text-sm w-full"
+            type={f.secret ? 'password' : 'text'} />
+        ))}
+        {showAiOptions && (
           <>
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-gray-700">Model</span>
@@ -328,11 +320,11 @@ export default function SettingsPage() {
         <button
           onClick={() => settingsMutation.mutate({
             ocr_provider: ocrProvider,
-            ...(ocrProvider === 'anthropic' && anthropicKey ? { anthropic_api_key: anthropicKey } : {}),
-            ...(ocrProvider === 'openai' && openaiKey ? { openai_api_key: openaiKey } : {}),
-            ...(ocrProvider === 'gemini' && geminiKey ? { gemini_api_key: geminiKey } : {}),
-            ...(ocrProvider === 'vertex' && googleProjectId ? { google_project_id: googleProjectId } : {}),
-            ...(ocrProvider === 'vertex' && googleLocation ? { google_location: googleLocation } : {}),
+            ...Object.fromEntries(
+              (currentProvider?.config_fields ?? [])
+                .filter((f) => fieldValues[f.name])
+                .map((f) => [f.name, fieldValues[f.name]]),
+            ),
             ...(aiModel ? { ai_model: aiModel } : {}),
             ...(maxOutputTokens ? { max_output_tokens: Number(maxOutputTokens) } : {}),
           })}
