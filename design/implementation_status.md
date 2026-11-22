@@ -64,3 +64,23 @@ repo owner via an explicit decision gate on 2026-07-26.
   delivered — the extracted `raw_ocr_text` is still persisted to the DB, and until 2026-07-26 the
   full statement text was also written to container logs at INFO (finding #3).
 - **Status**: CLOSED — design amended to match code, with the caveat recorded.
+
+---
+
+## 2026-11-22 — AI made optional
+
+### DSC-6 — AI-first OCR/categorization vs. non-AI default
+- **Design**: `proposal.md` Story 1.1 / Story 2.5 / Stage 3 and `contracts/ocr-pipeline.md` described
+  an OpenCV-preprocess → configurable OCR provider flow, with AI vision and AI categorization
+  as a core path. `docker-compose.yml` started `ollama` + `ollama-init` (model pull) with every
+  `docker compose up`.
+- **Code (before)**: PR #6 (`feat/ocr-accuracy`) removed OpenCV preprocessing from every path
+  (`statement_pipeline.py`; `preprocessor.py` is no longer called), made Tesseract the default
+  (`ocr_provider="tesseract"`), and `categorizer.py` calls AI only when credentials exist,
+  otherwise `MerchantCategoryMemory`. `receipt_parser.py` exists but is not wired in.
+- **Decision**: repo owner, 2026-11-22 — *"make AI optional here since our AI use case is mostly
+  being eradicated."* Tesseract + merchant memory is the default; AI providers are opt-in.
+- **Resolution**: (b) amend design to match. `ocr-pipeline.md` updated to the current pipeline;
+  `proposal.md` carries a dated amendment note; Ollama moved behind the `ai` compose profile
+  (`docker compose --profile ai up -d` or `COMPOSE_PROFILES=ai`); `.env.example` notes AI is optional.
+- **Status**: CLOSED — design updated in the same commit.

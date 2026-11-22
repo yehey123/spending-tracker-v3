@@ -4,6 +4,8 @@
 **Date**: 2026-07-13
 **Rationale**: Approved 2026-07-13 — build started on branch initial_backend.
 
+**Amended 2026-11-22**: AI is optional. Wherever this proposal describes AI/LLM OCR (Claude/OpenAI vision) or AI categorization (Story 2.5, Stage 3) as the primary or expected path, read it as an opt-in. The default path is non-AI: Tesseract OCR plus merchant-category memory, with no API key and no Ollama container (Ollama runs only under the `ai` compose profile). There is also no OpenCV preprocessing step on any path now; see `contracts/ocr-pipeline.md`. Sections below are kept as the original record.
+
 ---
 
 ## 1. Summary, Goals, Non-Goals
