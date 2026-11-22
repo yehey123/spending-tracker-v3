@@ -110,7 +110,7 @@ make migrate   # apply database migrations
 make up        # start all services (backend + db + nginx)
 ```
 
-App is now at **http://localhost**.  
+App is now at **http://localhost**.
 Backend API docs: **http://localhost/api/docs**
 
 ### 3. Start frontend dev server (optional)
@@ -126,6 +126,8 @@ make frontend-dev   # Next.js dev server at http://localhost:3000
 ```bash
 scripts/install-hooks.sh   # enables the versioned pre-commit (eslint/ruff) and commit-msg hooks
 ```
+
+Optional: `pip install pre-commit` for the full hook set (ruff, ruff-format, eslint, gitleaks, whitespace/YAML/JSON checks, large-file and private-key guards). The versioned hook runs it automatically when present and falls back to the built-in eslint/ruff checks otherwise.
 
 ---
 
