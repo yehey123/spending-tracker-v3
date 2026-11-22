@@ -9,6 +9,8 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0"
+        // Required by @capacitor-community/generic-oauth2 (AppAuth redirect intent filter).
+        manifestPlaceholders = [appAuthRedirectScheme: "com.spendingtracker.app"]
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
