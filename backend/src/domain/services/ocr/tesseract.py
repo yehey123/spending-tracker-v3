@@ -6,6 +6,7 @@ import pytesseract
 from PIL import Image
 from pytesseract import Output
 
+from ..statement_parser import _header_columns
 from .base import OCRProvider
 
 _MIN_CONF = 30
@@ -71,9 +72,46 @@ def words_to_lines(data: dict) -> str:
         else:
             lines.append([w])
             ys.append(w["ry"])
-    return "\n".join(
-        " ".join(w["text"] for w in sorted(line, key=lambda w: w["x"])) for line in lines
-    )
+    return "\n".join(_render_lines([sorted(line, key=lambda w: w["x"]) for line in lines], med_h))
+
+
+def _cells(line: list[dict], gap: float) -> list[dict]:
+    """Group a line's words (sorted by x) into cells split at horizontal gaps wider than `gap`."""
+    cells: list[dict] = []
+    for w in line:
+        if cells and w["x"] - cells[-1]["x1"] <= gap:
+            cells[-1]["text"] += " " + w["text"]
+            cells[-1]["x1"] = w["x"] + w["w"]
+        else:
+            cells.append({"text": w["text"], "x0": w["x"], "x1": w["x"] + w["w"]})
+    return cells
+
+
+def _render_lines(lines: list[list[dict]], med_h: float) -> list[str]:
+    """Join words with spaces; once a table header row is found, emit pipe-delimited rows
+    aligned to the header columns (empty cells kept) so Debit/Credit/Balance stay apart."""
+    gap = 1.5 * med_h
+    out: list[str] = []
+    header: list[dict] | None = None
+    for line in lines:
+        cells = _cells(line, gap)
+        if header is None and _header_columns([c["text"] for c in cells]):
+            header = cells
+        if header is None:
+            out.append(" ".join(w["text"] for w in line))
+            continue
+        # Zone i spans from the midpoint with the previous header cell to the midpoint with the next.
+        edges = [(header[i]["x1"] + header[i + 1]["x0"]) / 2 for i in range(len(header) - 1)]
+        bounds = [-1e12, *edges, 1e12]
+        row = [""] * len(header)
+        for c in cells:
+            overlaps = [
+                min(c["x1"], bounds[i + 1]) - max(c["x0"], bounds[i]) for i in range(len(header))
+            ]
+            i = overlaps.index(max(overlaps))
+            row[i] = f"{row[i]} {c['text']}".strip()
+        out.append(" | ".join(row))
+    return out
 
 
 _CONFIG = "--psm 6 --oem 1"
