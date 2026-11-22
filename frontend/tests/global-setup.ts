@@ -18,9 +18,12 @@ async function setup() {
 
   // 1. Register E2E user — invite_token is optional; first user bypasses gate.
   //    409 = already exists, ignore.
-  await apiCtx.post(`${apiBase}/auth/register`, {
+  const registerRes = await apiCtx.post(`${apiBase}/auth/register`, {
     data: { email, password },
-  }).catch(() => {});
+  });
+  if (registerRes.status() !== 201 && registerRes.status() !== 409) {
+    throw new Error(`Register failed (${registerRes.status()}): ${await registerRes.text()}`);
+  }
 
   // 2. Promote first user to admin — POST /admin/bootstrap takes NO body.
   //    409 = already bootstrapped, ignore.
