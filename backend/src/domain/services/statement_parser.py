@@ -26,7 +26,7 @@ _PIPE_RE = re.compile(
     re.IGNORECASE,
 )
 # Matches amounts like 1,234.56 or 1234.56, optionally followed by - (credit indicator)
-_AMOUNT_RE = re.compile(r"(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\s*(-)?")
+_AMOUNT_RE = re.compile(r"(?<![\d.,])((?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{2})?)\s*(-)?")
 _DIR_RE = re.compile(r"\b(CR|CREDIT|DR|DEBIT)\b", re.IGNORECASE)
 # Trailing city/country noise common in Philippine bank statements: "MAKATI PH", "PASIG CITY PH"
 _LOCATION_NOISE_RE = re.compile(r"\s+[A-Z][A-Z\s]*\bPH\s*$")
