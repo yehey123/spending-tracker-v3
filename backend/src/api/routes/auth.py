@@ -11,7 +11,6 @@ from sqlalchemy import delete, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.auth import (
-    ACCESS_TOKEN_EXPIRE_MINUTES,
     create_access_token,
     decode_jwt,
     generate_refresh_token,
@@ -83,7 +82,7 @@ def _access_cookie_kwargs() -> dict:
         httponly=True,
         secure=settings.app_env == "production",
         samesite="lax",
-        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        max_age=settings.access_token_expire_minutes * 60,
         path="/",
     )
 
@@ -141,7 +140,9 @@ async def _consume_invite_token(raw_token: str, db: AsyncSession) -> None:
     )
     row = result.fetchone()
     if row is None:
-        raise HTTPException(status_code=400, detail="Invalid, already-used, or expired invite token")
+        raise HTTPException(
+            status_code=400, detail="Invalid, already-used, or expired invite token"
+        )
 
     await db.execute(
         text("UPDATE invite_tokens SET consumed_at = now() WHERE token_hash = :token_hash"),
