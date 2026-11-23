@@ -4,7 +4,7 @@ import logging
 
 from PIL import Image
 
-from .base import OCRProvider, _build_prompt, SYSTEM_PROMPT
+from .base import OCRProvider, require_sdk, _build_prompt, SYSTEM_PROMPT
 
 _log = logging.getLogger(__name__)
 
@@ -22,7 +22,6 @@ class VertexVisionProvider(OCRProvider):
     async def _call(self, image: Image.Image, prompt: str) -> str:
         import google.auth
         import google.auth.transport.requests
-        from openai import OpenAI
 
         creds, _ = google.auth.default(
             scopes=["https://www.googleapis.com/auth/cloud-platform"]
@@ -33,7 +32,7 @@ class VertexVisionProvider(OCRProvider):
             f"https://{self.location}-aiplatform.googleapis.com/v1beta1/projects/"
             f"{self.project_id}/locations/{self.location}/endpoints/openapi/"
         )
-        client = OpenAI(api_key=creds.token, base_url=endpoint)
+        client = require_sdk("vertex", "openai").OpenAI(api_key=creds.token, base_url=endpoint)
 
         buf = io.BytesIO()
         image.save(buf, format="PNG")

@@ -27,15 +27,22 @@ try:
 except ImportError:
     PILImage = None  # type: ignore
 
+from src.domain.services.ocr.base import AIPackagesMissing
+
+try:
+    from src.domain.services.ocr.tesseract import TesseractProvider
+except ImportError as e:
+    logger.error('Import error: %s', e)
+    TesseractProvider = None  # type: ignore
+
+# AI providers import their SDKs lazily, so these imports succeed without the AI extras.
 try:
     from src.domain.services.ocr.claude import ClaudeVisionProvider
     from src.domain.services.ocr.gemini_vision import GeminiVisionProvider
     from src.domain.services.ocr.openai_vision import OpenAIVisionProvider
-    from src.domain.services.ocr.tesseract import TesseractProvider
     from src.domain.services.ocr.vertex_vision import VertexVisionProvider
 except ImportError as e:
     logger.error('Import error: %s', e)
-    TesseractProvider = None  # type: ignore
     ClaudeVisionProvider = None  # type: ignore
     OpenAIVisionProvider = None  # type: ignore
     GeminiVisionProvider = None  # type: ignore
@@ -173,6 +180,14 @@ async def _detect_duplicates(
 
 
 def _resolve_ocr(settings_row: AppSettings):
+    from fastapi import HTTPException
+    try:
+        return _build_ocr(settings_row)
+    except AIPackagesMissing as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+
+def _build_ocr(settings_row: AppSettings):
     from fastapi import HTTPException
     provider = settings_row.ocr_provider
     _max = settings_row.max_output_tokens
