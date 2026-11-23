@@ -44,7 +44,12 @@ def fake_descriptor(key="fakeai", api_version=API_VERSION, weight=2, max_side=15
         return SimpleNamespace(supports_categories=False, built_for=key)
 
     return SimpleNamespace(
-        key=key, label=key.title(), api_version=api_version, config_fields=(),
-        credit_weight=weight, max_side=max_side, build=build,
+        key=key,
+        label=key.title(),
+        api_version=api_version,
+        config_fields=(),
+        credit_weight=weight,
+        max_side=max_side,
+        build=build,
         has_credentials=lambda settings: True,
     )

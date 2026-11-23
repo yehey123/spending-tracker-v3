@@ -25,6 +25,7 @@ async def _get_settings(db: AsyncSession, user_id: uuid.UUID) -> AppSettings:
     row = result.scalar_one_or_none()
     if row is None:
         from src.core.config import settings as _cfg
+
         row = AppSettings(
             user_id=user_id,
             ocr_provider=_cfg.ocr_provider,
@@ -155,6 +156,7 @@ async def update_settings(
     if "max_output_tokens" in fields_set:
         if body.max_output_tokens is not None:
             from src.domain.models.model_cache import ModelCache
+
             model_name = body.ai_model or row.ai_model
             if model_name:
                 known = (
@@ -182,9 +184,6 @@ async def update_settings(
     return _to_out(row)
 
 
-from sqlalchemy import select as _sa_select
-
-
 @router.get("/models")
 async def list_models(
     provider: str | None = None,
@@ -192,8 +191,10 @@ async def list_models(
     current_user: User = Depends(get_current_user),
 ):
     from datetime import datetime, timedelta, timezone
+
     from src.domain.models.model_cache import ModelCache
-    q = _sa_select(ModelCache)
+
+    q = select(ModelCache)
     if provider:
         q = q.where(ModelCache.provider == provider)
     q = q.order_by(ModelCache.provider, ModelCache.model_id)
@@ -205,6 +206,7 @@ async def list_models(
             oldest = oldest.replace(tzinfo=timezone.utc)
         if datetime.now(timezone.utc) - oldest > timedelta(days=7):
             import asyncio
+
             asyncio.create_task(registry.sync_all_models())
 
     return {

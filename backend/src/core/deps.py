@@ -19,7 +19,7 @@ async def get_current_user(
     Raises HTTP 401 if no valid JWT was presented.
     Raises HTTP 403 if the user UUID from the token does not exist in the DB.
     """
-    user_id_str = getattr(request.state, 'user_id', None)
+    user_id_str = getattr(request.state, "user_id", None)
     if user_id_str is None:
         raise HTTPException(status_code=401, detail="Authentication required.")
 

@@ -29,12 +29,12 @@ async def _find_suggested_parents(receipt: Statement, db: AsyncSession) -> list[
     window_start = uploaded_naive - timedelta(days=5)
     window_end = uploaded_naive + timedelta(days=5)
     amount = Decimal(str(receipt.declared_total))
-    lower = amount * Decimal('0.95')
-    upper = amount * Decimal('1.05')
+    lower = amount * Decimal("0.95")
+    upper = amount * Decimal("1.05")
     result = await db.execute(
         select(Transaction.id)
         .where(
-            Transaction.status == 'active',
+            Transaction.status == "active",
             Transaction.reversed_by.is_(None),
             Transaction.parent_transaction_id.is_(None),
             Transaction.amount.between(lower, upper),
@@ -54,7 +54,7 @@ async def list_receipts(
 ) -> list[ReceiptOut]:
     result = await db.execute(
         select(Statement)
-        .where(Statement.file_type == 'receipt')
+        .where(Statement.file_type == "receipt")
         .order_by(Statement.uploaded_at.desc())
         .offset(offset)
         .limit(limit)
@@ -63,14 +63,16 @@ async def list_receipts(
     out = []
     for r in receipts:
         suggested = await _find_suggested_parents(r, db)
-        out.append(ReceiptOut(
-            id=r.id,
-            filename=r.filename,
-            status=str(r.status.value) if hasattr(r.status, 'value') else str(r.status),
-            uploaded_at=r.uploaded_at,
-            declared_total=r.declared_total,
-            suggested_parent_ids=suggested,
-        ))
+        out.append(
+            ReceiptOut(
+                id=r.id,
+                filename=r.filename,
+                status=str(r.status.value) if hasattr(r.status, "value") else str(r.status),
+                uploaded_at=r.uploaded_at,
+                declared_total=r.declared_total,
+                suggested_parent_ids=suggested,
+            )
+        )
     return out
 
 
@@ -81,16 +83,14 @@ async def link_receipt(
     db: AsyncSession = Depends(get_db),
 ):
     receipt = await db.get(Statement, receipt_id)
-    if receipt is None or receipt.file_type != 'receipt':
+    if receipt is None or receipt.file_type != "receipt":
         raise HTTPException(status_code=404, detail="Receipt not found.")
 
     target_tx = await db.get(Transaction, body.transaction_id)
     if target_tx is None:
         raise HTTPException(status_code=404, detail="Transaction not found.")
 
-    result = await db.execute(
-        select(Transaction).where(Transaction.statement_id == receipt_id)
-    )
+    result = await db.execute(select(Transaction).where(Transaction.statement_id == receipt_id))
     receipt_txs = result.scalars().all()
 
     if receipt.declared_total is not None:
@@ -103,7 +103,7 @@ async def link_receipt(
     if receipt_amount is not None:
         tx_amount = Decimal(str(target_tx.amount))
         denom = max(receipt_amount, tx_amount)
-        if denom > 0 and abs(receipt_amount - tx_amount) / denom > Decimal('0.05'):
+        if denom > 0 and abs(receipt_amount - tx_amount) / denom > Decimal("0.05"):
             raise HTTPException(status_code=422, detail="AMOUNT_MISMATCH")
 
     for tx in receipt_txs:
@@ -115,12 +115,10 @@ async def link_receipt(
 @router.post("/{receipt_id}/unlink")
 async def unlink_receipt(receipt_id: int, db: AsyncSession = Depends(get_db)):
     receipt = await db.get(Statement, receipt_id)
-    if receipt is None or receipt.file_type != 'receipt':
+    if receipt is None or receipt.file_type != "receipt":
         raise HTTPException(status_code=404, detail="Receipt not found.")
 
-    result = await db.execute(
-        select(Transaction).where(Transaction.statement_id == receipt_id)
-    )
+    result = await db.execute(select(Transaction).where(Transaction.statement_id == receipt_id))
     for tx in result.scalars().all():
         tx.parent_transaction_id = None
     await db.commit()

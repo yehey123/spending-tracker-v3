@@ -4,7 +4,8 @@ from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import DateTime, Enum, Float, ForeignKey, Numeric, String, Text
-from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.db.base import Base
@@ -39,9 +40,22 @@ class Statement(Base):
         Enum("image", "pdf", name="statement_type"), nullable=True
     )
     status: Mapped[ParseStatus | None] = mapped_column(
-        Enum("processing", "done", "failed", "pending", "ocr_failed", "parse_failed",
-             "pending_categorization", "staged", "committed", "discarded", "expired", "error",
-             name="statement_status"), nullable=True
+        Enum(
+            "processing",
+            "done",
+            "failed",
+            "pending",
+            "ocr_failed",
+            "parse_failed",
+            "pending_categorization",
+            "staged",
+            "committed",
+            "discarded",
+            "expired",
+            "error",
+            name="statement_status",
+        ),
+        nullable=True,
     )
     ocr_provider: Mapped[str | None] = mapped_column(String(50), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text(), nullable=True)
@@ -56,7 +70,9 @@ class Statement(Base):
     categorization_confidence: Mapped[float | None] = mapped_column(Float(), nullable=True)
 
     # Added in migration 0003
-    statement_kind: Mapped[str | None] = mapped_column(String(20), nullable=True, server_default="bank_account")
+    statement_kind: Mapped[str | None] = mapped_column(
+        String(20), nullable=True, server_default="bank_account"
+    )
     file_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     # Added in migration 0007
@@ -64,11 +80,13 @@ class Statement(Base):
 
     # Added in migration 0001
     account_id: Mapped[int | None] = mapped_column(
-        ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True)
+        ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True
+    )
 
     # Added in migration 0010 (E13 multitenancy)
     user_id: Mapped[uuid.UUID | None] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=True)
+        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=True
+    )
 
     transactions: Mapped[list["Transaction"]] = relationship(back_populates="statement")
     account: Mapped["Account | None"] = relationship("Account", back_populates="statements")

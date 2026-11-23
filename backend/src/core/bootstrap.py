@@ -25,9 +25,9 @@ async def run_admin_bootstrap(db: AsyncSession) -> None:
     Writes system_config key 'admin_bootstrapped' = 'true' after success to
     prevent re-running on every restart.
     """
-    already = (await db.execute(
-        select(SystemConfig).where(SystemConfig.key == BOOTSTRAP_KEY)
-    )).scalar_one_or_none()
+    already = (
+        await db.execute(select(SystemConfig).where(SystemConfig.key == BOOTSTRAP_KEY))
+    ).scalar_one_or_none()
     if already and already.value == "true":
         return
 
@@ -35,16 +35,16 @@ async def run_admin_bootstrap(db: AsyncSession) -> None:
     target: User | None = None
 
     if seed_email:
-        target = (await db.execute(
-            select(User).where(User.email == seed_email)
-        )).scalar_one_or_none()
+        target = (
+            await db.execute(select(User).where(User.email == seed_email))
+        ).scalar_one_or_none()
         if not target:
             logger.warning("ADMIN_SEED_EMAIL=%s not found — falling back to first user", seed_email)
 
     if target is None:
-        target = (await db.execute(
-            select(User).order_by(User.created_at.asc()).limit(1)
-        )).scalar_one_or_none()
+        target = (
+            await db.execute(select(User).order_by(User.created_at.asc()).limit(1))
+        ).scalar_one_or_none()
 
     if target is None:
         logger.info("Bootstrap: no users yet — skipping. Will retry on next restart.")

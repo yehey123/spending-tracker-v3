@@ -34,12 +34,14 @@ async def test_categorizer_merchant_memory_assigns_category():
         session.add(cat)
         await session.flush()
 
-        session.add(MerchantCategoryMemory(
-            description_normalized=_normalize("Coffee Shop"),
-            category_id=cat.id,
-            source="ai",
-            confidence=0.9,
-        ))
+        session.add(
+            MerchantCategoryMemory(
+                description_normalized=_normalize("Coffee Shop"),
+                category_id=cat.id,
+                source="ai",
+                confidence=0.9,
+            )
+        )
         await session.flush()
 
         stmt = Statement(filename="test.pdf")
@@ -58,9 +60,7 @@ async def test_categorizer_merchant_memory_assigns_category():
 
         assert tx.category_id is None
 
-        await categorizer_service.categorize_statement(
-            stmt.id, [tx], session, _MockSettings()
-        )
+        await categorizer_service.categorize_statement(stmt.id, [tx], session, _MockSettings())
 
         assert tx.category_id == cat.id
 
@@ -77,6 +77,7 @@ def test_account_type_included_in_prompt(monkeypatch):
     import asyncio
 
     from tests.plugin_fakes import install_fake_categorizer
+
     fake = install_fake_categorizer(monkeypatch, "openai")
     s = _MockSettings()
     s.ocr_provider = "openai"
@@ -91,6 +92,7 @@ def test_no_account_type_omits_account_line(monkeypatch):
     import asyncio
 
     from tests.plugin_fakes import install_fake_categorizer
+
     fake = install_fake_categorizer(monkeypatch, "openai")
     s = _MockSettings()
     s.ocr_provider = "openai"

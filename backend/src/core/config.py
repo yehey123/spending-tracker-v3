@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     # Model selection — applies to whichever OCR/AI provider is active
     ai_model: str | None = None
     gemini_api_key: str | None = None
-    google_project_id: str | None = None   # Vertex AI project
+    google_project_id: str | None = None  # Vertex AI project
     google_location: str = "us-central1"  # Vertex AI region
 
     # Ollama (OCR_PROVIDER=ollama) — any OpenAI-compatible /v1 endpoint. Default = the
@@ -55,8 +55,8 @@ class Settings(BaseSettings):
     # Gmail SMTP (E11 — invite gate)
     smtp_host: str = "smtp.gmail.com"
     smtp_port: int = 587
-    smtp_user: str = ""          # e.g. spendingtracker.noreply@gmail.com
-    smtp_password: str = ""      # Gmail App Password (16-char, no spaces)
+    smtp_user: str = ""  # e.g. spendingtracker.noreply@gmail.com
+    smtp_password: str = ""  # Gmail App Password (16-char, no spaces)
 
     # Public base URL used in email links (E11). Set in production env.
     app_base_url: str = "http://localhost:8000"

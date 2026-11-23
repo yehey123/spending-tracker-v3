@@ -2,6 +2,7 @@
 
 import asyncpg
 import pytest
+
 from tests.conftest import TEST_DB_RAW
 
 
@@ -15,7 +16,9 @@ async def _create_account_direct(
         row = await conn.fetchrow(
             """INSERT INTO accounts (name, type, currency, opening_balance)
                VALUES ($1, $2, 'PHP', $3) RETURNING id""",
-            name, type, opening_balance,
+            name,
+            type,
+            opening_balance,
         )
         return row["id"]
     finally:
@@ -29,7 +32,9 @@ async def _create_tx_for_account(account_id: int, amount: str, direction: str) -
             """INSERT INTO transactions
                (date, amount, description, direction, account_id, status)
                VALUES ('2026-06-15', $1, 'Test tx', $2, $3, 'active')""",
-            amount, direction, account_id,
+            amount,
+            direction,
+            account_id,
         )
     finally:
         await conn.close()
@@ -44,11 +49,13 @@ async def test_list_accounts_empty(client):
 
 @pytest.mark.asyncio
 async def test_create_account_minimal(client):
-    resp = await client.post("/accounts", json={
-        "name": "BPI Savings",
-        "type": "savings",
-
-    })
+    resp = await client.post(
+        "/accounts",
+        json={
+            "name": "BPI Savings",
+            "type": "savings",
+        },
+    )
     assert resp.status_code == 201
     data = resp.json()
     assert data["name"] == "BPI Savings"
@@ -58,22 +65,26 @@ async def test_create_account_minimal(client):
 
 @pytest.mark.asyncio
 async def test_create_account_invalid_type(client):
-    resp = await client.post("/accounts", json={
-        "name": "Bad",
-        "type": "crypto",
-
-    })
+    resp = await client.post(
+        "/accounts",
+        json={
+            "name": "Bad",
+            "type": "crypto",
+        },
+    )
     assert resp.status_code == 422
 
 
 @pytest.mark.asyncio
 async def test_create_account_with_number_stores_last_four(client):
-    resp = await client.post("/accounts", json={
-        "name": "BPI CC",
-        "type": "credit_card",
-
-        "account_number": "4111111111111111",
-    })
+    resp = await client.post(
+        "/accounts",
+        json={
+            "name": "BPI CC",
+            "type": "credit_card",
+            "account_number": "4111111111111111",
+        },
+    )
     assert resp.status_code == 201
     data = resp.json()
     assert data["last_four"] == "1111"
@@ -131,7 +142,8 @@ async def test_transfer_detect_creates_flag(client):
                (date, amount, description, direction, account_id, status)
                VALUES ('2026-06-15', '500.00', 'Transfer out', 'debit', $1, 'active'),
                       ('2026-06-15', '500.00', 'Transfer in',  'credit', $2, 'active')""",
-            acc1, acc2,
+            acc1,
+            acc2,
         )
     finally:
         await conn.close()
@@ -149,6 +161,7 @@ async def test_transfer_detect_creates_flag(client):
 async def test_detect_account_returns_none_without_number(db_session):
     """detect_account on text with no numeric pattern returns None (non-fatal)."""
     from src.domain.services.statement_pipeline import detect_account
+
     result = await detect_account("No numbers here at all.", db_session)
     assert result is None
 
@@ -156,9 +169,11 @@ async def test_detect_account_returns_none_without_number(db_session):
 @pytest.mark.asyncio
 async def test_detect_duplicates_flags_matching_txn(db_session):
     """_detect_duplicates creates a suspected_duplicate flag for same amount/direction/date."""
-    from decimal import Decimal
     from datetime import datetime
+    from decimal import Decimal
+
     from sqlalchemy import select, text
+
     from src.domain.models.transaction import Transaction
     from src.domain.models.transaction_flag import TransactionFlag
     from src.domain.services.statement_pipeline import _detect_duplicates
@@ -198,11 +213,17 @@ async def test_detect_duplicates_flags_matching_txn(db_session):
 
     await _detect_duplicates([new_tx], acc_id, db_session)
 
-    flags = (await db_session.execute(
-        select(TransactionFlag).where(
-            TransactionFlag.transaction_id == new_tx.id,
-            TransactionFlag.flag_type == 'suspected_duplicate',
+    flags = (
+        (
+            await db_session.execute(
+                select(TransactionFlag).where(
+                    TransactionFlag.transaction_id == new_tx.id,
+                    TransactionFlag.flag_type == "suspected_duplicate",
+                )
+            )
         )
-    )).scalars().all()
+        .scalars()
+        .all()
+    )
     assert len(flags) == 1
     assert flags[0].flag_metadata["peer_id"] == existing.id

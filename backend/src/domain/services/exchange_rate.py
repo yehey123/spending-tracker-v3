@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import datetime
-from datetime import UTC
 import logging
+from datetime import UTC
 from typing import Any
 
 import aiosqlite
@@ -140,9 +140,7 @@ class ExchangeRateService:
     # Bulk prefetch
     # ------------------------------------------------------------------
 
-    async def prefetch_range(
-        self, base: str, quote: str, start: str, end: str
-    ) -> dict[str, Any]:
+    async def prefetch_range(self, base: str, quote: str, start: str, end: str) -> dict[str, Any]:
         """Fetch and cache the full time-series for base→quote in [start, end].
 
         Uses the Frankfurter time-series endpoint in a single request.

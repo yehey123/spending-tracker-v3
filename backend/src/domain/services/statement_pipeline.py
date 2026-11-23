@@ -23,6 +23,7 @@ MAX_IMAGE_PIXELS = 64_000_000
 
 try:
     from PIL import Image as PILImage
+
     PILImage.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
 except ImportError:
     PILImage = None  # type: ignore
@@ -32,7 +33,7 @@ from src.domain.services.ocr.base import AIPackagesMissing
 try:
     from src.domain.services.ocr.tesseract import TesseractProvider
 except ImportError as e:
-    logger.error('Import error: %s', e)
+    logger.error("Import error: %s", e)
     TesseractProvider = None  # type: ignore
 
 
@@ -42,9 +43,9 @@ import re
 from datetime import timedelta
 from decimal import Decimal
 
-CC_NUMBER_RE = re.compile(r'\d{4}[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?\d{4}')
-BANK_ACCT_RE = re.compile(r'\b\d{10,14}\b')
-_OPENING_BALANCE_RE = re.compile(r'^OPENING_BALANCE:\s*([\d,]+\.?\d*)', re.MULTILINE)
+CC_NUMBER_RE = re.compile(r"\d{4}[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?\d{4}")
+BANK_ACCT_RE = re.compile(r"\b\d{10,14}\b")
+_OPENING_BALANCE_RE = re.compile(r"^OPENING_BALANCE:\s*([\d,]+\.?\d*)", re.MULTILINE)
 
 
 def _text_divergence(a: str, b: str) -> float:
@@ -53,8 +54,8 @@ def _text_divergence(a: str, b: str) -> float:
         return 0.0
     if not a or not b:
         return 1.0
-    words_a = set(re.sub(r'\s+', ' ', a.lower()).split())
-    words_b = set(re.sub(r'\s+', ' ', b.lower()).split())
+    words_a = set(re.sub(r"\s+", " ", a.lower()).split())
+    words_b = set(re.sub(r"\s+", " ", b.lower()).split())
     if not words_a and not words_b:
         return 0.0
     intersection = words_a & words_b
@@ -66,7 +67,7 @@ def _extract_opening_balance(raw_text: str) -> Decimal | None:
     m = _OPENING_BALANCE_RE.search(raw_text)
     if m:
         try:
-            return Decimal(m.group(1).replace(',', ''))
+            return Decimal(m.group(1).replace(",", ""))
         except Exception:
             return None
     return None
@@ -77,16 +78,16 @@ async def detect_account(raw_text: str, db: AsyncSession):
     Best-effort: extract account number from OCR text, fingerprint-match or auto-create.
     Returns Account or None (non-fatal — upload proceeds without account_id).
     """
-    from datetime import date as date_type
     from sqlalchemy import select
-    from src.domain.models.account import Account
-    from src.core.config import settings as cfg
 
-    digits_only = re.sub(r'[\s\-]', '', raw_text)
+    from src.core.config import settings as cfg
+    from src.domain.models.account import Account
+
+    digits_only = re.sub(r"[\s\-]", "", raw_text)
     cc_match = CC_NUMBER_RE.search(digits_only)
     number: str | None = None
     if cc_match:
-        number = re.sub(r'[\s\-]', '', cc_match.group())
+        number = re.sub(r"[\s\-]", "", cc_match.group())
     else:
         bank_match = BANK_ACCT_RE.search(raw_text)
         if bank_match:
@@ -100,14 +101,12 @@ async def detect_account(raw_text: str, db: AsyncSession):
         return None
 
     last_four = number[-4:]
-    fingerprint = hmac.new(
-        secret.encode(), number.encode(), hashlib.sha256
-    ).hexdigest()
+    fingerprint = hmac.new(secret.encode(), number.encode(), hashlib.sha256).hexdigest()
 
     result = await db.execute(
         select(Account).where(
             Account.fingerprint == fingerprint,
-            Account.is_active == True,
+            Account.is_active.is_(True),
         )
     )
     existing = result.scalar_one_or_none()
@@ -116,8 +115,8 @@ async def detect_account(raw_text: str, db: AsyncSession):
 
     new_account = Account(
         name=f"****{last_four}",
-        type='credit_card',
-        currency='PHP',
+        type="credit_card",
+        currency="PHP",
         last_four=last_four,
         fingerprint=fingerprint,
         opening_balance=0,
@@ -132,6 +131,7 @@ async def _detect_duplicates(
 ) -> None:
     """Flag suspected duplicates: same account + amount + direction within ±3 days."""
     from sqlalchemy import select
+
     from src.domain.models.transaction_flag import TransactionFlag
 
     for tx in new_transactions:
@@ -144,7 +144,7 @@ async def _detect_duplicates(
                 Transaction.amount == tx.amount,
                 Transaction.direction == tx.direction,
                 Transaction.id != tx.id,
-                Transaction.status == 'active',
+                Transaction.status == "active",
                 Transaction.deleted_at.is_(None),
                 Transaction.date >= window_low,
                 Transaction.date <= window_high,
@@ -152,22 +152,25 @@ async def _detect_duplicates(
         )
         duplicates = result.scalars().all()
         for dup in duplicates:
-            tx.duplicate_status = 'suspected'
-            db.add(TransactionFlag(
-                transaction_id=tx.id,
-                flag_type='suspected_duplicate',
-                status='open',
-                flag_metadata={
-                    "peer_id": dup.id,
-                    "days_apart": abs((tx.date - dup.date).days),
-                    "amount": str(tx.amount),
-                    "account_id": account_id,
-                },
-            ))
+            tx.duplicate_status = "suspected"
+            db.add(
+                TransactionFlag(
+                    transaction_id=tx.id,
+                    flag_type="suspected_duplicate",
+                    status="open",
+                    flag_metadata={
+                        "peer_id": dup.id,
+                        "days_apart": abs((tx.date - dup.date).days),
+                        "amount": str(tx.amount),
+                        "account_id": account_id,
+                    },
+                )
+            )
 
 
 def _resolve_ocr(settings_row: AppSettings):
     from fastapi import HTTPException
+
     try:
         return _build_ocr(settings_row)
     except AIPackagesMissing as e:
@@ -176,11 +179,15 @@ def _resolve_ocr(settings_row: AppSettings):
 
 def _build_ocr(settings_row: AppSettings):
     from fastapi import HTTPException
+
     from src.plugins import registry
+
     key = settings_row.ocr_provider
     desc = registry.get_ocr(key)  # raises AIPackagesMissing -> 422 in _resolve_ocr
     if key != "tesseract" and not desc.has_credentials(settings_row):
-        raise HTTPException(status_code=422, detail=f"Credentials not configured for provider '{key}'.")
+        raise HTTPException(
+            status_code=422, detail=f"Credentials not configured for provider '{key}'."
+        )
     return desc.build(settings_row, registry.make_context(settings_row))
 
 
@@ -190,8 +197,11 @@ async def _resolve_ocr_with_credits(
     statement_id: int,
     db: AsyncSession,
 ):
-    """Select OCR provider, checking and debiting credits. Falls back to Tesseract on zero balance."""
-    from src.domain.services.credits import atomic_debit, InsufficientCredits
+    """Select OCR provider, checking and debiting credits.
+
+    Falls back to Tesseract on zero balance.
+    """
+    from src.domain.services.credits import InsufficientCredits, atomic_debit
 
     provider_name = settings_row.ocr_provider
 
@@ -199,13 +209,16 @@ async def _resolve_ocr_with_credits(
         return TesseractProvider()
 
     try:
-        await atomic_debit(user_id=user_id, provider=provider_name,
-                           statement_id=statement_id, db=db)
+        await atomic_debit(
+            user_id=user_id, provider=provider_name, statement_id=statement_id, db=db
+        )
         return _resolve_ocr(settings_row)
     except InsufficientCredits as exc:
         logger.warning(
             "User %s has insufficient credits (balance=%d, cost=%d) — falling back to Tesseract",
-            user_id, exc.balance, exc.cost,
+            user_id,
+            exc.balance,
+            exc.cost,
         )
         return TesseractProvider()
 
@@ -213,24 +226,34 @@ async def _resolve_ocr_with_credits(
 class StatementPipeline:
     """Multi-stage statement processing pipeline."""
 
-    async def run(self, statement: Statement, content: bytes, content_type: str,
-                  db: AsyncSession, account_id: int | None = None,
-                  user_id=None) -> tuple[list[Transaction], bool]:
-        """Run OCR → parse → (categorize) → staged insert. Returns (transactions, account_created)."""
+    async def run(
+        self,
+        statement: Statement,
+        content: bytes,
+        content_type: str,
+        db: AsyncSession,
+        account_id: int | None = None,
+        user_id=None,
+    ) -> tuple[list[Transaction], bool]:
+        """Run OCR → parse → (categorize) → staged insert.
+
+        Returns (transactions, account_created).
+        """
         from uuid import UUID
+
         from sqlalchemy import select as _sel_settings
+
         from src.domain.services.pdf_parser import extract_pdf_text
         from src.domain.services.statement_parser import parse_statement
 
         settings = None
         if user_id is not None:
             uid = user_id if isinstance(user_id, UUID) else UUID(str(user_id))
-            result = await db.execute(
-                _sel_settings(AppSettings).where(AppSettings.user_id == uid)
-            )
+            result = await db.execute(_sel_settings(AppSettings).where(AppSettings.user_id == uid))
             settings = result.scalar_one_or_none()
         if settings is None:
             from src.core.config import settings as _cfg
+
             settings = AppSettings(
                 ocr_provider=_cfg.ocr_provider,
                 anthropic_api_key=_cfg.anthropic_api_key,
@@ -246,26 +269,32 @@ class StatementPipeline:
             db=db,
         )
         statement.ocr_provider = (
-            "tesseract" if type(ocr_provider).__name__ == "TesseractProvider" else settings.ocr_provider
+            "tesseract"
+            if type(ocr_provider).__name__ == "TesseractProvider"
+            else settings.ocr_provider
         )
         inferred_type = "pdf" if content_type == "application/pdf" else "image"
-        dev_mode = getattr(settings, 'dev_mode', False)
+        dev_mode = getattr(settings, "dev_mode", False)
 
         file_hash = hashlib.sha256(content).hexdigest()
         statement.file_hash = file_hash
 
         from sqlalchemy import select as _sel
+
         from src.domain.models.category import Category as _Category
-        prior = (await db.execute(
-            _sel(Statement)
-            .where(
-                Statement.file_hash == file_hash,
-                Statement.id != statement.id,
-                Statement.status.notin_(["ocr_failed", "parse_failed", "failed", "discarded"]),
+
+        prior = (
+            await db.execute(
+                _sel(Statement)
+                .where(
+                    Statement.file_hash == file_hash,
+                    Statement.id != statement.id,
+                    Statement.status.notin_(["ocr_failed", "parse_failed", "failed", "discarded"]),
+                )
+                .order_by(Statement.id.desc())
+                .limit(1)
             )
-            .order_by(Statement.id.desc())
-            .limit(1)
-        )).scalar_one_or_none()
+        ).scalar_one_or_none()
 
         # Load categories once — passed to AI OCR providers for bundled categorization
         cat_rows = (await db.execute(_sel(_Category))).scalars().all()
@@ -274,9 +303,7 @@ class StatementPipeline:
 
         # Whether to bundle categorization into the OCR call
         bundle_categories = (
-            ocr_provider.supports_categories
-            and not dev_mode
-            and bool(categories_list)
+            ocr_provider.supports_categories and not dev_mode and bool(categories_list)
         )
 
         raw_text: str | None = None
@@ -291,7 +318,8 @@ class StatementPipeline:
             try:
                 if inferred_type == "pdf":
                     raw_text = await extract_pdf_text(
-                        content, ocr_provider,
+                        content,
+                        ocr_provider,
                         categories=categories_list if bundle_categories else None,
                     )
                     # Dual-extraction diff for AI providers: run a second pass and compare.
@@ -299,7 +327,8 @@ class StatementPipeline:
                     if settings.ocr_provider != "tesseract" and raw_text:
                         try:
                             raw_text_2 = await extract_pdf_text(
-                                content, ocr_provider,
+                                content,
+                                ocr_provider,
                                 categories=categories_list if bundle_categories else None,
                             )
                             divergence = _text_divergence(raw_text, raw_text_2)
@@ -307,9 +336,10 @@ class StatementPipeline:
                                 logger.warning(
                                     "PDF dual-extraction divergence=%.2f%% (statement %d) — "
                                     "possible injection; rejecting.",
-                                    divergence * 100, statement.id,
+                                    divergence * 100,
+                                    statement.id,
                                 )
-                                statement.status = 'parse_failed'
+                                statement.status = "parse_failed"
                                 statement.error_message = (
                                     f"Dual-extraction divergence {divergence:.0%} — "
                                     "document rejected as potentially adversarial."
@@ -327,9 +357,7 @@ class StatementPipeline:
                         im = PILImage.open(io.BytesIO(data))
                         w, h = im.size
                         if w * h > MAX_IMAGE_PIXELS:
-                            raise ValueError(
-                                "Image exceeds maximum allowed pixel dimensions."
-                            )
+                            raise ValueError("Image exceeds maximum allowed pixel dimensions.")
                         im.load()
                         return im
 
@@ -344,19 +372,18 @@ class StatementPipeline:
                             "Image processing timed out (>30 s). File may be malformed."
                         )
                     except PILImage.DecompressionBombError as e:
-                        raise ValueError(
-                            "Image exceeds maximum allowed pixel dimensions."
-                        ) from e
+                        raise ValueError("Image exceeds maximum allowed pixel dimensions.") from e
 
                     # Strip all embedded metadata (EXIF, ICC profile, tEXt chunks)
                     # by re-encoding from raw pixel bytes.
-                    _mode = 'L' if img.mode == 'L' else 'RGB'
+                    _mode = "L" if img.mode == "L" else "RGB"
                     _conv = img.convert(_mode)
                     img = PILImage.frombytes(_mode, _conv.size, _conv.tobytes())
 
                     # No OpenCV preprocessing: Tesseract's own binarisation scores
                     # better on the original image, and AI vision models want color.
                     from src.plugins import registry as _registry
+
                     _desc = _registry.find_ocr(settings.ocr_provider)
                     MAX_SIDE = getattr(_desc, "max_side", None) if _desc else None
                     if settings.ocr_provider != "tesseract" and MAX_SIDE:
@@ -372,7 +399,9 @@ class StatementPipeline:
                 statement.raw_ocr_text = raw_text
                 logger.info(
                     "OCR complete [provider=%s] [bundled_categories=%s] [chars=%d]",
-                    settings.ocr_provider, bundle_categories, len(raw_text or ""),
+                    settings.ocr_provider,
+                    bundle_categories,
+                    len(raw_text or ""),
                 )
                 logger.debug(
                     "--- OCR OUTPUT ---\n%s\n--- END OCR ---",
@@ -380,7 +409,7 @@ class StatementPipeline:
                 )
                 await db.flush()
             except Exception as e:
-                statement.status = 'ocr_failed'
+                statement.status = "ocr_failed"
                 statement.error_message = str(e)
                 await db.flush()
                 return [], False
@@ -391,21 +420,24 @@ class StatementPipeline:
         if account_id is not None:
             # Explicit account selected by user — skip auto-detect
             from src.domain.models.account import Account
+
             account = await db.get(Account, account_id)
             if account:
                 statement.account_id = account_id
             else:
-                logger.warning('Explicit account_id=%d not found — falling back to auto-detect', account_id)
+                logger.warning(
+                    "Explicit account_id=%d not found — falling back to auto-detect", account_id
+                )
                 account_id = None
         if account_id is None:
             try:
                 account = await detect_account(raw_text, db)
                 account_id = account.id if account else None
                 if account_id is not None:
-                    account_created = account.name.startswith('****')
+                    account_created = account.name.startswith("****")
                     statement.account_id = account_id
             except Exception as e:
-                logger.warning('Account detection failed: %s', e)
+                logger.warning("Account detection failed: %s", e)
                 account = None
                 account_id = None
 
@@ -413,17 +445,22 @@ class StatementPipeline:
         opening_balance = _extract_opening_balance(raw_text)
         if opening_balance is not None:
             statement.extracted_opening_balance = opening_balance
-            logger.info('Extracted opening_balance=%.2f from statement %d (pending user confirmation)', opening_balance, statement.id)
+            logger.info(
+                "Extracted opening_balance=%.2f from statement %d (pending user confirmation)",
+                opening_balance,
+                statement.id,
+            )
 
         # If linked account is a credit card, upgrade statement_kind automatically
-        if account and getattr(account, 'type', None) == 'credit_card':
-            statement.statement_kind = 'credit_card'
+        if account and getattr(account, "type", None) == "credit_card":
+            statement.statement_kind = "credit_card"
 
         # Stage 1.6 — Broker branch: investment statement parsing (returns early)
-        if account and account.type == 'broker':
-            from src.domain.services.investment_parser import parse_investment_rows
-            from src.domain.models.investment_transaction import InvestmentTransaction
+        if account and account.type == "broker":
             from datetime import date as date_type
+
+            from src.domain.models.investment_transaction import InvestmentTransaction
+            from src.domain.services.investment_parser import parse_investment_rows
 
             parsed_rows, parse_errors = parse_investment_rows(raw_text)
             for row in parsed_rows:
@@ -441,24 +478,26 @@ class StatementPipeline:
                 db.add(inv)
 
             statement.parse_errors = parse_errors if parse_errors else None
-            statement.status = 'committed'
+            statement.status = "committed"
             await db.flush()
             return [], account_created
 
         # Stage 2 — Parse
         try:
             parsed_rows = parse_statement(raw_text)
-            logger.info("Parse complete: %d rows from %d OCR chars", len(parsed_rows), len(raw_text or ""))
+            logger.info(
+                "Parse complete: %d rows from %d OCR chars", len(parsed_rows), len(raw_text or "")
+            )
             statement.parse_errors = None
         except Exception as e:
-            statement.status = 'parse_failed'
+            statement.status = "parse_failed"
             statement.error_message = str(e)
             await db.flush()
             return [], False
 
         # Flip directions for credit card statements (bank says CREDIT = charge to you)
-        if getattr(statement, 'statement_kind', None) == 'credit_card':
-            _FLIP = {'debit': 'credit', 'credit': 'debit'}
+        if getattr(statement, "statement_kind", None) == "credit_card":
+            _FLIP = {"debit": "credit", "credit": "debit"}
             for p in parsed_rows:
                 p.direction = _FLIP.get(p.direction, p.direction)
 
@@ -466,7 +505,9 @@ class StatementPipeline:
         transactions = []
         for p in parsed_rows:
             if p.amount <= 0:
-                logger.warning("Skipping parsed row with non-positive amount %s (%s)", p.amount, p.description)
+                logger.warning(
+                    "Skipping parsed row with non-positive amount %s (%s)", p.amount, p.description
+                )
                 continue
             tx = Transaction(
                 date=p.date,
@@ -475,8 +516,8 @@ class StatementPipeline:
                 direction=p.direction,
                 statement_id=statement.id,
                 account_id=account_id,
-                status='staged',
-                transaction_origin='uploaded',
+                status="staged",
+                transaction_origin="uploaded",
                 user_id=user_id,
             )
             # Apply category assigned by the bundled OCR call (if any)
@@ -494,31 +535,35 @@ class StatementPipeline:
             try:
                 await _detect_duplicates(transactions, account_id, db)
             except Exception as e:
-                logger.warning('Duplicate detection failed: %s', e)
+                logger.warning("Duplicate detection failed: %s", e)
 
         # Stage 3 — AI categorization for any transactions not already categorized by OCR
         if dev_mode:
             logger.info("dev_mode=True — skipping AI categorisation")
         else:
             from src.domain.services.categorizer import _has_ai_credentials, categorizer_service
+
             uncategorized = [tx for tx in transactions if tx.category_id is None]
             if uncategorized and _has_ai_credentials(settings):
                 try:
                     await categorizer_service.categorize_statement(
-                        statement.id, uncategorized, db, settings,
+                        statement.id,
+                        uncategorized,
+                        db,
+                        settings,
                         account_type=account.type if account else None,
                     )
                 except Exception as e:
-                    logger.warning('Categorizer failed: %s', e)
+                    logger.warning("Categorizer failed: %s", e)
 
         # Stage 4 — Final state
-        review_before_commit = getattr(settings, 'review_before_commit', True)
+        review_before_commit = getattr(settings, "review_before_commit", True)
         if review_before_commit:
-            statement.status = 'staged'
+            statement.status = "staged"
         else:
-            statement.status = 'committed'
+            statement.status = "committed"
             for tx in transactions:
-                tx.status = 'active'
+                tx.status = "active"
 
         await db.flush()
         return transactions, account_created

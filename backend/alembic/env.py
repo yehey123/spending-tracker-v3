@@ -5,19 +5,18 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+import src.domain.models.app_settings  # noqa: F401
+import src.domain.models.audit_log  # noqa: F401
+import src.domain.models.category  # noqa: F401
+import src.domain.models.merchant_memory  # noqa: F401
+import src.domain.models.statement  # noqa: F401
+import src.domain.models.transaction  # noqa: F401
+import src.domain.models.transaction_flag  # noqa: F401
 from alembic import context
+from src.core.config import settings
 
 # Import Base and all models so their metadata is registered
 from src.db.base import Base
-import src.domain.models.category  # noqa: F401
-import src.domain.models.statement  # noqa: F401
-import src.domain.models.transaction  # noqa: F401
-import src.domain.models.app_settings  # noqa: F401
-import src.domain.models.transaction_flag  # noqa: F401
-import src.domain.models.merchant_memory  # noqa: F401
-import src.domain.models.audit_log  # noqa: F401
-
-from src.core.config import settings
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

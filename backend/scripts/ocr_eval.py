@@ -31,11 +31,10 @@ from pathlib import Path
 
 from PIL import Image
 
-from src.domain.services.ocr.tesseract import TesseractProvider
-from src.plugins import registry
 from src.domain.services.pdf_parser import extract_pdf_text
 from src.domain.services.receipt_parser import detect_kind, parse_receipt
 from src.domain.services.statement_parser import parse_statement
+from src.plugins import registry
 
 _TOKENS_RE = re.compile(r"output_tokens=(\d+)")
 
@@ -56,6 +55,7 @@ class _TokenCounter(logging.Handler):
 def _provider(spec: str):
     """Resolve `name[:model]` through the plugin registry; returns (provider, max_side)."""
     from types import SimpleNamespace
+
     name, _, model = spec.partition(":")
     try:
         desc = registry.get_ocr(name)
@@ -126,8 +126,9 @@ def score_receipt(expected: dict, text: str) -> dict:
 
 
 async def main(corpus: Path, specs: list[str], limit: int | None = None) -> None:
-    samples = sorted(p for p in corpus.iterdir()
-                     if p.suffix.lower() in {".pdf", ".png", ".jpg", ".jpeg"})
+    samples = sorted(
+        p for p in corpus.iterdir() if p.suffix.lower() in {".pdf", ".png", ".jpg", ".jpeg"}
+    )
     if not samples:
         raise SystemExit(f"No samples in {corpus}")
     counter = _TokenCounter()
@@ -148,43 +149,63 @@ async def main(corpus: Path, specs: list[str], limit: int | None = None) -> None
             if expected.get("kind") == "receipt":
                 t0 = time.monotonic()
                 try:
-                    r = score_receipt(expected, await _ocr(path, provider, spec == "tesseract", max_side))
+                    r = score_receipt(
+                        expected, await _ocr(path, provider, spec == "tesseract", max_side)
+                    )
                 except Exception as e:  # report and keep going
-                    r = {"kind_ok": False, "total_ok": False, "date_ok": None,
-                         "error": type(e).__name__}
+                    r = {
+                        "kind_ok": False,
+                        "total_ok": False,
+                        "date_ok": None,
+                        "error": type(e).__name__,
+                    }
                 r.update(provider=spec, sample=path.name)
                 receipt_rows.append(r)
                 date_s = "-" if r["date_ok"] is None else ("Y" if r["date_ok"] else "N")
-                print(f"{spec:40} {path.name:30} kind={'Y' if r['kind_ok'] else 'N'} "
-                      f"total={'Y' if r['total_ok'] else 'N'} date={date_s} "
-                      f"{round(time.monotonic() - t0, 1)}s {r.get('error', '')}")
+                print(
+                    f"{spec:40} {path.name:30} kind={'Y' if r['kind_ok'] else 'N'} "
+                    f"total={'Y' if r['total_ok'] else 'N'} date={date_s} "
+                    f"{round(time.monotonic() - t0, 1)}s {r.get('error', '')}"
+                )
                 continue
             before, t0 = counter.total, time.monotonic()
             try:
                 parsed = parse_statement(await _ocr(path, provider, spec == "tesseract", max_side))
                 s = score(expected, parsed)
             except Exception as e:  # report and keep going
-                s = {"row_recall": 0.0, "row_precision": 0.0, "amount_match": 0.0,
-                     "reconciles": False, "error": type(e).__name__}
-            s.update(provider=spec, sample=path.name,
-                     seconds=round(time.monotonic() - t0, 1),
-                     output_tokens=counter.total - before)
+                s = {
+                    "row_recall": 0.0,
+                    "row_precision": 0.0,
+                    "amount_match": 0.0,
+                    "reconciles": False,
+                    "error": type(e).__name__,
+                }
+            s.update(
+                provider=spec,
+                sample=path.name,
+                seconds=round(time.monotonic() - t0, 1),
+                output_tokens=counter.total - before,
+            )
             rows.append(s)
-            print(f"{spec:40} {path.name:30} recall={s['row_recall']:.3f} "
-                  f"prec={s['row_precision']:.3f} amt={s['amount_match']:.3f} "
-                  f"rec={'Y' if s['reconciles'] else 'N'} {s['seconds']}s "
-                  f"tok={s['output_tokens']} {s.get('error', '')}")
+            print(
+                f"{spec:40} {path.name:30} recall={s['row_recall']:.3f} "
+                f"prec={s['row_precision']:.3f} amt={s['amount_match']:.3f} "
+                f"rec={'Y' if s['reconciles'] else 'N'} {s['seconds']}s "
+                f"tok={s['output_tokens']} {s.get('error', '')}"
+            )
 
     if receipt_rows:
         print("\nRECEIPT SUMMARY")
         for spec in specs:
             r = [x for x in receipt_rows if x["provider"] == spec]
             dated = [x for x in r if x["date_ok"] is not None]
-            print(f"{spec:40} n={len(r)} "
-                  f"kind_acc={sum(x['kind_ok'] for x in r) / len(r):.3f} "
-                  f"total_acc={sum(x['total_ok'] for x in r) / len(r):.3f} "
-                  f"date_acc={sum(x['date_ok'] for x in dated) / len(dated) if dated else 0:.3f} "
-                  f"(date n={len(dated)})")
+            print(
+                f"{spec:40} n={len(r)} "
+                f"kind_acc={sum(x['kind_ok'] for x in r) / len(r):.3f} "
+                f"total_acc={sum(x['total_ok'] for x in r) / len(r):.3f} "
+                f"date_acc={sum(x['date_ok'] for x in dated) / len(dated) if dated else 0:.3f} "
+                f"(date n={len(dated)})"
+            )
 
     if not rows:
         return
@@ -192,16 +213,29 @@ async def main(corpus: Path, specs: list[str], limit: int | None = None) -> None
     for spec in specs:
         r = [x for x in rows if x["provider"] == spec]
         n = len(r)
-        print(f"{spec:40} recall={sum(x['row_recall'] for x in r) / n:.3f} "
-              f"amt={sum(x['amount_match'] for x in r) / n:.3f} "
-              f"reconciles={sum(x['reconciles'] for x in r) / n:.3f} "
-              f"tokens={sum(x['output_tokens'] for x in r)}")
+        print(
+            f"{spec:40} recall={sum(x['row_recall'] for x in r) / n:.3f} "
+            f"amt={sum(x['amount_match'] for x in r) / n:.3f} "
+            f"reconciles={sum(x['reconciles'] for x in r) / n:.3f} "
+            f"tokens={sum(x['output_tokens'] for x in r)}"
+        )
 
     out = Path(os.environ.get("OCR_EVAL_CSV", "/tmp/ocr_eval.csv"))
     with out.open("w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=["provider", "sample", "row_recall", "row_precision",
-                                          "amount_match", "reconciles", "seconds",
-                                          "output_tokens", "error"])
+        w = csv.DictWriter(
+            f,
+            fieldnames=[
+                "provider",
+                "sample",
+                "row_recall",
+                "row_precision",
+                "amount_match",
+                "reconciles",
+                "seconds",
+                "output_tokens",
+                "error",
+            ],
+        )
         w.writeheader()
         w.writerows(rows)
     print(f"CSV: {out}")

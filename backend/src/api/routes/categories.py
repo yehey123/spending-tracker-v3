@@ -137,13 +137,9 @@ async def delete_category(
     if cat is None:
         raise HTTPException(status_code=404, detail="Category not found.")
 
-    children_count = await db.execute(
-        select(func.count()).where(Category.parent_id == id)
-    )
+    children_count = await db.execute(select(func.count()).where(Category.parent_id == id))
     if children_count.scalar() > 0:
-        raise HTTPException(
-            status_code=422, detail="Delete or reassign subcategories first."
-        )
+        raise HTTPException(status_code=422, detail="Delete or reassign subcategories first.")
 
     await db.execute(
         update(Transaction).where(Transaction.category_id == id).values(category_id=None)

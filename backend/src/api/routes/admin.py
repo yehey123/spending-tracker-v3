@@ -128,15 +128,15 @@ async def bootstrap_admin(
 
     Public — no auth required. Becomes a no-op once any admin exists.
     """
-    already = (await db.execute(
-        select(SystemConfig).where(SystemConfig.key == BOOTSTRAP_KEY)
-    )).scalar_one_or_none()
+    already = (
+        await db.execute(select(SystemConfig).where(SystemConfig.key == BOOTSTRAP_KEY))
+    ).scalar_one_or_none()
     if already and already.value == "true":
         raise HTTPException(status_code=409, detail="Admin already exists.")
 
-    first = (await db.execute(
-        select(User).order_by(User.created_at.asc()).limit(1)
-    )).scalar_one_or_none()
+    first = (
+        await db.execute(select(User).order_by(User.created_at.asc()).limit(1))
+    ).scalar_one_or_none()
     if first is None:
         raise HTTPException(status_code=404, detail="No users registered yet.")
 

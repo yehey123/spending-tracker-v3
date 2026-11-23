@@ -5,7 +5,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.db.base import Base
 
-ACCOUNT_TYPES = ('checking', 'savings', 'credit_card', 'cash', 'broker')
+ACCOUNT_TYPES = ("checking", "savings", "credit_card", "cash", "broker")
 
 
 class Account(Base):
@@ -18,8 +18,9 @@ class Account(Base):
     institution: Mapped[str | None] = mapped_column(String(100), nullable=True)
     last_four: Mapped[str | None] = mapped_column(String(4), nullable=True)
     fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    opening_balance: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False,
-                                                      server_default="0")
+    opening_balance: Mapped[Decimal] = mapped_column(
+        Numeric(12, 2), nullable=False, server_default="0"
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
 
     statements: Mapped[list["Statement"]] = relationship(back_populates="account")
@@ -28,4 +29,5 @@ class Account(Base):
         foreign_keys="Transaction.account_id",
     )
     investment_transactions: Mapped[list["InvestmentTransaction"]] = relationship(
-        back_populates="account", cascade="all, delete-orphan")
+        back_populates="account", cascade="all, delete-orphan"
+    )

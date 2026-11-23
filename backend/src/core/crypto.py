@@ -51,5 +51,5 @@ def decrypt_secret(stored: str | None) -> str | None:
     if not stored.startswith(_PREFIX):
         return stored
     fernet = _get_fernet()
-    token = stored[len(_PREFIX):]
+    token = stored[len(_PREFIX) :]
     return fernet.decrypt(token.encode()).decode()

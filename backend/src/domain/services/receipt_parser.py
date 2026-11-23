@@ -40,8 +40,20 @@ _STATEMENT_STRONG = re.compile(
 _CARD_RE = re.compile(r"\bCARD\b", re.IGNORECASE)
 _RECEIPT_KEYWORDS = [
     re.compile(p, re.IGNORECASE)
-    for p in (r"\bTOTAL\b", r"SUB\s*TOTAL", r"\bVAT\b", r"\bGST\b", r"\bSST\b", r"\bTAX\b",
-              r"\bCHANGE\b", r"\bCASH\b", r"\bTUNAI\b", r"\bQTY\b", r"\bRECEIPT\b", r"\bINVOICE\b")
+    for p in (
+        r"\bTOTAL\b",
+        r"SUB\s*TOTAL",
+        r"\bVAT\b",
+        r"\bGST\b",
+        r"\bSST\b",
+        r"\bTAX\b",
+        r"\bCHANGE\b",
+        r"\bCASH\b",
+        r"\bTUNAI\b",
+        r"\bQTY\b",
+        r"\bRECEIPT\b",
+        r"\bINVOICE\b",
+    )
 ]
 
 

@@ -1,11 +1,11 @@
 """Tests for E1: staged statement pipeline and TTL cleanup automation."""
 
 import io
-import pytest
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, patch
 
+import pytest
 from PIL import Image
 from sqlalchemy import select
 

@@ -1,8 +1,8 @@
 """Tests for E2a: reversal + correction ledger model semantics."""
 
-import pytest
 from datetime import datetime
 
+import pytest
 from sqlalchemy import select
 
 from src.domain.models.statement import Statement
@@ -52,7 +52,9 @@ async def test_patch_category_direct_update_with_audit_log(client):
 @pytest.mark.asyncio
 async def test_reverse_transaction(client):
     tx = await _make_tx(client)
-    res = await client.post("/transactions/reverse", json={"ids": [tx["id"]], "reason": "duplicate"})
+    res = await client.post(
+        "/transactions/reverse", json={"ids": [tx["id"]], "reason": "duplicate"}
+    )
     assert res.status_code == 200
     data = res.json()
     assert tx["id"] in data["reversed"]
@@ -63,7 +65,9 @@ async def test_reverse_transaction(client):
 async def test_reverse_already_reversed_409(client):
     tx = await _make_tx(client)
     await client.post("/transactions/reverse", json={"ids": [tx["id"]], "reason": "duplicate"})
-    res = await client.post("/transactions/reverse", json={"ids": [tx["id"]], "reason": "duplicate"})
+    res = await client.post(
+        "/transactions/reverse", json={"ids": [tx["id"]], "reason": "duplicate"}
+    )
     assert res.status_code == 200
     assert tx["id"] in res.json()["skipped"]
 
@@ -71,7 +75,9 @@ async def test_reverse_already_reversed_409(client):
 @pytest.mark.asyncio
 async def test_reversed_rows_excluded_from_list(client):
     tx = await _make_tx(client)
-    res = await client.post("/transactions/reverse", json={"ids": [tx["id"]], "reason": "user_error"})
+    res = await client.post(
+        "/transactions/reverse", json={"ids": [tx["id"]], "reason": "user_error"}
+    )
     assert res.status_code == 200
     txs = (await client.get("/transactions")).json()
     assert tx["id"] not in [t["id"] for t in txs]
@@ -104,9 +110,7 @@ async def test_staged_patch_is_direct_no_reversal(client, db_session):
     res = await client.patch(f"/staged-transactions/{tx.id}", json={"amount": "250.00"})
     assert res.status_code == 200
 
-    result = await db_session.execute(
-        select(Transaction).where(Transaction.reversal_of == tx.id)
-    )
+    result = await db_session.execute(select(Transaction).where(Transaction.reversal_of == tx.id))
     assert result.scalar_one_or_none() is None
 
 

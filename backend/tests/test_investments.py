@@ -1,8 +1,10 @@
 """Tests for investment transactions and portfolio routes."""
 
+from datetime import date  # used for investment tx date
+
 import asyncpg
 import pytest
-from datetime import date  # used for investment tx date
+
 from tests.conftest import TEST_DB_RAW
 
 
@@ -32,7 +34,13 @@ async def _insert_investment_tx(
             """INSERT INTO investment_transactions
                (account_id, date, symbol, direction, shares, price_per_share, amount, currency)
                VALUES ($1, $2, $3, $4, $5, $6, $7, 'USD') RETURNING id""",
-            account_id, date(2025, 6, 15), symbol, direction, shares, price, amount,
+            account_id,
+            date(2025, 6, 15),
+            symbol,
+            direction,
+            shares,
+            price,
+            amount,
         )
         return row["id"]
     finally:
@@ -51,8 +59,14 @@ async def test_list_investment_transactions_empty(client):
 async def test_list_investment_transactions(client):
     acc_id = await _create_broker_account()
     await _insert_investment_tx(acc_id, symbol="AAPL", direction="buy")
-    await _insert_investment_tx(acc_id, symbol="MSFT", direction="buy",
-                                shares="5.000000", price="300.000000", amount="1500.00")
+    await _insert_investment_tx(
+        acc_id,
+        symbol="MSFT",
+        direction="buy",
+        shares="5.000000",
+        price="300.000000",
+        amount="1500.00",
+    )
 
     resp = await client.get(f"/accounts/{acc_id}/investment-transactions")
     assert resp.status_code == 200
@@ -110,6 +124,7 @@ async def test_portfolio_hides_closed_by_default(client):
 @pytest.mark.asyncio
 async def test_investment_parser_unit():
     from src.domain.services.investment_parser import parse_investment_rows
+
     text = "AAPL BUY 10 $182.50\nMSFT sell 5 $300.00"
     rows, errors = parse_investment_rows(text)
     assert len(rows) == 2

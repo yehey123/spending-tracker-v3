@@ -12,6 +12,4 @@ class InviteToken(Base):
     token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)  # SHA-256 hex
     email: Mapped[str] = mapped_column(String(255), nullable=False)
     expires_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), nullable=False)
-    consumed_at: Mapped[DateTime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    consumed_at: Mapped[DateTime | None] = mapped_column(DateTime(timezone=True), nullable=True)

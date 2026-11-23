@@ -2,6 +2,7 @@
 
 import asyncpg
 import pytest
+
 from tests.conftest import TEST_DB_RAW
 
 
@@ -10,7 +11,8 @@ async def _create_receipt_statement(declared_total: str | None = None) -> int:
     conn = await asyncpg.connect(TEST_DB_RAW)
     try:
         row = await conn.fetchrow(
-            """INSERT INTO statements (filename, type, status, ocr_provider, file_type, declared_total)
+            """INSERT INTO statements
+                 (filename, type, status, ocr_provider, file_type, declared_total)
                VALUES ($1, 'image', 'committed', 'tesseract', 'receipt', $2)
                RETURNING id""",
             "receipt.jpg",
@@ -21,13 +23,18 @@ async def _create_receipt_statement(declared_total: str | None = None) -> int:
         await conn.close()
 
 
-async def _create_active_tx(client, amount: str = "50.00", date: str = "2026-05-15T00:00:00") -> dict:
-    res = await client.post("/transactions", json={
-        "date": date,
-        "amount": amount,
-        "description": "Receipt match test",
-        "direction": "debit",
-    })
+async def _create_active_tx(
+    client, amount: str = "50.00", date: str = "2026-05-15T00:00:00"
+) -> dict:
+    res = await client.post(
+        "/transactions",
+        json={
+            "date": date,
+            "amount": amount,
+            "description": "Receipt match test",
+            "direction": "debit",
+        },
+    )
     assert res.status_code == 201, res.text
     return res.json()
 

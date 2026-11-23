@@ -55,7 +55,7 @@ Search note: no Philippine/Singapore/Malaysia receipt dataset found. No public U
 
 ### 7. DocILE
 - URLs: https://github.com/rossumai/docile ; https://docile.rossum.ai/
-- License: repo code "MIT license"; dataset: not stated, "for research purposes" via access request form. 
+- License: repo code "MIT license"; dataset: not stated, "for research purposes" via access request form.
 - Size: 106,680 docs (6,680 annotated, 100k synthetic, ~1M unlabeled). Type: invoices/orders. Image: UNKNOWN (PDFs).
 - GT: KILE + LIR fieldtypes; amounts/dates not explicitly listed on fetched pages.
 - Fit 2 (invoices, gated access).

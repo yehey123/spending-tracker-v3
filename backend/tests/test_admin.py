@@ -11,24 +11,23 @@ is_active check inside the real get_current_user dependency.
 
 import uuid
 from contextlib import asynccontextmanager
-
-import pytest
-import pytest_asyncio
-from httpx import AsyncClient, ASGITransport
-from sqlalchemy import select, text
 from unittest.mock import AsyncMock, patch
 
+import pytest
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy import select, text
+
 import tests.conftest as _conftest
-from src.core.auth import create_access_token, hash_password
+from src.core.auth import hash_password
 from src.core.bootstrap import BOOTSTRAP_KEY
 from src.core.deps import get_current_user
 from src.domain.models.user import SystemConfig, User
 from src.main import app
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 async def _create_user(email: str, *, is_admin: bool = False) -> User:
     """Insert a user into the test DB with admin RLS bypass."""
@@ -75,6 +74,7 @@ async def _as_non_admin(user: User):
 # List users
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_admin_list_users(client, test_user):
     """GET /admin/users returns the user list for an admin."""
@@ -100,25 +100,29 @@ async def test_non_admin_list_users_forbidden():
 # Deactivate / reactivate
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_admin_deactivate_user(client, db_session):
     """POST /admin/users/{id}/deactivate sets is_active=False and revokes sessions."""
-    from src.domain.models.user import RefreshToken
-    from src.core.auth import generate_refresh_token
     from datetime import datetime, timedelta, timezone
+
+    from src.core.auth import generate_refresh_token
+    from src.domain.models.user import RefreshToken
 
     target = await _create_user("deactivate_target@test.com")
 
     # Give target user an active refresh token
     opaque, token_hash = generate_refresh_token()
     now = datetime.now(tz=timezone.utc)
-    db_session.add(RefreshToken(
-        token_hash=token_hash,
-        user_id=target.id,
-        expires_at=now + timedelta(days=7),
-        absolute_expires_at=now + timedelta(days=30),
-        session_id=uuid.uuid4(),
-    ))
+    db_session.add(
+        RefreshToken(
+            token_hash=token_hash,
+            user_id=target.id,
+            expires_at=now + timedelta(days=7),
+            absolute_expires_at=now + timedelta(days=30),
+            session_id=uuid.uuid4(),
+        )
+    )
     await db_session.commit()
 
     res = await client.post(f"/admin/users/{target.id}/deactivate")
@@ -127,9 +131,7 @@ async def test_admin_deactivate_user(client, db_session):
     assert body["is_active"] is False
 
     # All refresh tokens for target must be deleted
-    result = await db_session.execute(
-        select(RefreshToken).where(RefreshToken.user_id == target.id)
-    )
+    result = await db_session.execute(select(RefreshToken).where(RefreshToken.user_id == target.id))
     assert result.scalars().all() == [], "deactivated user's refresh tokens must be purged"
 
 
@@ -195,6 +197,7 @@ async def test_deactivated_user_gets_403(test_user, test_user_token, db_session)
 # Resend invite
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_admin_resend_invite(client):
     """POST /admin/resend-invite/{id} issues a new invite token (email mocked)."""
@@ -219,6 +222,7 @@ async def test_admin_resend_invite(client):
 # ---------------------------------------------------------------------------
 # Bootstrap
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_bootstrap_already_bootstrapped_409(client, db_session):

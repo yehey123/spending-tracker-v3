@@ -10,20 +10,19 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 
 import pytest
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select, text
 
 import tests.conftest as _conftest
-from src.main import app
-from src.core.auth import create_access_token, hash_password
+from src.core.auth import hash_password
 from src.core.deps import get_current_user
-from src.db.session import get_db
 from src.domain.models.user import User
-
+from src.main import app
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 async def _create_user_b(email: str) -> User:
     """Insert a second user into the test DB using the shared admin session."""
@@ -64,6 +63,7 @@ async def _as_user(user_b: User):
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_user_b_cannot_patch_user_a_transaction(test_user: User):
@@ -160,15 +160,17 @@ async def test_list_transactions_excludes_other_users(test_user: User):
     async with _conftest._TestingSessionLocal() as db:
         await db.execute(text("SELECT set_config('app.is_admin', 'true', false)"))
         for owner, desc in [(test_user, "A's tx"), (user_b, "B's tx")]:
-            db.add(Transaction(
-                date=datetime(2026, 1, 1),
-                amount=10,
-                description=desc,
-                direction="debit",
-                status="active",
-                transaction_origin="manual",
-                user_id=owner.id,
-            ))
+            db.add(
+                Transaction(
+                    date=datetime(2026, 1, 1),
+                    amount=10,
+                    description=desc,
+                    direction="debit",
+                    status="active",
+                    transaction_origin="manual",
+                    user_id=owner.id,
+                )
+            )
         await db.commit()
 
     async with _as_user(user_b) as client:

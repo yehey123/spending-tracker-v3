@@ -10,35 +10,40 @@ logging.basicConfig(
     format="%(levelname)s [%(name)s] %(message)s",
 )
 
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+import src.domain.models  # noqa: F401 — registers all ORM models with SQLAlchemy
 from src.core.config import settings as app_settings
 from src.core.deps import get_current_user
 from src.core.middleware import UserContextMiddleware
 from src.db.session import engine
 from src.domain.services.category_seeder import seed_default_categories
 from src.domain.services.exchange_rate import exchange_rate_service
-import src.domain.models  # noqa: F401 — registers all ORM models with SQLAlchemy
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from src.tasks.ttl_cleanup import run_ttl_cleanup
 from src.tasks.monthly_rollover import run_monthly_rollover
+from src.tasks.ttl_cleanup import run_ttl_cleanup
 
 _scheduler = AsyncIOScheduler()
-_scheduler.add_job(run_ttl_cleanup, 'cron', hour=2)
+_scheduler.add_job(run_ttl_cleanup, "cron", hour=2)
+
+
 async def sync_models() -> None:
     """Refresh model lists for every installed provider plugin that exposes list_models."""
     from src.plugins.registry import sync_all_models
+
     await sync_all_models()
 
 
 _scheduler.add_job(
     lambda: asyncio.ensure_future(sync_models()),
-    'cron', hour=3, minute=0,
+    "cron",
+    hour=3,
+    minute=0,
 )
 _scheduler.add_job(
     lambda: asyncio.ensure_future(run_monthly_rollover()),
-    'cron',
+    "cron",
     day=1,
     hour=0,
     minute=5,
@@ -47,8 +52,9 @@ _scheduler.add_job(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    from src.db.session import get_admin_db
     from src.core.bootstrap import run_admin_bootstrap
+    from src.db.session import get_admin_db
+
     async with get_admin_db() as db:
         await seed_default_categories(db)
         await run_admin_bootstrap(db)
@@ -82,22 +88,26 @@ app.add_middleware(UserContextMiddleware)
 
 from src.api.routes import (  # noqa: E402
     accounts,
-    admin as admin_router,
     analytics,
-    auth as auth_router,
     categories,
     credits,
     exchange_rates,
     flags,
     health,
-    invite,
     investment_transactions,
+    invite,
     portfolio,
     receipts,
     settings,
     staged_transactions,
     statements,
     transactions,
+)
+from src.api.routes import (
+    admin as admin_router,
+)
+from src.api.routes import (
+    auth as auth_router,
 )
 
 app.include_router(health.router)
@@ -109,13 +119,22 @@ app.include_router(
     accounts.router, prefix="/accounts", tags=["accounts"], dependencies=[Depends(get_current_user)]
 )
 app.include_router(
-    categories.router, prefix="/categories", tags=["categories"], dependencies=[Depends(get_current_user)]
+    categories.router,
+    prefix="/categories",
+    tags=["categories"],
+    dependencies=[Depends(get_current_user)],
 )
 app.include_router(
-    statements.router, prefix="/statements", tags=["statements"], dependencies=[Depends(get_current_user)]
+    statements.router,
+    prefix="/statements",
+    tags=["statements"],
+    dependencies=[Depends(get_current_user)],
 )
 app.include_router(
-    transactions.router, prefix="/transactions", tags=["transactions"], dependencies=[Depends(get_current_user)]
+    transactions.router,
+    prefix="/transactions",
+    tags=["transactions"],
+    dependencies=[Depends(get_current_user)],
 )
 app.include_router(
     staged_transactions.router,
@@ -124,7 +143,10 @@ app.include_router(
     dependencies=[Depends(get_current_user)],
 )
 app.include_router(
-    analytics.router, prefix="/analytics", tags=["analytics"], dependencies=[Depends(get_current_user)]
+    analytics.router,
+    prefix="/analytics",
+    tags=["analytics"],
+    dependencies=[Depends(get_current_user)],
 )
 app.include_router(
     settings.router, prefix="/settings", tags=["settings"], dependencies=[Depends(get_current_user)]
@@ -159,5 +181,6 @@ app.include_router(
     tags=["credits"],
     dependencies=[Depends(get_current_user)],
 )
-# E17: admin — /admin/bootstrap is public; all other /admin/* require require_admin dep on each handler
+# E17: admin — /admin/bootstrap is public; all other /admin/* require
+# require_admin dep on each handler
 app.include_router(admin_router.router)

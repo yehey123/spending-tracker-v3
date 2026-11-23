@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Numeric, String, TIMESTAMP
+from sqlalchemy import TIMESTAMP, DateTime, Enum, ForeignKey, Numeric, String
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -34,42 +34,46 @@ class Transaction(Base):
 
     # Added in migration 0006
     status: Mapped[str] = mapped_column(String(20), nullable=False, server_default="active")
-    transaction_origin: Mapped[str] = mapped_column(String(20), nullable=False,
-                                                     server_default="uploaded")
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False,
-                                                  server_default="NOW()")
-    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False,
-                                                  server_default="NOW()")
+    transaction_origin: Mapped[str] = mapped_column(
+        String(20), nullable=False, server_default="uploaded"
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, server_default="NOW()"
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, server_default="NOW()"
+    )
 
     parent_transaction_id: Mapped[int | None] = mapped_column(
-        ForeignKey("transactions.id", ondelete="SET NULL"), nullable=True)
-    reversal_of: Mapped[int | None] = mapped_column(
-        ForeignKey("transactions.id"), nullable=True)
+        ForeignKey("transactions.id", ondelete="SET NULL"), nullable=True
+    )
+    reversal_of: Mapped[int | None] = mapped_column(ForeignKey("transactions.id"), nullable=True)
     reversal_reason: Mapped[str | None] = mapped_column(String(200), nullable=True)
-    reversed_by: Mapped[int | None] = mapped_column(
-        ForeignKey("transactions.id"), nullable=True)
-    correction_of: Mapped[int | None] = mapped_column(
-        ForeignKey("transactions.id"), nullable=True)
-    corrected_by: Mapped[int | None] = mapped_column(
-        ForeignKey("transactions.id"), nullable=True)
+    reversed_by: Mapped[int | None] = mapped_column(ForeignKey("transactions.id"), nullable=True)
+    correction_of: Mapped[int | None] = mapped_column(ForeignKey("transactions.id"), nullable=True)
+    corrected_by: Mapped[int | None] = mapped_column(ForeignKey("transactions.id"), nullable=True)
 
     # Added in migration 0001
     account_id: Mapped[int | None] = mapped_column(
-        ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True)
+        ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True
+    )
     transfer_peer_id: Mapped[int | None] = mapped_column(
-        ForeignKey("transactions.id"), nullable=True)
+        ForeignKey("transactions.id"), nullable=True
+    )
     transfer_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
     duplicate_status: Mapped[str | None] = mapped_column(String(30), nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
 
     # Added in migration 0010 (E13 multitenancy)
     user_id: Mapped[uuid.UUID | None] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=True)
+        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=True
+    )
 
     category: Mapped["Category | None"] = relationship(back_populates="transactions")
     statement: Mapped["Statement | None"] = relationship(back_populates="transactions")
-    flags: Mapped[list["TransactionFlag"]] = relationship(back_populates="transaction",
-                                                           cascade="all, delete-orphan")
+    flags: Mapped[list["TransactionFlag"]] = relationship(
+        back_populates="transaction", cascade="all, delete-orphan"
+    )
     audit_entries: Mapped[list["AuditLog"]] = relationship(back_populates="transaction")
 
     # Receipt decomposition: parent/children via parent_transaction_id
@@ -85,4 +89,5 @@ class Transaction(Base):
         remote_side=[id],
     )
     account: Mapped["Account | None"] = relationship(
-        "Account", back_populates="transactions", foreign_keys=[account_id])
+        "Account", back_populates="transactions", foreign_keys=[account_id]
+    )

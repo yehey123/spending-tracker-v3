@@ -1,7 +1,6 @@
 """Tesseract line rebuild from word boxes on a skewed photo-like image."""
 
 import asyncio
-import re
 from decimal import Decimal
 
 from PIL import Image, ImageDraw, ImageFont
@@ -27,9 +26,7 @@ def _skewed_statement() -> Image.Image:
 
 def _rows_intact(text: str) -> bool:
     lines = text.splitlines()
-    return all(
-        any(date in ln and amt in ln for ln in lines) for date, _, amt in ROWS
-    )
+    return all(any(date in ln and amt in ln for ln in lines) for date, _, amt in ROWS)
 
 
 def test_rebuilt_lines_keep_date_and_amount_together():
@@ -51,18 +48,29 @@ def _fake_data(words: list[tuple[str, int, int, int]]) -> dict:
 
 def test_table_columns_keep_debit_credit_apart():
     words = [
-        ("Txn", 10, 10, 30), ("Date", 45, 10, 40), ("Description", 200, 10, 100),
-        ("Debit", 500, 10, 50), ("Credit", 600, 10, 50), ("Balance", 700, 10, 60),
+        ("Txn", 10, 10, 30),
+        ("Date", 45, 10, 40),
+        ("Description", 200, 10, 100),
+        ("Debit", 500, 10, 50),
+        ("Credit", 600, 10, 50),
+        ("Balance", 700, 10, 60),
         # debit row: amount under Debit, balance under Balance, Credit empty
-        ("08-01-2024", 10, 60, 90), ("UPI/DR/728341737715/PAYEL", 200, 60, 100),
-        ("Rs.", 490, 60, 25), ("513.47", 520, 60, 60),
-        ("Rs.", 700, 60, 25), ("18,916.03", 730, 60, 80),
+        ("08-01-2024", 10, 60, 90),
+        ("UPI/DR/728341737715/PAYEL", 200, 60, 100),
+        ("Rs.", 490, 60, 25),
+        ("513.47", 520, 60, 60),
+        ("Rs.", 700, 60, 25),
+        ("18,916.03", 730, 60, 80),
         # continuation line (no date) must not make a row
-        ("14:52:45", 200, 90, 70), ("BHATTACHARYA/", 280, 90, 100),
+        ("14:52:45", 200, 90, 70),
+        ("BHATTACHARYA/", 280, 90, 100),
         # credit row: amount under Credit
-        ("09-01-2024", 10, 120, 90), ("NEFT", 200, 120, 40),
-        ("Rs.", 580, 120, 25), ("7,675.95", 610, 120, 50),
-        ("Rs.", 700, 120, 25), ("24,304.46", 730, 120, 80),
+        ("09-01-2024", 10, 120, 90),
+        ("NEFT", 200, 120, 40),
+        ("Rs.", 580, 120, 25),
+        ("7,675.95", 610, 120, 50),
+        ("Rs.", 700, 120, 25),
+        ("24,304.46", 730, 120, 80),
     ]
     text = words_to_lines(_fake_data(words))
     txs = parse_statement(text)
@@ -73,18 +81,32 @@ def test_table_columns_keep_debit_credit_apart():
 
 
 def test_header_carries_to_later_pages_of_same_document():
-    page1 = _fake_data([
-        ("Txn", 10, 10, 30), ("Date", 45, 10, 40), ("Description", 200, 10, 100),
-        ("Debit", 500, 10, 50), ("Credit", 600, 10, 50), ("Balance", 700, 10, 60),
-        ("08-01-2024", 10, 60, 90), ("NEFT", 200, 60, 40),
-        ("Rs.", 580, 60, 25), ("7,675.95", 610, 60, 50),
-        ("Rs.", 700, 60, 25), ("24,304.46", 730, 60, 80),
-    ])
-    page2 = _fake_data([  # no header row on this page
-        ("09-01-2024", 10, 60, 90), ("UPI", 200, 60, 40),
-        ("Rs.", 490, 60, 25), ("513.47", 520, 60, 60),
-        ("Rs.", 700, 60, 25), ("18,916.03", 730, 60, 80),
-    ])
+    page1 = _fake_data(
+        [
+            ("Txn", 10, 10, 30),
+            ("Date", 45, 10, 40),
+            ("Description", 200, 10, 100),
+            ("Debit", 500, 10, 50),
+            ("Credit", 600, 10, 50),
+            ("Balance", 700, 10, 60),
+            ("08-01-2024", 10, 60, 90),
+            ("NEFT", 200, 60, 40),
+            ("Rs.", 580, 60, 25),
+            ("7,675.95", 610, 60, 50),
+            ("Rs.", 700, 60, 25),
+            ("24,304.46", 730, 60, 80),
+        ]
+    )
+    page2 = _fake_data(
+        [  # no header row on this page
+            ("09-01-2024", 10, 60, 90),
+            ("UPI", 200, 60, 40),
+            ("Rs.", 490, 60, 25),
+            ("513.47", 520, 60, 60),
+            ("Rs.", 700, 60, 25),
+            ("18,916.03", 730, 60, 80),
+        ]
+    )
 
     async def run():
         p = TesseractProvider()
@@ -100,11 +122,19 @@ def test_header_carries_to_later_pages_of_same_document():
 
 def test_grid_line_pipes_are_not_words():
     words = [
-        ("Txn", 10, 10, 30), ("Date", 45, 10, 40), ("Description", 200, 10, 100),
-        ("Debit", 500, 10, 50), ("Credit", 600, 10, 50), ("Balance", 700, 10, 60),
-        ("08-01-2024", 10, 60, 90), ("|", 150, 60, 5), ("UPI", 200, 60, 40),
-        ("|", 480, 60, 5), ("513.47|", 520, 60, 60),
-        ("|", 690, 60, 5), ("18,916.03", 730, 60, 80),
+        ("Txn", 10, 10, 30),
+        ("Date", 45, 10, 40),
+        ("Description", 200, 10, 100),
+        ("Debit", 500, 10, 50),
+        ("Credit", 600, 10, 50),
+        ("Balance", 700, 10, 60),
+        ("08-01-2024", 10, 60, 90),
+        ("|", 150, 60, 5),
+        ("UPI", 200, 60, 40),
+        ("|", 480, 60, 5),
+        ("513.47|", 520, 60, 60),
+        ("|", 690, 60, 5),
+        ("18,916.03", 730, 60, 80),
     ]
     text = words_to_lines(_fake_data(words))
     row = text.splitlines()[1]

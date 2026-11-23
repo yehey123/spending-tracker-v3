@@ -58,10 +58,13 @@ async def test_put_unknown_provider_without_plugin_422(client):
 @pytest.mark.asyncio
 async def test_put_provider_with_plugin_accepted_and_listed(client, monkeypatch):
     _install_fake_ai(monkeypatch)
-    res = await client.put("/settings", json={
-        "ocr_provider": "anthropic",
-        "anthropic_api_key": "sk-ant-test123",
-    })
+    res = await client.put(
+        "/settings",
+        json={
+            "ocr_provider": "anthropic",
+            "anthropic_api_key": "sk-ant-test123",
+        },
+    )
     assert res.status_code == 200
     data = res.json()
     assert data["ocr_provider"] == "anthropic"
@@ -83,9 +86,13 @@ async def test_put_provider_without_key_fails(client, monkeypatch):
 @pytest.mark.asyncio
 async def test_provider_installed_false_when_plugin_removed(client, monkeypatch):
     _install_fake_ai(monkeypatch)
-    await client.put("/settings", json={
-        "ocr_provider": "anthropic", "anthropic_api_key": "sk-ant-x",
-    })
+    await client.put(
+        "/settings",
+        json={
+            "ocr_provider": "anthropic",
+            "anthropic_api_key": "sk-ant-x",
+        },
+    )
     registry.reset_cache()
     monkeypatch.undo()
     data = (await client.get("/settings")).json()
@@ -103,9 +110,12 @@ async def test_models_empty_without_plugins(client):
 @pytest.mark.asyncio
 async def test_key_not_returned_in_get(client, monkeypatch):
     _install_fake_ai(monkeypatch)
-    await client.put("/settings", json={
-        "ocr_provider": "anthropic",
-        "anthropic_api_key": "sk-ant-secret",
-    })
+    await client.put(
+        "/settings",
+        json={
+            "ocr_provider": "anthropic",
+            "anthropic_api_key": "sk-ant-secret",
+        },
+    )
     res = await client.get("/settings")
     assert "sk-ant-secret" not in res.text

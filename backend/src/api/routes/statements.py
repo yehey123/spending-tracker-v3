@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -15,8 +16,8 @@ from src.db.session import get_db
 from src.domain.models.statement import Statement
 from src.domain.models.transaction import Transaction
 from src.domain.models.user import User
-import logging
-logger = logging.getLogger('statements')
+
+logger = logging.getLogger("statements")
 
 router = APIRouter()
 
@@ -99,14 +100,15 @@ async def upload_statement(
         statement_kind=statement_kind,
         user_id=current_user.id,
     )
-    if type == 'receipt':
-        statement.file_type = 'receipt'
+    if type == "receipt":
+        statement.file_type = "receipt"
     db.add(statement)
     await db.commit()
     await db.refresh(statement)
 
     try:
         from src.domain.services.statement_pipeline import statement_pipeline
+
         transactions, account_created = await statement_pipeline.run(
             statement, content, content_type, db, account_id=account_id, user_id=current_user.id
         )
@@ -121,8 +123,12 @@ async def upload_statement(
         await db.commit()
         raise HTTPException(status_code=500, detail=f"Pipeline error: {e}") from e
 
-    status_str = str(statement.status.value) if hasattr(statement.status, "value") else str(statement.status)
-    type_str = str(statement.type.value) if hasattr(statement.type, "value") else str(statement.type)
+    status_str = (
+        str(statement.status.value) if hasattr(statement.status, "value") else str(statement.status)
+    )
+    type_str = (
+        str(statement.type.value) if hasattr(statement.type, "value") else str(statement.type)
+    )
     return StatementOut(
         id=statement.id,
         filename=statement.filename,
@@ -195,21 +201,24 @@ async def get_staged_transactions(
 
     result = await db.execute(
         select(Transaction)
-        .where(Transaction.statement_id == statement_id, Transaction.status == 'staged')
+        .where(Transaction.statement_id == statement_id, Transaction.status == "staged")
         .order_by(Transaction.date.asc())
     )
     transactions = result.scalars().all()
 
     # Compute extracted total (sum of debit staged transactions)
-    debit_total = sum(tx.amount for tx in transactions if tx.direction in ('debit', 'DEBIT'))
+    debit_total = sum(tx.amount for tx in transactions if tx.direction in ("debit", "DEBIT"))
     debit_total_str = str(debit_total)
 
     return {
         "statement_id": statement_id,
         "declared_total": str(stmt.declared_total) if stmt.declared_total else None,
         "extracted_total": debit_total_str,
-        "total_match": stmt.declared_total is not None and abs(stmt.declared_total - debit_total) < 1,
-        "extracted_opening_balance": str(stmt.extracted_opening_balance) if stmt.extracted_opening_balance is not None else None,
+        "total_match": stmt.declared_total is not None
+        and abs(stmt.declared_total - debit_total) < 1,
+        "extracted_opening_balance": str(stmt.extracted_opening_balance)
+        if stmt.extracted_opening_balance is not None
+        else None,
         "account_id": stmt.account_id,
         "transactions": [
             {
@@ -244,22 +253,23 @@ async def commit_statement(
     stmt = result.scalar_one_or_none()
     if stmt is None:
         raise HTTPException(status_code=404, detail="Statement not found.")
-    status_val = stmt.status.value if hasattr(stmt.status, 'value') else stmt.status
-    if status_val != 'staged':
+    status_val = stmt.status.value if hasattr(stmt.status, "value") else stmt.status
+    if status_val != "staged":
         raise HTTPException(status_code=409, detail="Statement is not in staged state")
 
     if body.opening_balance is not None and stmt.account_id is not None:
         from src.domain.models.account import Account
+
         account = await db.get(Account, stmt.account_id)
         if account:
             account.opening_balance = body.opening_balance
 
     await db.execute(
         update(Transaction)
-        .where(Transaction.statement_id == statement_id, Transaction.status == 'staged')
-        .values(status='active')
+        .where(Transaction.statement_id == statement_id, Transaction.status == "staged")
+        .values(status="active")
     )
-    stmt.status = 'committed'
+    stmt.status = "committed"
     await db.commit()
     return {"committed": statement_id}
 
@@ -277,15 +287,16 @@ async def discard_statement(
     stmt = result.scalar_one_or_none()
     if stmt is None:
         raise HTTPException(status_code=404, detail="Statement not found.")
-    status_val = stmt.status.value if hasattr(stmt.status, 'value') else stmt.status
-    if status_val != 'staged':
+    status_val = stmt.status.value if hasattr(stmt.status, "value") else stmt.status
+    if status_val != "staged":
         raise HTTPException(status_code=409, detail="Statement is not in staged state")
 
     await db.execute(
-        delete(Transaction)
-        .where(Transaction.statement_id == statement_id, Transaction.status == 'staged')
+        delete(Transaction).where(
+            Transaction.statement_id == statement_id, Transaction.status == "staged"
+        )
     )
-    stmt.status = 'discarded'
+    stmt.status = "discarded"
     await db.commit()
     return {"discarded": statement_id}
 
@@ -303,19 +314,22 @@ async def flip_statement_directions(
     stmt = result.scalar_one_or_none()
     if stmt is None:
         raise HTTPException(status_code=404, detail="Statement not found.")
-    status_val = stmt.status.value if hasattr(stmt.status, 'value') else stmt.status
-    if status_val != 'staged':
+    status_val = stmt.status.value if hasattr(stmt.status, "value") else stmt.status
+    if status_val != "staged":
         raise HTTPException(status_code=409, detail="Statement is not in staged state")
 
     from sqlalchemy import Enum, case, cast, literal
+
     _dir_enum = Enum("debit", "credit", name="transaction_direction")
     result = await db.execute(
         update(Transaction)
-        .where(Transaction.statement_id == statement_id, Transaction.status == 'staged')
-        .values(direction=case(
-            (Transaction.direction == 'debit', cast(literal('credit'), _dir_enum)),
-            else_=cast(literal('debit'), _dir_enum),
-        ))
+        .where(Transaction.statement_id == statement_id, Transaction.status == "staged")
+        .values(
+            direction=case(
+                (Transaction.direction == "debit", cast(literal("credit"), _dir_enum)),
+                else_=cast(literal("debit"), _dir_enum),
+            )
+        )
         .returning(Transaction.id)
     )
     flipped = len(result.all())

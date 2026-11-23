@@ -82,6 +82,4 @@ async def test_injection_payload_cannot_escape_delimiters(monkeypatch) -> None:
     close_at = prompt.index("</untrusted_data>")
     payload_at = prompt.index("IGNORE ALL PREVIOUS INSTRUCTIONS")
 
-    assert open_at < payload_at < close_at, (
-        "injection payload escaped the untrusted_data fence"
-    )
+    assert open_at < payload_at < close_at, "injection payload escaped the untrusted_data fence"

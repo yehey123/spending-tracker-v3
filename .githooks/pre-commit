@@ -2,6 +2,13 @@
 # Lint staged files only. Install via scripts/install-hooks.sh.
 root=$(git rev-parse --show-toplevel) || exit 1
 cd "$root" || exit 1
+
+# Preferred: the pre-commit framework (full hook set) when installed and configured.
+if command -v pre-commit >/dev/null 2>&1 && [ -f .pre-commit-config.yaml ]; then
+  exec pre-commit run --hook-stage pre-commit
+fi
+
+# Fallback: built-in eslint/ruff checks below.
 status=0
 
 # Frontend: eslint on staged ts/tsx/js/jsx

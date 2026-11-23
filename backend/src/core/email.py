@@ -31,9 +31,7 @@ def _hmac_key() -> bytes:
     """
     raw = settings.admin_link_secret
     if not raw:
-        raise RuntimeError(
-            "HMAC key is not configured. Set ADMIN_LINK_SECRET in the environment."
-        )
+        raise RuntimeError("HMAC key is not configured. Set ADMIN_LINK_SECRET in the environment.")
     return raw.encode()
 
 
@@ -64,6 +62,7 @@ def verify_admin_link(action: str, request_id: str, exp: int, sig: str) -> bool:
 # Token helpers
 # ---------------------------------------------------------------------------
 
+
 def generate_invite_token() -> tuple[str, str]:
     """Return (raw_token, sha256_hash).
 
@@ -83,6 +82,7 @@ def invite_expires_at() -> datetime:
 # SMTP send
 # ---------------------------------------------------------------------------
 
+
 async def _send(subject: str, to: str, plain: str, html: str) -> None:
     """Send a single email via Gmail SMTP (STARTTLS on port 587).
 
@@ -91,6 +91,7 @@ async def _send(subject: str, to: str, plain: str, html: str) -> None:
     """
     if not settings.smtp_user:
         import sys
+
         print(
             f"\n[EMAIL] To: {to}\nSubject: {subject}\n{plain}",
             file=sys.stdout,
@@ -118,6 +119,7 @@ async def _send(subject: str, to: str, plain: str, html: str) -> None:
 # ---------------------------------------------------------------------------
 # Operator notification email (sent after POST /request-access)
 # ---------------------------------------------------------------------------
+
 
 def _operator_notification_plain(
     request_id: str,
@@ -197,12 +199,8 @@ async def send_operator_request_email(
     approve_url = f"{base_url}/admin/approve/{request_id}?exp={exp}&sig={approve_sig}"
     deny_url = f"{base_url}/admin/deny/{request_id}?exp={exp}&sig={deny_sig}"
 
-    plain = _operator_notification_plain(
-        request_id, applicant_email, reason, approve_url, deny_url
-    )
-    html = _operator_notification_html(
-        request_id, applicant_email, reason, approve_url, deny_url
-    )
+    plain = _operator_notification_plain(request_id, applicant_email, reason, approve_url, deny_url)
+    html = _operator_notification_html(request_id, applicant_email, reason, approve_url, deny_url)
     await _send(
         subject=f"[Spending Tracker] Access request from {applicant_email}",
         to=operator_email,
@@ -214,6 +212,7 @@ async def send_operator_request_email(
 # ---------------------------------------------------------------------------
 # Invite email (sent to applicant after operator approves)
 # ---------------------------------------------------------------------------
+
 
 def _invite_plain(invite_url: str, expires_at: datetime) -> str:
     expires_str = expires_at.strftime("%Y-%m-%d %H:%M UTC")

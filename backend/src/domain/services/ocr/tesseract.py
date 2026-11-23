@@ -21,7 +21,7 @@ def _words(data: dict) -> list[dict]:
         text = (text or "").strip().strip("|").strip()  # table grid lines read as "|"
         try:
             conf = float(data["conf"][i])
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             continue
         # A date-shaped token is kept at low confidence: dropping it loses the whole row.
         if not text or (conf < _MIN_CONF and not _DATE_LIKE_RE.match(text)):
@@ -78,7 +78,9 @@ def words_to_lines(data: dict, carry: dict | None = None) -> str:
         else:
             lines.append([w])
             ys.append(w["ry"])
-    return "\n".join(_render_lines([sorted(line, key=lambda w: w["x"]) for line in lines], med_h, carry))
+    return "\n".join(
+        _render_lines([sorted(line, key=lambda w: w["x"]) for line in lines], med_h, carry)
+    )
 
 
 def _cells(line: list[dict], gap: float) -> list[dict]:
@@ -93,9 +95,7 @@ def _cells(line: list[dict], gap: float) -> list[dict]:
     return cells
 
 
-def _render_lines(
-    lines: list[list[dict]], med_h: float, carry: dict | None = None
-) -> list[str]:
+def _render_lines(lines: list[list[dict]], med_h: float, carry: dict | None = None) -> list[str]:
     """Join words with spaces; once a table header row is found, emit pipe-delimited rows
     aligned to the header columns (empty cells kept) so Debit/Credit/Balance stay apart."""
     gap = 1.5 * med_h
@@ -110,7 +110,8 @@ def _render_lines(
         if header is None:
             out.append(" ".join(w["text"] for w in line))
             continue
-        # Zone i spans from the midpoint with the previous header cell to the midpoint with the next.
+        # Zone i spans from the midpoint with the previous header cell
+        # to the midpoint with the next.
         edges = [(header[i]["x1"] + header[i + 1]["x0"]) / 2 for i in range(len(header) - 1)]
         bounds = [-1e12, *edges, 1e12]
         row = [""] * len(header)

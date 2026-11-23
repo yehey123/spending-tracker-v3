@@ -33,9 +33,7 @@ _OVERSIZE_DETAIL = "File exceeds 20 MB limit."
         ("image/png", "fake.png", b"<?php system($_GET[0]); ?>"),
     ],
 )
-async def test_declared_type_must_match_magic_bytes(
-    client, declared_type, filename, body
-) -> None:
+async def test_declared_type_must_match_magic_bytes(client, declared_type, filename, body) -> None:
     """C1/C2 — the Content-Type header alone is no longer sufficient."""
     res = await client.post(
         "/statements/upload",

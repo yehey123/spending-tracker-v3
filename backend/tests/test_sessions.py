@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 import pytest
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 
 from src.core.auth import create_access_token, generate_refresh_token, hash_refresh_token
@@ -27,14 +27,16 @@ async def _insert_rt(
     opaque, token_hash = generate_refresh_token()
     now = datetime.now(tz=timezone.utc)
     sid = session_id or uuid.uuid4()
-    db_session.add(RefreshToken(
-        token_hash=token_hash,
-        user_id=user_id,
-        expires_at=now + timedelta(days=7),
-        absolute_expires_at=now + timedelta(days=30),
-        session_id=sid,
-        device_name="test-device",
-    ))
+    db_session.add(
+        RefreshToken(
+            token_hash=token_hash,
+            user_id=user_id,
+            expires_at=now + timedelta(days=7),
+            absolute_expires_at=now + timedelta(days=30),
+            session_id=sid,
+            device_name="test-device",
+        )
+    )
     await db_session.commit()
     return opaque, sid
 
@@ -92,9 +94,7 @@ async def test_revoke_session_deletes_tokens(test_user, test_user_token, db_sess
 
     assert res.status_code == 204
 
-    result = await db_session.execute(
-        select(RefreshToken).where(RefreshToken.session_id == sid)
-    )
+    result = await db_session.execute(select(RefreshToken).where(RefreshToken.session_id == sid))
     assert result.scalars().all() == [], "revoked session tokens must be deleted"
 
 

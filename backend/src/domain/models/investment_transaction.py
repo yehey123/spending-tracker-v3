@@ -12,9 +12,11 @@ class InvestmentTransaction(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     account_id: Mapped[int] = mapped_column(
-        ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False)
+        ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False
+    )
     statement_id: Mapped[int | None] = mapped_column(
-        ForeignKey("statements.id", ondelete="SET NULL"), nullable=True)
+        ForeignKey("statements.id", ondelete="SET NULL"), nullable=True
+    )
     date: Mapped[date_type] = mapped_column(Date, nullable=False)
     symbol: Mapped[str] = mapped_column(String(20), nullable=False)
     shares: Mapped[Decimal] = mapped_column(Numeric(18, 6), nullable=False)

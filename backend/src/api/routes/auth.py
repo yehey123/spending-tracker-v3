@@ -35,6 +35,7 @@ GOOGLE_DISCOVERY_URL = "https://accounts.google.com/.well-known/openid-configura
 
 # ── Schemas ─────────────────────────────────────────────────────────────────
 
+
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
@@ -64,6 +65,7 @@ class SessionOut(BaseModel):
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
+
 
 def _refresh_cookie_kwargs() -> dict:
     return dict(
@@ -107,14 +109,16 @@ async def _issue_tokens(
     now = datetime.now(tz=timezone.utc)
     expires_at = now + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
     absolute_expires_at = now + timedelta(days=REFRESH_TOKEN_ABSOLUTE_DAYS)
-    db.add(RefreshToken(
-        token_hash=token_hash,
-        user_id=user.id,
-        expires_at=expires_at,
-        absolute_expires_at=absolute_expires_at,
-        session_id=session_id,
-        device_name=device[:100] if device else None,
-    ))
+    db.add(
+        RefreshToken(
+            token_hash=token_hash,
+            user_id=user.id,
+            expires_at=expires_at,
+            absolute_expires_at=absolute_expires_at,
+            session_id=session_id,
+            device_name=device[:100] if device else None,
+        )
+    )
     await db.commit()
     response.set_cookie(value=opaque, **_refresh_cookie_kwargs())
     response.set_cookie(value=access_token, **_access_cookie_kwargs())
@@ -151,6 +155,7 @@ async def _consume_invite_token(raw_token: str, db: AsyncSession) -> None:
 
 
 # ── Routes ───────────────────────────────────────────────────────────────────
+
 
 @router.post("/register", response_model=TokenResponse, status_code=201)
 async def register(
@@ -207,9 +212,7 @@ async def refresh_token(
     now = datetime.now(tz=timezone.utc)
 
     result = await db.execute(
-        select(RefreshToken)
-        .where(RefreshToken.token_hash == token_hash)
-        .with_for_update()
+        select(RefreshToken).where(RefreshToken.token_hash == token_hash).with_for_update()
     )
     rt = result.scalar_one_or_none()
 
@@ -259,6 +262,7 @@ async def refresh_token(
 @router.get("/google")
 async def google_login() -> dict:
     import httpx as _httpx
+
     async with _httpx.AsyncClient() as hc:
         discovery = (await hc.get(GOOGLE_DISCOVERY_URL)).json()
     async with make_google_client() as client:
@@ -314,9 +318,7 @@ async def logout(
         token_hash = hash_refresh_token(opaque)
         now = datetime.now(tz=timezone.utc)
         await db.execute(
-            update(RefreshToken)
-            .where(RefreshToken.token_hash == token_hash)
-            .values(rotated_at=now)
+            update(RefreshToken).where(RefreshToken.token_hash == token_hash).values(rotated_at=now)
         )
         await db.commit()
     response.delete_cookie(key="refresh_token", path="/auth")
@@ -334,7 +336,7 @@ async def list_sessions(
     auth_header = request.headers.get("authorization", "")
     if auth_header.lower().startswith("bearer "):
         try:
-            payload = decode_jwt(auth_header[len("Bearer "):])
+            payload = decode_jwt(auth_header[len("Bearer ") :])
             sid_str = payload.get("sid")
             if sid_str:
                 current_sid = uuid.UUID(sid_str)

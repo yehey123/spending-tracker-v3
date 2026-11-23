@@ -24,6 +24,7 @@ ALGORITHM = "HS256"
 
 # ── Password helpers ────────────────────────────────────────────────────────
 
+
 def hash_password(plain: str) -> str:
     return bcrypt.hashpw(plain.encode(), bcrypt.gensalt()).decode()
 
@@ -33,6 +34,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 
 # ── JWT helpers ─────────────────────────────────────────────────────────────
+
 
 def create_access_token(
     user_id: str | UUID,
@@ -73,6 +75,7 @@ def decode_access_token(token: str) -> str:
 
 # ── Refresh token helpers ───────────────────────────────────────────────────
 
+
 def generate_refresh_token() -> tuple[str, str]:
     """Return (opaque_token, sha256_hex_hash).
 
@@ -89,6 +92,7 @@ def hash_refresh_token(opaque: str) -> str:
 
 # ── FastAPI dependency ──────────────────────────────────────────────────────
 
+
 async def require_user(
     request: Request,
     authorization: str | None = Header(default=None, alias="Authorization"),
@@ -100,7 +104,7 @@ async def require_user(
     send Authorization: Bearer. Accept both.
     """
     if authorization and authorization.lower().startswith("bearer "):
-        token = authorization[len("Bearer "):]
+        token = authorization[len("Bearer ") :]
     else:
         token = request.cookies.get("access_token")
     if not token:

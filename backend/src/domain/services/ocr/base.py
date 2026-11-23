@@ -15,9 +15,7 @@ class OCRProvider(ABC):
         """Extract raw text from a preprocessed image."""
         ...
 
-    async def extract_with_categories(
-        self, image: Image.Image, categories: list[dict]
-    ) -> str:
+    async def extract_with_categories(self, image: Image.Image, categories: list[dict]) -> str:
         """Extract text and optionally embed category names in output.
 
         AI providers override this; non-AI providers fall back to extract_text.

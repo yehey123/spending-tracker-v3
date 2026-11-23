@@ -1,5 +1,5 @@
-import pytest
 from decimal import Decimal
+
 from src.domain.services.statement_parser import parse_statement
 
 

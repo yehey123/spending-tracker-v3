@@ -5,11 +5,13 @@ Revises:
 Create Date: 2026-07-19
 
 """
+
 from typing import Sequence, Union
 
 import sqlalchemy as sa
-from alembic import op
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 revision: str = "0001"
 down_revision: Union[str, None] = None
@@ -32,8 +34,10 @@ def upgrade() -> None:
         sa.Column("slug", sa.String(100), nullable=True),
         sa.Column("is_system", sa.Boolean(), nullable=False, server_default="false"),
         sa.ForeignKeyConstraint(
-            ["parent_id"], ["categories.id"],
-            name="categories_parent_id_fkey", ondelete="RESTRICT",
+            ["parent_id"],
+            ["categories.id"],
+            name="categories_parent_id_fkey",
+            ondelete="RESTRICT",
         ),
         sa.PrimaryKeyConstraint("id"),
     )
@@ -50,7 +54,9 @@ def upgrade() -> None:
         sa.Column("home_currency", sa.String(3), nullable=True),
         sa.Column("review_before_commit", sa.Boolean(), nullable=False, server_default="true"),
         sa.Column("ai_category_confidence_auto", sa.Float(), nullable=False, server_default="0.85"),
-        sa.Column("ai_category_confidence_suggest", sa.Float(), nullable=False, server_default="0.50"),
+        sa.Column(
+            "ai_category_confidence_suggest", sa.Float(), nullable=False, server_default="0.50"
+        ),
         sa.PrimaryKeyConstraint("id"),
     )
 
@@ -83,9 +89,18 @@ def upgrade() -> None:
         sa.Column(
             "status",
             sa.Enum(
-                "processing", "done", "failed", "pending", "ocr_failed",
-                "parse_failed", "pending_categorization", "staged", "committed",
-                "discarded", "expired", "error",
+                "processing",
+                "done",
+                "failed",
+                "pending",
+                "ocr_failed",
+                "parse_failed",
+                "pending_categorization",
+                "staged",
+                "committed",
+                "discarded",
+                "expired",
+                "error",
                 name="statement_status",
             ),
             nullable=True,
@@ -107,8 +122,10 @@ def upgrade() -> None:
         sa.Column("categorization_confidence", sa.Float(), nullable=True),
         sa.Column("account_id", sa.Integer(), nullable=True),
         sa.ForeignKeyConstraint(
-            ["account_id"], ["accounts.id"],
-            name="statements_account_id_fkey", ondelete="SET NULL",
+            ["account_id"],
+            ["accounts.id"],
+            name="statements_account_id_fkey",
+            ondelete="SET NULL",
         ),
         sa.PrimaryKeyConstraint("id"),
     )
@@ -131,11 +148,15 @@ def upgrade() -> None:
         sa.Column("status", sa.String(20), nullable=False, server_default="active"),
         sa.Column("transaction_origin", sa.String(20), nullable=False, server_default="uploaded"),
         sa.Column(
-            "created_at", sa.TIMESTAMP(timezone=True), nullable=False,
+            "created_at",
+            sa.TIMESTAMP(timezone=True),
+            nullable=False,
             server_default=sa.text("NOW()"),
         ),
         sa.Column(
-            "updated_at", sa.TIMESTAMP(timezone=True), nullable=False,
+            "updated_at",
+            sa.TIMESTAMP(timezone=True),
+            nullable=False,
             server_default=sa.text("NOW()"),
         ),
         sa.Column("parent_transaction_id", sa.Integer(), nullable=True),
@@ -151,39 +172,52 @@ def upgrade() -> None:
         sa.Column("deleted_at", sa.TIMESTAMP(timezone=True), nullable=True),
         sa.CheckConstraint("amount > 0", name="ck_transactions_amount_positive"),
         sa.ForeignKeyConstraint(
-            ["category_id"], ["categories.id"],
-            name="transactions_category_id_fkey", ondelete="SET NULL",
+            ["category_id"],
+            ["categories.id"],
+            name="transactions_category_id_fkey",
+            ondelete="SET NULL",
         ),
         sa.ForeignKeyConstraint(
-            ["statement_id"], ["statements.id"],
-            name="transactions_statement_id_fkey", ondelete="SET NULL",
+            ["statement_id"],
+            ["statements.id"],
+            name="transactions_statement_id_fkey",
+            ondelete="SET NULL",
         ),
         sa.ForeignKeyConstraint(
-            ["parent_transaction_id"], ["transactions.id"],
-            name="transactions_parent_transaction_id_fkey", ondelete="SET NULL",
+            ["parent_transaction_id"],
+            ["transactions.id"],
+            name="transactions_parent_transaction_id_fkey",
+            ondelete="SET NULL",
         ),
         sa.ForeignKeyConstraint(
-            ["reversal_of"], ["transactions.id"],
+            ["reversal_of"],
+            ["transactions.id"],
             name="transactions_reversal_of_fkey",
         ),
         sa.ForeignKeyConstraint(
-            ["reversed_by"], ["transactions.id"],
+            ["reversed_by"],
+            ["transactions.id"],
             name="transactions_reversed_by_fkey",
         ),
         sa.ForeignKeyConstraint(
-            ["correction_of"], ["transactions.id"],
+            ["correction_of"],
+            ["transactions.id"],
             name="transactions_correction_of_fkey",
         ),
         sa.ForeignKeyConstraint(
-            ["corrected_by"], ["transactions.id"],
+            ["corrected_by"],
+            ["transactions.id"],
             name="transactions_corrected_by_fkey",
         ),
         sa.ForeignKeyConstraint(
-            ["account_id"], ["accounts.id"],
-            name="transactions_account_id_fkey", ondelete="SET NULL",
+            ["account_id"],
+            ["accounts.id"],
+            name="transactions_account_id_fkey",
+            ondelete="SET NULL",
         ),
         sa.ForeignKeyConstraint(
-            ["transfer_peer_id"], ["transactions.id"],
+            ["transfer_peer_id"],
+            ["transactions.id"],
             name="transactions_transfer_peer_id_fkey",
         ),
         sa.PrimaryKeyConstraint("id"),
@@ -200,14 +234,18 @@ def upgrade() -> None:
         sa.Column("status", sa.String(20), nullable=False, server_default="open"),
         sa.Column("metadata", postgresql.JSONB(), nullable=True),
         sa.Column(
-            "created_at", sa.TIMESTAMP(timezone=True), nullable=False,
+            "created_at",
+            sa.TIMESTAMP(timezone=True),
+            nullable=False,
             server_default=sa.text("NOW()"),
         ),
         sa.Column("resolved_at", sa.TIMESTAMP(timezone=True), nullable=True),
         sa.Column("resolved_by", sa.String(20), nullable=True),
         sa.ForeignKeyConstraint(
-            ["transaction_id"], ["transactions.id"],
-            name="transaction_flags_transaction_id_fkey", ondelete="CASCADE",
+            ["transaction_id"],
+            ["transactions.id"],
+            name="transaction_flags_transaction_id_fkey",
+            ondelete="CASCADE",
         ),
         sa.PrimaryKeyConstraint("id"),
     )
@@ -223,16 +261,22 @@ def upgrade() -> None:
         sa.Column("confidence", sa.Float(), nullable=True),
         sa.Column("usage_count", sa.Integer(), nullable=False, server_default="1"),
         sa.Column(
-            "last_used_at", sa.TIMESTAMP(timezone=True), nullable=False,
+            "last_used_at",
+            sa.TIMESTAMP(timezone=True),
+            nullable=False,
             server_default=sa.text("NOW()"),
         ),
         sa.Column(
-            "created_at", sa.TIMESTAMP(timezone=True), nullable=False,
+            "created_at",
+            sa.TIMESTAMP(timezone=True),
+            nullable=False,
             server_default=sa.text("NOW()"),
         ),
         sa.ForeignKeyConstraint(
-            ["category_id"], ["categories.id"],
-            name="merchant_category_memory_category_id_fkey", ondelete="SET NULL",
+            ["category_id"],
+            ["categories.id"],
+            name="merchant_category_memory_category_id_fkey",
+            ondelete="SET NULL",
         ),
         sa.PrimaryKeyConstraint("description_normalized"),
     )
@@ -246,13 +290,16 @@ def upgrade() -> None:
         sa.Column("old_value", sa.Text(), nullable=True),
         sa.Column("new_value", sa.Text(), nullable=True),
         sa.Column(
-            "changed_at", sa.TIMESTAMP(timezone=True), nullable=False,
+            "changed_at",
+            sa.TIMESTAMP(timezone=True),
+            nullable=False,
             server_default=sa.text("NOW()"),
         ),
         sa.Column("changed_by", sa.String(20), nullable=False),
         sa.Column("reason", sa.Text(), nullable=True),
         sa.ForeignKeyConstraint(
-            ["transaction_id"], ["transactions.id"],
+            ["transaction_id"],
+            ["transactions.id"],
             name="audit_log_transaction_id_fkey",
         ),
         sa.PrimaryKeyConstraint("id"),
@@ -273,12 +320,16 @@ def upgrade() -> None:
         sa.Column("commission", sa.Numeric(12, 2), nullable=True),
         sa.Column("currency", sa.String(3), nullable=False, server_default="USD"),
         sa.ForeignKeyConstraint(
-            ["account_id"], ["accounts.id"],
-            name="investment_transactions_account_id_fkey", ondelete="CASCADE",
+            ["account_id"],
+            ["accounts.id"],
+            name="investment_transactions_account_id_fkey",
+            ondelete="CASCADE",
         ),
         sa.ForeignKeyConstraint(
-            ["statement_id"], ["statements.id"],
-            name="investment_transactions_statement_id_fkey", ondelete="SET NULL",
+            ["statement_id"],
+            ["statements.id"],
+            name="investment_transactions_statement_id_fkey",
+            ondelete="SET NULL",
         ),
         sa.PrimaryKeyConstraint("id"),
     )

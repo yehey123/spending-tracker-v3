@@ -16,8 +16,8 @@ AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=F
 async def get_db(request: Request):
     """Request-scoped DB session. Sets app.user_id / app.is_admin for RLS, then resets."""
     async with AsyncSessionLocal() as session:
-        user_id = getattr(request.state, 'user_id', None)
-        is_admin = getattr(request.state, 'is_admin', False)
+        user_id = getattr(request.state, "user_id", None)
+        is_admin = getattr(request.state, "is_admin", False)
         try:
             if user_id is not None:
                 # Use set_config() — SET command does not accept bind parameters.
@@ -27,7 +27,7 @@ async def get_db(request: Request):
                 )
                 await session.execute(
                     text("SELECT set_config('app.is_admin', :adm, false)"),
-                    {"adm": 'true' if is_admin else 'false'},
+                    {"adm": "true" if is_admin else "false"},
                 )
             yield session
         finally:
@@ -43,9 +43,7 @@ async def get_db(request: Request):
 async def get_admin_db():
     """System-task session with admin bypass — for scheduled jobs and lifespan tasks."""
     async with AsyncSessionLocal() as session:
-        await session.execute(
-            text("SELECT set_config('app.is_admin', 'true', false)")
-        )
+        await session.execute(text("SELECT set_config('app.is_admin', 'true', false)"))
         try:
             yield session
         finally:

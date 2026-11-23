@@ -2,18 +2,23 @@
 
 import asyncpg
 import pytest
+
 from tests.conftest import TEST_DB_RAW
 
 
-async def _create_tx(client, *, month: str, amount: str, direction: str = "debit",
-                     category_id: int | None = None) -> int:
-    resp = await client.post("/transactions", json={
-        "date": f"{month}-01T00:00:00",
-        "amount": amount,
-        "description": "Test transaction",
-        "direction": direction,
-        "category_id": category_id,
-    })
+async def _create_tx(
+    client, *, month: str, amount: str, direction: str = "debit", category_id: int | None = None
+) -> int:
+    resp = await client.post(
+        "/transactions",
+        json={
+            "date": f"{month}-01T00:00:00",
+            "amount": amount,
+            "description": "Test transaction",
+            "direction": direction,
+            "category_id": category_id,
+        },
+    )
     assert resp.status_code == 201, resp.text
     return resp.json()["id"]
 
@@ -23,12 +28,10 @@ async def _set_reversed_pair(tx_id: int, reverse_tx_id: int):
     conn = await asyncpg.connect(TEST_DB_RAW)
     try:
         await conn.execute(
-            "UPDATE transactions SET reversed_by = $1 WHERE id = $2",
-            reverse_tx_id, tx_id
+            "UPDATE transactions SET reversed_by = $1 WHERE id = $2", reverse_tx_id, tx_id
         )
         await conn.execute(
-            "UPDATE transactions SET reversal_of = $1 WHERE id = $2",
-            tx_id, reverse_tx_id
+            "UPDATE transactions SET reversal_of = $1 WHERE id = $2", tx_id, reverse_tx_id
         )
     finally:
         await conn.close()
@@ -49,13 +52,10 @@ async def test_by_category_excludes_reversed(client):
     month = "2026-07"
 
     # Active transaction — should appear
-    active_id = await _create_tx(client, month=month, amount="100.00",
-                                  category_id=cat["id"])
+    await _create_tx(client, month=month, amount="100.00", category_id=cat["id"])
     # Reversed pair — neither should appear
-    orig_id = await _create_tx(client, month=month, amount="200.00",
-                                category_id=cat["id"])
-    rev_id = await _create_tx(client, month=month, amount="200.00",
-                               category_id=cat["id"])
+    orig_id = await _create_tx(client, month=month, amount="200.00", category_id=cat["id"])
+    rev_id = await _create_tx(client, month=month, amount="200.00", category_id=cat["id"])
     await _set_reversed_pair(orig_id, rev_id)
 
     res = await client.get(f"/analytics/by-category?month={month}")
@@ -74,10 +74,8 @@ async def test_by_category_excludes_staged(client):
     cat = (await client.post("/categories", json={"name": "Bills", "color": "#0000FF"})).json()
     month = "2026-07"
 
-    active_id = await _create_tx(client, month=month, amount="50.00",
-                                  category_id=cat["id"])
-    staged_id = await _create_tx(client, month=month, amount="999.00",
-                                  category_id=cat["id"])
+    await _create_tx(client, month=month, amount="50.00", category_id=cat["id"])
+    staged_id = await _create_tx(client, month=month, amount="999.00", category_id=cat["id"])
     await _set_status(staged_id, "staged")
 
     res = await client.get(f"/analytics/by-category?month={month}")
@@ -91,7 +89,7 @@ async def test_cash_flow_excludes_reversed(client):
     """A reversed credit must not appear in cash-flow totals."""
     month = "2026-07"
 
-    active_id = await _create_tx(client, month=month, amount="1000.00", direction="credit")
+    await _create_tx(client, month=month, amount="1000.00", direction="credit")
     orig_id = await _create_tx(client, month=month, amount="500.00", direction="credit")
     rev_id = await _create_tx(client, month=month, amount="500.00", direction="credit")
     await _set_reversed_pair(orig_id, rev_id)
@@ -110,7 +108,7 @@ async def test_cash_flow_excludes_staged(client):
     """Staged transactions must not appear in cash-flow totals."""
     month = "2026-07"
 
-    active_id = await _create_tx(client, month=month, amount="300.00", direction="debit")
+    await _create_tx(client, month=month, amount="300.00", direction="debit")
     staged_id = await _create_tx(client, month=month, amount="700.00", direction="debit")
     await _set_status(staged_id, "staged")
 

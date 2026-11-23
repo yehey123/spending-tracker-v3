@@ -31,7 +31,7 @@ async def patch_staged_transaction(
 ):
     """Direct update of a staged transaction — no reversal, no audit log."""
     tx = await db.get(Transaction, tx_id)
-    if not tx or tx.status != 'staged':
+    if not tx or tx.status != "staged":
         raise HTTPException(status_code=404, detail="Staged transaction not found")
 
     for field, value in patch.model_dump(exclude_unset=True).items():

@@ -19,7 +19,7 @@ async def list_investment_transactions(
     acc = await db.get(Account, account_id)
     if not acc:
         raise HTTPException(404, "Account not found")
-    if acc.type != 'broker':
+    if acc.type != "broker":
         raise HTTPException(422, "Account is not a broker account")
 
     result = await db.execute(
