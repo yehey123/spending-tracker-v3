@@ -4,12 +4,11 @@ import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { PortfolioResponse } from '@/lib/types';
+import { api } from '@/lib/api';
 
 async function fetchPortfolio(accountId: string, includeClosed: boolean): Promise<PortfolioResponse> {
-  const url = `/api/accounts/${accountId}/portfolio${includeClosed ? '?include_closed=true' : ''}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error('Failed to fetch portfolio');
-  return res.json();
+  const url = `/accounts/${accountId}/portfolio${includeClosed ? '?include_closed=true' : ''}`;
+  return api.get<PortfolioResponse>(url);
 }
 
 export default function PortfolioPageClient() {

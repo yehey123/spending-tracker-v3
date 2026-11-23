@@ -140,10 +140,13 @@ jobs:
           echo "DB_USER=${{ secrets.CI_DB_USER }}" >> .env
           echo "DB_PASSWORD=${{ secrets.CI_DB_PASSWORD }}" >> .env
           echo "DATABASE_URL=postgresql+asyncpg://${{ secrets.CI_DB_USER }}:${{ secrets.CI_DB_PASSWORD }}@db:5432/spending_tracker" >> .env
+          # Throwaway, non-sensitive test values for an ephemeral CI stack. The backend
+          # reads these from .env (env_file); JWT_SECRET is required to issue tokens.
+          echo "JWT_SECRET=ci-e2e-throwaway-jwt-secret-not-for-production" >> .env
+          echo "APP_SECRET=ci-e2e-throwaway-app-secret-not-for-production" >> .env
+          echo "ADMIN_LINK_SECRET=ci-e2e-throwaway-admin-link-secret-not-for-production" >> .env
 
       - name: Start full stack
-        env:
-          APP_SECRET: ${{ secrets.APP_SECRET }}
         run: docker compose up -d --build
         # Backend CMD now runs "alembic upgrade head && uvicorn ..." so migrations
         # are applied automatically before the service becomes healthy.
@@ -231,6 +234,13 @@ jobs:
         run: |
           curl -Ls "https://get.maestro.mobile.dev" | bash
           echo "$HOME/.maestro/bin" >> $GITHUB_PATH
+
+      # Runner images no longer grant /dev/kvm by default; without it the emulator falls back to -accel off and never boots.
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
 
       - name: Run Maestro on Android emulator
         uses: reactivecircus/android-emulator-runner@v2

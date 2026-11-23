@@ -19,7 +19,6 @@ from src.domain.models.user import User
 
 logger = logging.getLogger(__name__)
 
-ACCESS_TOKEN_EXPIRE_MINUTES = 15
 ALGORITHM = "HS256"
 
 
@@ -51,7 +50,7 @@ def create_access_token(
         "jti": str(_uuid.uuid4()),
         "sid": str(session_id) if session_id else None,
         "iat": now,
-        "exp": now + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+        "exp": now + timedelta(minutes=settings.access_token_expire_minutes),
     }
     return jwt.encode(payload, settings.jwt_secret, algorithm=ALGORITHM)
 
