@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { api } from '@/lib/api';
 
 interface AdminUser {
   id: string;
@@ -17,9 +18,7 @@ export default function AdminPage() {
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch('/api/admin/users', { credentials: 'include' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+      const data = await api.get<{ users: AdminUser[] }>('/admin/users');
       setUsers(data.users);
     } catch (e) {
       setError(String(e));
@@ -32,10 +31,7 @@ export default function AdminPage() {
 
   const toggleActive = async (userId: string, isActive: boolean) => {
     const action = isActive ? 'deactivate' : 'reactivate';
-    await fetch(`/api/admin/users/${userId}/${action}`, {
-      method: 'POST',
-      credentials: 'include',
-    });
+    await api.post(`/admin/users/${userId}/${action}`, {});
     fetchUsers();
   };
 
