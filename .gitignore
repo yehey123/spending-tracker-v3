@@ -44,3 +44,6 @@ uploads/
 # Playwright test artifacts
 frontend/test-results/
 frontend/playwright-report/
+
+# Email importer secrets: Gmail OAuth + sender/password templates (scripts/email_import)
+secrets/

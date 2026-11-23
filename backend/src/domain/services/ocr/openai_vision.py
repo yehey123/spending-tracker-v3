@@ -10,11 +10,13 @@ from .base import OCRProvider, _build_prompt, SYSTEM_PROMPT
 class OpenAIVisionProvider(OCRProvider):
     supports_categories = True
 
-    def __init__(self, api_key: str, model: str = "gpt-4o", max_tokens: int = 4096):
+    def __init__(self, api_key: str, model: str = "gpt-4o", max_tokens: int = 4096,
+                 base_url: str | None = None, reasoning_effort: str | None = None):
         self.api_key = api_key
+        self.reasoning_effort = reasoning_effort  # "none" disables thinking on Ollama (~2x faster OCR)
         self.model = model
         self.max_tokens = max_tokens
-        self.client = OpenAI(api_key=api_key)
+        self.client = OpenAI(api_key=api_key, base_url=base_url)  # base_url: Ollama / OpenAI-compatible
 
     async def _call(self, image: Image.Image, prompt: str) -> str:
         buf = io.BytesIO()
@@ -25,6 +27,7 @@ class OpenAIVisionProvider(OCRProvider):
             model=self.model,
             max_tokens=self.max_tokens,
             tool_choice="none",                  # RULE-AI-EXEC-1
+            **({"reasoning_effort": self.reasoning_effort} if self.reasoning_effort else {}),
             messages=[
                 {
                     "role": "system",

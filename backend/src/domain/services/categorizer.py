@@ -120,6 +120,7 @@ def _has_ai_credentials(settings: AppSettings) -> bool:
         'gemini':    bool(getattr(settings, 'gemini_api_key', None)),
         'vertex':    bool(getattr(settings, 'google_project_id', None)),
         'local':     bool(getattr(settings, 'ai_api_url', None)),
+        'ollama':    True,  # URL comes from env OLLAMA_BASE_URL; no key needed
     }.get(p, False)
 
 
@@ -255,17 +256,19 @@ class CategorizerService:
                 )
                 text = resp.choices[0].message.content.strip()
 
-            elif provider == 'local':
+            elif provider in ('local', 'ollama'):
                 if _openai_lib is None:
                     return []
-                base_url = getattr(settings, 'ai_api_url', None)
-                model = getattr(settings, 'ai_model', None) or 'llama3'
+                from src.core.config import settings as _cfg
+                base_url = getattr(settings, 'ai_api_url', None) or _cfg.ollama_base_url
+                model = getattr(settings, 'ai_model', None) or 'ornith-1.5:9b'
                 client = _openai_lib.OpenAI(api_key='local', base_url=base_url)
                 resp = client.chat.completions.create(
                     model=model,
                     messages=[{'role': 'user', 'content': prompt}],
                     max_tokens=_max_tokens,
                     tool_choice="none",              # RULE-AI-EXEC-1 (best-effort for local models)
+                    **({'reasoning_effort': 'none'} if provider == 'ollama' else {}),  # thinking off
                 )
                 text = resp.choices[0].message.content.strip()
 

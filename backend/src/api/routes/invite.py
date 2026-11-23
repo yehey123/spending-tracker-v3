@@ -2,8 +2,8 @@
 
 Public routes (no require_token):
   POST /request-access              — submit an access request
-  GET  /admin/approve/{id}?sig=...  — operator approves (HMAC-gated)
-  GET  /admin/deny/{id}?sig=...     — operator denies  (HMAC-gated)
+  GET  /admin/approve/{id}?exp=..&sig=..  — operator approves (HMAC-gated)
+  GET  /admin/deny/{id}?exp=..&sig=..     — operator denies  (HMAC-gated)
 """
 
 import logging
@@ -16,10 +16,9 @@ from src.core.config import settings
 from src.core.email import (
     generate_invite_token,
     invite_expires_at,
-    make_hmac_sig,
     send_operator_request_email,
     send_user_invite_email,
-    verify_hmac_sig,
+    verify_admin_link,
 )
 from src.db.session import get_db
 from src.domain.models.access_request import AccessRequest
@@ -103,15 +102,16 @@ async def request_access(
 @router.get("/admin/approve/{request_id}")
 async def admin_approve(
     request_id: str,
+    exp: int = Query(...),
     sig: str = Query(...),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Approve an access request and send an invite email.
 
     Idempotent: if already approved, returns 200 with a note.
-    HMAC signature validated against 'approve:{request_id}'.
+    HMAC signature covers action, request id and expiry (48h).
     """
-    if not verify_hmac_sig(f"approve:{request_id}", sig):
+    if not verify_admin_link("approve", request_id, exp, sig):
         raise HTTPException(status_code=403, detail="Invalid or expired signature.")
 
     req = await db.get(AccessRequest, request_id)
@@ -127,6 +127,10 @@ async def admin_approve(
             "message": "This request was already denied. Approve is a no-op.",
         }
 
+    # Read before rollback: db.rollback() expires req, and attribute access afterwards
+    # would trigger a lazy load outside the async greenlet (MissingGreenlet).
+    applicant_email = req.email
+
     # Commit approval status first — this is idempotent state, always safe to persist.
     req.status = "approved"
     await db.commit()
@@ -134,11 +138,11 @@ async def admin_approve(
     # Generate token but hold in session — only commit after email succeeds.
     raw_token, token_hash = generate_invite_token()
     expires_at = invite_expires_at()
-    db.add(InviteToken(token_hash=token_hash, email=req.email, expires_at=expires_at, consumed_at=None))
+    db.add(InviteToken(token_hash=token_hash, email=applicant_email, expires_at=expires_at, consumed_at=None))
 
     try:
         await send_user_invite_email(
-            to_email=req.email,
+            to_email=applicant_email,
             raw_token=raw_token,
             expires_at=expires_at,
             base_url=settings.app_base_url,
@@ -149,14 +153,14 @@ async def admin_approve(
         logger.exception(
             "Access request %s approved but invite email failed for %s — token not saved.",
             request_id,
-            req.email,
+            applicant_email,
         )
         raise HTTPException(
             status_code=502,
             detail="Request approved but invite email could not be sent. Use resend-invite to retry once the mail server is fixed.",
         )
 
-    return {"status": "approved", "email": req.email}
+    return {"status": "approved", "email": applicant_email}
 
 
 # ---------------------------------------------------------------------------
@@ -166,15 +170,16 @@ async def admin_approve(
 @router.get("/admin/deny/{request_id}")
 async def admin_deny(
     request_id: str,
+    exp: int = Query(...),
     sig: str = Query(...),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Deny an access request.
 
     Idempotent: if already denied or approved, returns 200 with a note.
-    HMAC signature validated against 'deny:{request_id}'.
+    HMAC signature covers action, request id and expiry (48h).
     """
-    if not verify_hmac_sig(f"deny:{request_id}", sig):
+    if not verify_admin_link("deny", request_id, exp, sig):
         raise HTTPException(status_code=403, detail="Invalid or expired signature.")
 
     req = await db.get(AccessRequest, request_id)

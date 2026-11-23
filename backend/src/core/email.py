@@ -21,16 +21,18 @@ from src.core.config import settings
 # HMAC helpers
 # ---------------------------------------------------------------------------
 
-def _hmac_key() -> bytes:
-    """Return the active HMAC key bytes.
+ADMIN_LINK_TTL = timedelta(hours=48)  # RULE-SEC-07
 
-    Prefers settings.jwt_secret; falls back to settings.app_secret.
-    Raises RuntimeError when both are empty (configuration error).
+
+def _hmac_key() -> bytes:
+    """Return the admin-link HMAC key bytes (RULE-SEC-03: never jwt_secret).
+
+    Raises RuntimeError when ADMIN_LINK_SECRET is empty (configuration error).
     """
-    raw = settings.jwt_secret or settings.app_secret
+    raw = settings.admin_link_secret
     if not raw:
         raise RuntimeError(
-            "HMAC key is not configured. Set JWT_SECRET (or APP_SECRET) in the environment."
+            "HMAC key is not configured. Set ADMIN_LINK_SECRET in the environment."
         )
     return raw.encode()
 
@@ -44,6 +46,18 @@ def verify_hmac_sig(message: str, sig: str) -> bool:
     """Return True when *sig* is a valid signature for *message* (constant-time)."""
     expected = make_hmac_sig(message)
     return hmac.compare_digest(expected, sig)
+
+
+def make_admin_link_sig(action: str, request_id: str, exp: int) -> str:
+    """Sign action, request id and unix expiry together so none can be altered."""
+    return make_hmac_sig(f"{action}:{request_id}:{exp}")
+
+
+def verify_admin_link(action: str, request_id: str, exp: int, sig: str) -> bool:
+    """True when *sig* is valid for the link and *exp* (unix seconds) is in the future."""
+    if not verify_hmac_sig(f"{action}:{request_id}:{exp}", sig):
+        return False
+    return exp > datetime.now(timezone.utc).timestamp()
 
 
 # ---------------------------------------------------------------------------
@@ -61,8 +75,8 @@ def generate_invite_token() -> tuple[str, str]:
 
 
 def invite_expires_at() -> datetime:
-    """Return UTC expiry timestamp 7 days from now."""
-    return datetime.now(timezone.utc) + timedelta(days=7)
+    """Return UTC expiry timestamp 24 hours from now (RULE-SEC-07)."""
+    return datetime.now(timezone.utc) + timedelta(hours=24)
 
 
 # ---------------------------------------------------------------------------
@@ -125,7 +139,7 @@ To approve and send an invite link, visit:
 To deny this request, visit:
 {deny_url}
 
-These links are single-action (idempotent — safe to click more than once).
+These links expire in 48 hours and are idempotent — safe to click more than once.
 Request ID: {request_id}
 """
 
@@ -161,7 +175,7 @@ def _operator_notification_html(
     </a>
   </p>
   <p style="color:#6b7280;font-size:12px">
-    These links are idempotent — safe to click more than once.<br>
+    These links expire in 48 hours and are idempotent — safe to click more than once.<br>
     Request ID: {request_id}
   </p>
 </body>
@@ -177,10 +191,11 @@ async def send_operator_request_email(
     base_url: str,
 ) -> None:
     """Email the operator about a new access request."""
-    approve_sig = make_hmac_sig(f"approve:{request_id}")
-    deny_sig = make_hmac_sig(f"deny:{request_id}")
-    approve_url = f"{base_url}/admin/approve/{request_id}?sig={approve_sig}"
-    deny_url = f"{base_url}/admin/deny/{request_id}?sig={deny_sig}"
+    exp = int((datetime.now(timezone.utc) + ADMIN_LINK_TTL).timestamp())
+    approve_sig = make_admin_link_sig("approve", request_id, exp)
+    deny_sig = make_admin_link_sig("deny", request_id, exp)
+    approve_url = f"{base_url}/admin/approve/{request_id}?exp={exp}&sig={approve_sig}"
+    deny_url = f"{base_url}/admin/deny/{request_id}?exp={exp}&sig={deny_sig}"
 
     plain = _operator_notification_plain(
         request_id, applicant_email, reason, approve_url, deny_url
