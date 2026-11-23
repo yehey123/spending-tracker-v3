@@ -128,12 +128,21 @@ jobs:
           CI: "true"
         run: npx playwright test
 
+      # Flaky tests pass on retry, so dump logs every run to keep backend tracebacks.
+      - name: Dump stack logs
+        if: always()
+        run: |
+          mkdir -p frontend/test-results
+          docker compose logs --no-color --timestamps backend > frontend/test-results/backend.log 2>&1 || true
+
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
-          path: frontend/playwright-report/
+          path: |
+            frontend/playwright-report/
+            frontend/test-results/
           retention-days: 7
 
       - name: Tear down stack
