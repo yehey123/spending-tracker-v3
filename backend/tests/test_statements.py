@@ -100,3 +100,38 @@ async def test_delete_removes_statement_no_storage(client):
 
     remaining = (await client.get("/statements")).json()
     assert stmt["id"] not in [s["id"] for s in remaining]
+
+
+@pytest.mark.asyncio
+async def test_upload_flush_failure_returns_handled_error(client):
+    """A flush IntegrityError must roll back and surface as 'Pipeline error', not PendingRollbackError."""
+    from datetime import datetime
+    from decimal import Decimal
+    from src.domain.models.transaction import Transaction
+
+    async def failing_run(statement, content, content_type, db, **kwargs):
+        # amount 0 violates ck_transactions_amount_positive at flush time
+        db.add(Transaction(
+            date=datetime(2024, 1, 1), description="BAD", amount=Decimal("0.00"),
+            direction="debit", statement_id=statement.id, status="staged",
+            transaction_origin="uploaded", user_id=kwargs.get("user_id"),
+        ))
+        await db.flush()
+
+    with patch("src.domain.services.statement_pipeline.statement_pipeline.run", new=failing_run):
+        res = await client.post(
+            "/statements/upload",
+            files={"file": ("bank.png", _make_png_bytes(), "image/png")},
+        )
+    assert res.status_code == 500
+    assert res.json()["detail"].startswith("Pipeline error")
+
+
+@pytest.mark.asyncio
+async def test_upload_skips_non_positive_amount_rows(client):
+    mock_ocr = AsyncMock(return_value="01/05/2026 | ZERO | 0.00 | DEBIT\n01/05/2026 | GRAB FOOD | 150.00 | DEBIT")
+    with patch("src.domain.services.statement_pipeline.TesseractProvider") as MockProv:
+        MockProv.return_value.extract_text = mock_ocr
+        res = await client.post("/statements/upload", files={"file": ("bank.png", _make_png_bytes(), "image/png")})
+    assert res.status_code == 200
+    assert res.json()["transaction_count"] == 1

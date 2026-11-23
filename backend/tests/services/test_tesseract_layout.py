@@ -139,3 +139,10 @@ def test_grid_line_pipes_are_not_words():
     text = words_to_lines(_fake_data(words))
     row = text.splitlines()[1]
     assert row.count("|") == 4 and row.split("|")[2].strip() == "513.47", text
+
+
+def test_low_confidence_date_token_is_kept():
+    words = [("01/18/2024", 10, 10, 90), ("INTERNET", 200, 10, 80), ("299.00", 400, 10, 60)]
+    data = _fake_data(words)
+    data["conf"][0] = "23"
+    assert "01/18/2024" in words_to_lines(data)

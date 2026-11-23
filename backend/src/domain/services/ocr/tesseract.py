@@ -1,4 +1,5 @@
 import asyncio
+import re
 import statistics
 
 import numpy as np
@@ -10,6 +11,7 @@ from ..statement_parser import _header_columns
 from .base import OCRProvider
 
 _MIN_CONF = 30
+_DATE_LIKE_RE = re.compile(r"^\d{1,2}[/-]\d{1,2}[/-]\d{2,4}$")
 
 
 def _words(data: dict) -> list[dict]:
@@ -21,7 +23,8 @@ def _words(data: dict) -> list[dict]:
             conf = float(data["conf"][i])
         except TypeError, ValueError:
             continue
-        if not text or conf < _MIN_CONF:
+        # A date-shaped token is kept at low confidence: dropping it loses the whole row.
+        if not text or (conf < _MIN_CONF and not _DATE_LIKE_RE.match(text)):
             continue
         x, y, w, h = (data[k][i] for k in ("left", "top", "width", "height"))
         out.append({"text": text, "x": x, "w": w, "h": h, "cx": x + w / 2, "cy": y + h / 2})

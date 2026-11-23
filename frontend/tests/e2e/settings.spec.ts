@@ -9,11 +9,8 @@ test('settings page loads and OCR provider selector works', async ({ page }) => 
   const providerSelect = page.locator('section').filter({ hasText: 'OCR Provider' }).getByRole('combobox').first();
   await expect(providerSelect).toBeVisible();
 
-  // Switching to anthropic reveals API key input
-  await providerSelect.selectOption('anthropic');
-  await expect(page.getByPlaceholder(/anthropic api key/i)).toBeVisible();
-
-  // Switching to vertex reveals Google Cloud Project ID input
-  await providerSelect.selectOption('vertex');
-  await expect(page.getByPlaceholder(/google cloud project id/i)).toBeVisible();
+  // Core build offers only Tesseract; AI providers appear only when the plugin is installed.
+  await providerSelect.selectOption('tesseract');
+  await expect(providerSelect).toHaveValue('tesseract');
+  await expect(providerSelect.locator('option[value="anthropic"]')).toHaveCount(0);
 });
