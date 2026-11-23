@@ -60,3 +60,26 @@ async def test_health_public(client) -> None:
     res = await client.get("/health")
     assert res.status_code == 200
     assert res.json()["status"] == "healthy"
+
+
+def test_access_token_lifetime_honours_setting(monkeypatch) -> None:
+    """ACCESS_TOKEN_EXPIRE_MINUTES (settings.access_token_expire_minutes) sets the JWT exp."""
+    import uuid
+
+    import jwt as pyjwt
+
+    from src.core.auth import ALGORITHM, create_access_token
+    from src.core.config import Settings, settings
+
+    assert Settings().access_token_expire_minutes == 15  # default unchanged
+
+    monkeypatch.setattr(settings, "access_token_expire_minutes", 1)
+    payload = pyjwt.decode(
+        create_access_token(uuid.uuid4()),
+        settings.jwt_secret,
+        algorithms=[ALGORITHM],
+    )
+    assert payload["exp"] - payload["iat"] == 60
+
+    monkeypatch.setenv("ACCESS_TOKEN_EXPIRE_MINUTES", "7")
+    assert Settings().access_token_expire_minutes == 7
