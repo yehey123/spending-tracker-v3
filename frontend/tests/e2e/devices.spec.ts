@@ -8,7 +8,7 @@ test('devices page loads', async ({ page }) => {
 
 test('current session is listed with Current badge', async ({ page }) => {
   await page.goto('/settings/devices');
-  await expect(page.getByText('Current')).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText('Current', { exact: true })).toBeVisible({ timeout: 10000 });
 });
 
 test('revoke non-current session', async ({ page }) => {
@@ -16,20 +16,31 @@ test('revoke non-current session', async ({ page }) => {
   const ctx = await authedApiContext();
   const email = process.env.E2E_EMAIL ?? 'e2e@example.com';
   const password = process.env.E2E_PASSWORD ?? 'e2epassword';
-  await ctx.post(`${apiURL()}/auth/login`, {
+  const login = await ctx.post(`${apiURL()}/auth/login`, {
     data: { email, password, device_name: 'E2E-second-session' },
   });
+  expect(login.ok()).toBeTruthy();
   await ctx.dispose();
 
   await page.goto('/settings/devices');
-  // Wait for the sessions list to show at least 2 sessions
-  await page.waitForFunction(() => document.querySelectorAll('button').length >= 2);
 
-  // Find a non-current session's Revoke button (not the red "Log out" one)
-  const revokeBtn = page.getByRole('button', { name: /^revoke$/i }).first();
-  await expect(revokeBtn).toBeVisible();
+  // Scope to the row of the session created above (earlier runs may leave others behind)
+  const label = page.getByText('E2E-second-session', { exact: true });
+  const row = page
+    .locator('div')
+    .filter({ has: label })
+    .filter({ has: page.getByRole('button', { name: /^revoke$/i }) })
+    .last();
+  const revokeBtn = row.getByRole('button', { name: /^revoke$/i });
+  await expect(revokeBtn).toBeVisible({ timeout: 10000 });
+  const before = await label.count();
+
+  const deleted = page.waitForResponse(
+    r => r.request().method() === 'DELETE' && r.url().includes('/auth/sessions/'),
+  );
   await revokeBtn.click();
+  await deleted;
 
-  // The row should disappear
-  await expect(page.getByRole('button', { name: /^revoke$/i })).toHaveCount(0, { timeout: 10000 });
+  // One fewer second-session row after the list reloads
+  await expect(label).toHaveCount(before - 1, { timeout: 10000 });
 });

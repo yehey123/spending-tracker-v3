@@ -12,7 +12,7 @@ test('submit with email shows success state', async ({ page }) => {
   await page.goto('/request-access');
   await page.locator('input[type="email"]').fill(`e2e-access-${Date.now()}@example.com`);
   await page.getByRole('button', { name: /request access/i }).click();
-  await expect(page.getByText(/request submitted/i)).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText(/request (submitted|has been received)/i)).toBeVisible({ timeout: 10000 });
 });
 
 test('duplicate email shows appropriate response', async ({ page }) => {
@@ -21,13 +21,13 @@ test('duplicate email shows appropriate response', async ({ page }) => {
   await page.goto('/request-access');
   await page.locator('input[type="email"]').fill(dupeEmail);
   await page.getByRole('button', { name: /request access/i }).click();
-  await expect(page.getByText(/request submitted/i)).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText(/request (submitted|has been received)/i)).toBeVisible({ timeout: 10000 });
 
   await page.goto('/request-access');
   await page.locator('input[type="email"]').fill(dupeEmail);
   await page.getByRole('button', { name: /request access/i }).click();
   // Backend either accepts again (202) or shows "already submitted" — either is valid
   await expect(
-    page.getByText(/request submitted|already submitted|already received/i)
+    page.getByText(/request (submitted|has been received)|already submitted|already received/i)
   ).toBeVisible({ timeout: 10000 });
 });

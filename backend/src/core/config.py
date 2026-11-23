@@ -45,6 +45,9 @@ class Settings(BaseSettings):
     # JWT signing secret (core/auth.py). Must be ≥ 32 chars in production.
     jwt_secret: str = ""
 
+    # Access-token lifetime in minutes (env ACCESS_TOKEN_EXPIRE_MINUTES). Default 15.
+    access_token_expire_minutes: int = 15
+
     # HMAC secret for admin approve/deny email links (E11, RULE-SEC-03).
     # Independent of jwt_secret; ≥ 32 chars in production. No fallback.
     admin_link_secret: str = ""

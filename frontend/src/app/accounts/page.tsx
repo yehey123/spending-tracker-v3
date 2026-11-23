@@ -4,13 +4,12 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Pencil } from 'lucide-react';
 import { Account } from '@/lib/types';
+import { api } from '@/lib/api';
 
 const ACCOUNT_TYPES = ['checking', 'savings', 'credit_card', 'cash', 'broker'] as const;
 
 async function fetchAccounts(): Promise<Account[]> {
-  const res = await fetch('/api/accounts');
-  if (!res.ok) throw new Error('Failed to fetch accounts');
-  return res.json();
+  return api.get<Account[]>('/accounts');
 }
 
 export default function AccountsPage() {
@@ -30,13 +29,7 @@ export default function AccountsPage() {
 
   const createMutation = useMutation({
     mutationFn: async (body: Record<string, unknown>) => {
-      const res = await fetch('/api/accounts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) throw new Error('Failed to create account');
-      return res.json();
+      return api.post('/accounts', body);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
@@ -47,13 +40,7 @@ export default function AccountsPage() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, name }: { id: number; name: string }) => {
-      const res = await fetch(`/api/accounts/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
-      });
-      if (!res.ok) throw new Error('Failed to update account');
-      return res.json();
+      return api.patch(`/accounts/${id}`, { name });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
@@ -63,8 +50,7 @@ export default function AccountsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      const res = await fetch(`/api/accounts/${id}`, { method: 'DELETE' });
-      if (!res.ok && res.status !== 204) throw new Error('Failed to delete account');
+      await api.delete(`/accounts/${id}`);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['accounts'] }),
   });
