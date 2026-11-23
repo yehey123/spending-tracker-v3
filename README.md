@@ -121,6 +121,12 @@ The Docker setup serves a production frontend build. For hot-reload development:
 make frontend-dev   # Next.js dev server at http://localhost:3000
 ```
 
+### 4. Install git hooks (once per clone)
+
+```bash
+scripts/install-hooks.sh   # enables the versioned pre-commit (eslint/ruff) and commit-msg hooks
+```
+
 ---
 
 ## Make Commands

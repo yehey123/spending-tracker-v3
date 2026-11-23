@@ -9,7 +9,7 @@ import { useSession } from 'next-auth/react';
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const allowed = !!session?.user && !!(session as any).isAdmin;
+  const allowed = !!session?.user && !!(session as { isAdmin?: boolean }).isAdmin;
 
   useEffect(() => {
     if (status !== 'loading' && !allowed) router.replace('/');

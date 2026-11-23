@@ -54,10 +54,10 @@ export const authConfig: NextAuthConfig = {
     async jwt({ token, user }) {
       if (user) {
         // Sign-in: store everything the backend gave us.
-        token.accessToken = (user as any).accessToken;
-        token.accessTokenExpires = (user as any).accessTokenExpires;
-        token.refreshToken = (user as any).refreshToken ?? undefined;
-        token.isAdmin = (user as any).isAdmin ?? false;
+        token.accessToken = (user as { accessToken?: string }).accessToken;
+        token.accessTokenExpires = (user as { accessTokenExpires?: number }).accessTokenExpires;
+        token.refreshToken = (user as { refreshToken?: string }).refreshToken ?? undefined;
+        token.isAdmin = (user as { isAdmin?: boolean }).isAdmin ?? false;
         delete token.error;
         return token;
       }
@@ -79,7 +79,7 @@ export const authConfig: NextAuthConfig = {
       // The refresh token is never exposed to the client session.
       session.accessToken = token.accessToken as string | undefined;
       session.error = token.error;
-      (session as any).isAdmin = token.isAdmin ?? false;
+      (session as { isAdmin?: boolean }).isAdmin = Boolean(token.isAdmin);
       return session;
     },
   },

@@ -109,8 +109,24 @@ export interface CashFlowResponse {
   totals_available?: boolean;
 }
 
+export interface ProviderConfigField {
+  name: string;
+  label: string;
+  secret: boolean;
+  required: boolean;
+  set: boolean;
+}
+
+export interface AvailableProvider {
+  key: string;
+  label: string;
+  config_fields: ProviderConfigField[];
+}
+
 export interface AppSettings {
-  ocr_provider: 'tesseract' | 'anthropic' | 'openai' | 'gemini' | 'vertex' | 'ollama';
+  ocr_provider: string;
+  available_providers?: AvailableProvider[];
+  provider_installed?: boolean;
   anthropic_api_key_set: boolean;
   openai_api_key_set: boolean;
   review_before_commit?: boolean;
@@ -127,7 +143,8 @@ export interface AppSettings {
 }
 
 export interface SettingsPut {
-  ocr_provider?: 'tesseract' | 'anthropic' | 'openai' | 'gemini' | 'vertex' | 'ollama';
+  [field: string]: string | number | boolean | null | undefined;
+  ocr_provider?: string;
   anthropic_api_key?: string | null;
   openai_api_key?: string | null;
   review_before_commit?: boolean | null;

@@ -239,16 +239,24 @@ Response 200:
 ## Settings
 
 ### GET /settings
-Returns current OCR configuration. API keys are masked.
+Returns current OCR configuration. API keys are masked. `available_providers` lists the providers installed in the registry (`tesseract` is always present; AI providers appear only when the `spending-tracker-ai` plugin is installed).
 
-Response 200:
+Response 200 (default build, no plugin):
 ```json
 {
   "ocr_provider": "tesseract",
+  "provider_installed": true,
+  "available_providers": [
+    {"key": "tesseract", "label": "Tesseract", "config_fields": []}
+  ],
   "anthropic_api_key_set": false,
   "openai_api_key_set": false
 }
 ```
+
+(Other fields such as `home_currency`, `ai_model`, `gemini_api_key_set`, `max_output_tokens` and `dev_mode` are omitted here.)
+
+`available_providers[]`: `{key, label, config_fields: [{name, label, secret, required, set}]}`. `config_fields[].set` is true when the matching `app_settings` column holds a value; the value itself is never returned. `provider_installed` is false when the saved `ocr_provider` has no installed descriptor (for example the plugin was uninstalled).
 
 ### PUT /settings
 Update OCR provider and/or API keys. Omit a key field to leave it unchanged; send `null` to clear it.
@@ -256,24 +264,19 @@ Update OCR provider and/or API keys. Omit a key field to leave it unchanged; sen
 Request body:
 ```json
 {
-  "ocr_provider": "claude",
+  "ocr_provider": "anthropic",
   "anthropic_api_key": "sk-ant-...",
   "openai_api_key": null
 }
 ```
 
 Validation:
-- `ocr_provider`: `"tesseract"` | `"claude"` | `"openai"`
-- If `ocr_provider` = `"claude"`, `anthropic_api_key` must be set (either now or already stored)
-- If `ocr_provider` = `"openai"`, `openai_api_key` must be set
+- `ocr_provider` must be the key of an installed provider (`registry.find_ocr`); otherwise 422 `Provider '<key>' is not installed.`
+- If the provider declares `config_fields`, `descriptor.has_credentials(settings)` is evaluated against the stored values merged with the request; false → 422 `Provider '<key>' requires credentials to be set.`
 
-Response 200:
-```json
-{
-  "ocr_provider": "claude",
-  "anthropic_api_key_set": true,
-  "openai_api_key_set": false
-}
-```
+Response 200: same shape as GET /settings.
 
-Response 422: Provider requires a key that is neither in the request nor already stored.
+Response 422: provider not installed, or required credentials neither in the request nor already stored.
+
+### GET /settings/models
+Returns cached model lists from `model_cache`, optionally filtered by `?provider=`. The cache is filled by plugin descriptors that expose `list_models`; without a plugin it is empty (`{"models": []}`). `POST /settings/models/refresh` re-syncs every installed provider and returns `{"synced": {...}}` (empty without plugins).

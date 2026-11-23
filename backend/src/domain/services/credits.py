@@ -5,8 +5,8 @@ Never UPDATE or DELETE credit_ledger rows — it is a financial audit trail.
 """
 from __future__ import annotations
 
-import uuid
 import logging
+import uuid
 from datetime import date
 
 from sqlalchemy import func, select, text
@@ -28,10 +28,16 @@ class InsufficientCredits(Exception):
 
 
 async def _get_weights(db: AsyncSession) -> dict[str, int]:
+    """Core default is tesseract=0; installed plugins add their descriptor weight;
+    the DB `credit_weights` row overrides both."""
+    from src.plugins import registry
+    weights: dict[str, int] = {"tesseract": 0}
+    for key, desc in registry.available().items():
+        weights[key] = int(getattr(desc, "credit_weight", 0))
     row = await db.get(DbConfig, "credit_weights")
-    if row is None:
-        return {"tesseract": 0, "anthropic": 3, "openai": 3, "gemini": 2, "vertex": 2}
-    return row.value
+    if row is not None:
+        weights.update(row.value)
+    return weights
 
 
 async def _get_monthly_grant_amount(db: AsyncSession) -> int:
@@ -67,7 +73,10 @@ async def atomic_debit(
     fall back to TesseractProvider.
     """
     weights = await _get_weights(db)
-    cost = weights.get(provider.lower(), 0)
+    key = provider.lower()
+    # Unknown provider (no plugin, no DB entry): free. Raising here would break the
+    # OCR fallback flow, which only catches InsufficientCredits.
+    cost = weights.get(key, 0)
     if cost == 0:
         return 0
 
@@ -122,7 +131,9 @@ async def grant_monthly(
         await db.flush()
     except IntegrityError:
         await db.rollback()
-        logger.info("Monthly grant for user %s period %s already issued — skipping", user_id, period)
+        logger.info(
+            "Monthly grant for user %s period %s already issued — skipping", user_id, period
+        )
         return False
 
     entry = CreditLedger(

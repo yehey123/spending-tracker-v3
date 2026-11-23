@@ -10,7 +10,7 @@ interface Props {
   unconvertedCount?: number;
 }
 
-export default function CashFlowBar({ months, displayCurrency, unconvertedCount }: Props) {
+export default function CashFlowBar({ months, displayCurrency }: Props) {
   if (months.length === 0) {
     return <div data-testid="cashflow-bar" className="text-center text-gray-400 py-12">No cash flow data</div>;
   }

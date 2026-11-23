@@ -20,7 +20,7 @@ export default function SideNav() {
   const pathname = usePathname();
   const router = useRouter();
   const { data: session } = useSession();
-  const isAdmin = (session as any)?.isAdmin ?? false;
+  const isAdmin = (session as { isAdmin?: boolean } | null)?.isAdmin ?? false;
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});

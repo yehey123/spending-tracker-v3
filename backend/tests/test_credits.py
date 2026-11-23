@@ -8,20 +8,47 @@ run_monthly_rollover opens AsyncSessionLocal (the production DB factory) and
 is NOT tested here — only the underlying grant_monthly service is tested.
 """
 
-from datetime import date, datetime, timedelta, timezone
+import importlib.metadata
 import uuid
+from datetime import date
 
 import pytest
-from sqlalchemy import select
 
-from src.domain.models.credit_ledger import CreditLedger
-from src.domain.models.credit_rollover import CreditRollover
+from src.domain.models.db_config import DbConfig
 from src.domain.services.credits import (
     InsufficientCredits,
+    _get_weights,
     atomic_debit,
     get_balance,
     grant_monthly,
 )
+from src.plugins import registry
+from tests.plugin_fakes import FakeEntryPoint, fake_descriptor
+
+
+def _install_plugin(monkeypatch, key="fakeai", weight=3):
+    """Register a fake OCR plugin via monkeypatched entry points."""
+    desc = fake_descriptor(key, weight=weight)
+
+    def fake_entry_points(group=None, **_):
+        return [FakeEntryPoint(key, desc)] if group == registry.OCR_GROUP else []
+
+    monkeypatch.setattr(importlib.metadata, "entry_points", fake_entry_points)
+    registry.reset_cache()
+
+
+async def _drop_weights_row(db):
+    row = await db.get(DbConfig, "credit_weights")
+    if row is not None:
+        await db.delete(row)
+        await db.flush()
+
+
+@pytest.fixture(autouse=True)
+def _clean_registry():
+    registry.reset_cache()
+    yield
+    registry.reset_cache()
 
 
 # ---------------------------------------------------------------------------
@@ -71,24 +98,26 @@ async def test_grant_monthly_different_periods(test_user, db_session):
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
-async def test_atomic_debit_reduces_balance(test_user, db_session):
+async def test_atomic_debit_reduces_balance(test_user, db_session, monkeypatch):
     """atomic_debit deducts the provider's cost and returns credits debited."""
+    _install_plugin(monkeypatch, "fakeai", 3)
     await grant_monthly(test_user.id, date(2026, 5, 1), db_session)
     stmt_id = str(uuid.uuid4())
 
-    debited = await atomic_debit(test_user.id, "anthropic", stmt_id, db_session)
-    assert debited == 3  # default anthropic weight
+    debited = await atomic_debit(test_user.id, "fakeai", stmt_id, db_session)
+    assert debited == 3  # plugin descriptor credit_weight
 
     balance = await get_balance(test_user.id, db_session)
     assert balance == 27
 
 
 @pytest.mark.asyncio
-async def test_atomic_debit_raises_insufficient_credits(test_user, db_session):
+async def test_atomic_debit_raises_insufficient_credits(test_user, db_session, monkeypatch):
     """atomic_debit raises InsufficientCredits when balance < cost."""
+    _install_plugin(monkeypatch, "fakeai", 3)
     # No credits granted — balance is 0
     with pytest.raises(InsufficientCredits) as exc_info:
-        await atomic_debit(test_user.id, "anthropic", str(uuid.uuid4()), db_session)
+        await atomic_debit(test_user.id, "fakeai", str(uuid.uuid4()), db_session)
 
     err = exc_info.value
     assert err.balance == 0
@@ -104,20 +133,45 @@ async def test_atomic_debit_tesseract_free(test_user, db_session):
 
 
 @pytest.mark.asyncio
-async def test_atomic_debit_idempotent(test_user, db_session):
+async def test_atomic_debit_idempotent(test_user, db_session, monkeypatch):
     """Duplicate debit key is silently skipped (idempotency_key unique constraint)."""
+    _install_plugin(monkeypatch, "fakeai", 3)
     await grant_monthly(test_user.id, date(2026, 6, 1), db_session)
     await db_session.commit()  # persist grant before first debit
 
     stmt_id = "stmt-idempotent-123"
-    first = await atomic_debit(test_user.id, "anthropic", stmt_id, db_session)
+    first = await atomic_debit(test_user.id, "fakeai", stmt_id, db_session)
     await db_session.commit()  # persist debit before duplicate attempt
 
-    second = await atomic_debit(test_user.id, "anthropic", stmt_id, db_session)
+    second = await atomic_debit(test_user.id, "fakeai", stmt_id, db_session)
 
     assert first == 3
     assert second == 0  # duplicate silently skipped
     assert await get_balance(test_user.id, db_session) == 27
+
+
+@pytest.mark.asyncio
+async def test_no_plugin_no_db_row_only_tesseract_known(db_session, monkeypatch):
+    """Without plugins or a DB row, only the tesseract weight is known."""
+    monkeypatch.setattr(importlib.metadata, "entry_points", lambda group=None, **_: [])
+    registry.reset_cache()
+    await _drop_weights_row(db_session)  # migration 0012 seeds a row; remove it
+    assert await _get_weights(db_session) == {"tesseract": 0}
+
+
+@pytest.mark.asyncio
+async def test_unknown_provider_is_free(test_user, db_session, monkeypatch):
+    """Provider with no descriptor and no DB entry costs nothing."""
+    monkeypatch.setattr(importlib.metadata, "entry_points", lambda group=None, **_: [])
+    registry.reset_cache()
+    assert await atomic_debit(test_user.id, "ghost", str(uuid.uuid4()), db_session) == 0
+
+
+@pytest.mark.asyncio
+async def test_plugin_weight_exposed_in_weights(db_session, monkeypatch):
+    _install_plugin(monkeypatch, "fakeai", 3)
+    await _drop_weights_row(db_session)
+    assert await _get_weights(db_session) == {"tesseract": 0, "fakeai": 3}
 
 
 # ---------------------------------------------------------------------------
@@ -133,7 +187,7 @@ async def test_credits_balance_zero_for_new_user(client):
     assert body["balance"] == 0
     assert body["monthly_grant"] == 30
     assert "weights" in body
-    assert "anthropic" in body["weights"]
+    assert body["weights"]["tesseract"] == 0
 
 
 @pytest.mark.asyncio

@@ -55,8 +55,8 @@ export default function UploadPage() {
       qc.invalidateQueries({ queryKey: ['statements'] });
       qc.invalidateQueries({ queryKey: ['transactions'] });
       qc.invalidateQueries({ queryKey: ['accounts'] });
-    } catch (e: any) {
-      setError(e.message || 'Upload failed');
+    } catch (e) {
+      setError((e as Error).message || 'Upload failed');
       setStatus('error');
     }
   };

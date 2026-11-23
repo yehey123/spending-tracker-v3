@@ -27,8 +27,6 @@ services:
   backend:
     build:
       context: ./backend
-      args:
-        INSTALL_AI: ${INSTALL_AI:-0}
     expose:
       - "8000"
     env_file:
@@ -67,6 +65,9 @@ services:
     restart: "no"
 
   # Local AI (optional). The default path is Tesseract + merchant memory and needs no AI.
+  # AI providers come from the private plugin repo yehey123/spending-tracker-ai; for local dev
+  # `pip install -e ../spending-tracker-ai` into the backend environment. Docker install is not wired yet.
+  # The "ai" profile below only runs Ollama itself.
   # Ollama sits behind the "ai" compose profile, so a plain `docker compose up` does not
   # start it. To start it: `docker compose --profile ai up -d`, or set COMPOSE_PROFILES=ai
   # in .env. A model only occupies memory while loaded and unloads after 5 min idle.

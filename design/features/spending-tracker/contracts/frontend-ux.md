@@ -76,11 +76,11 @@ Sections:
 - Status indicator: green dot "Connected" / red dot "Unreachable" (pings `/health`)
 
 ### OCR Provider
-- Radio group: Tesseract (default) | Claude Vision | OpenAI Vision
-- Conditional API key input:
-  - Claude selected → "Anthropic API Key" input (password type)
-  - OpenAI selected → "OpenAI API Key" input (password type)
-  - Key field shows `••••••••` if already set; placeholder "Enter new key to update"
+- Radio group / select built from `available_providers` in `GET /settings`: Tesseract (default) is always listed; AI providers appear only when the plugin is installed
+- Conditional credential inputs come from the selected provider's `config_fields` (password type for `secret`)
+  - Key field shows `••••••••` if `set`; placeholder "Enter new key to update"
+- Model picker and credit weights are shown only when a non-Tesseract provider is selected
+- When `provider_installed` is false, a warning banner shows: "Your saved provider '<key>' is not installed — switch to Tesseract or install the AI plugin."
 - Save button → `PUT /settings`
 
 ### Categories

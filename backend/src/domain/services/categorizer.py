@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import json
 import logging
 import re
@@ -9,11 +10,9 @@ import unicodedata
 from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, field_validator
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.crypto import decrypt_secret
 from src.domain.models.merchant_memory import MerchantCategoryMemory
 from src.domain.models.transaction_flag import TransactionFlag
 
@@ -23,17 +22,6 @@ if TYPE_CHECKING:
     from src.domain.models.transaction import Transaction
 
 logger = logging.getLogger(__name__)
-
-try:
-    import anthropic as _anthropic_lib
-except ImportError:
-    _anthropic_lib = None  # type: ignore
-
-try:
-    import openai as _openai_lib
-except ImportError:
-    _openai_lib = None  # type: ignore
-
 
 def _normalize(desc: str) -> str:
     lowered = desc.lower()
@@ -111,17 +99,12 @@ def _validate_transaction_amount(tx: "Transaction") -> bool:
 
 
 def _has_ai_credentials(settings: AppSettings) -> bool:
+    from src.plugins import registry
     p = getattr(settings, 'ocr_provider', 'tesseract')
     if p == 'tesseract':
         return False
-    return {
-        'anthropic': bool(getattr(settings, 'anthropic_api_key', None)),
-        'openai':    bool(getattr(settings, 'openai_api_key', None)),
-        'gemini':    bool(getattr(settings, 'gemini_api_key', None)),
-        'vertex':    bool(getattr(settings, 'google_project_id', None)),
-        'local':     bool(getattr(settings, 'ai_api_url', None)),
-        'ollama':    True,  # URL comes from env OLLAMA_BASE_URL; no key needed
-    }.get(p, False)
+    cat = registry.get_categorizer(p)
+    return bool(cat and cat.has_credentials(settings))
 
 
 class CategorizerService:
@@ -191,7 +174,6 @@ class CategorizerService:
         account_type: str | None = None,
     ) -> list[dict]:
         provider = getattr(settings, 'ocr_provider', 'tesseract')
-        _max_tokens = getattr(settings, 'max_output_tokens', None) or 1024
         try:
             cat_list = [{'id': c.id, 'name': c.name} for c in categories]
             _acct_line = f"Account type: {account_type}\n\n" if account_type else ""
@@ -209,99 +191,15 @@ class CategorizerService:
                 "Return only the JSON array, no explanation."
             )
 
-            if provider == 'anthropic':
-                if _anthropic_lib is None:
-                    return []
-                api_key = decrypt_secret(getattr(settings, 'anthropic_api_key', None))
-                model = getattr(settings, 'ai_model', None) or 'claude-haiku-4-5-20251001'
-                client = _anthropic_lib.Anthropic(api_key=api_key)
-                message = client.messages.create(
-                    model=model,
-                    max_tokens=_max_tokens,
-                    tools=[],                        # RULE-AI-EXEC-1
-                    tool_choice={"type": "none"},    # RULE-AI-EXEC-1
-                    messages=[{'role': 'user', 'content': prompt}],
-                )
-                text = message.content[0].text.strip()
-
-            elif provider == 'openai':
-                if _openai_lib is None:
-                    return []
-                api_key = decrypt_secret(getattr(settings, 'openai_api_key', None))
-                model = getattr(settings, 'ai_model', None) or 'gpt-4o-mini'
-                client = _openai_lib.OpenAI(api_key=api_key)
-                resp = client.chat.completions.create(
-                    model=model,
-                    messages=[{'role': 'user', 'content': prompt}],
-                    max_tokens=_max_tokens,
-                    tool_choice="none",              # RULE-AI-EXEC-1
-                )
-                text = resp.choices[0].message.content.strip()
-
-            elif provider == 'gemini':
-                if _openai_lib is None:
-                    return []
-                api_key = decrypt_secret(getattr(settings, 'gemini_api_key', None))
-                model = getattr(settings, 'ai_model', None) or 'gemini-2.0-flash'
-                client = _openai_lib.OpenAI(
-                    api_key=api_key,
-                    base_url='https://generativelanguage.googleapis.com/v1beta/openai/',
-                )
-                resp = client.chat.completions.create(
-                    model=model,
-                    messages=[{'role': 'user', 'content': prompt}],
-                    max_tokens=_max_tokens,
-                    tool_choice="none",              # RULE-AI-EXEC-1
-                    extra_body={"tool_config": {"function_calling_config": {"mode": "NONE"}}},
-                )
-                text = resp.choices[0].message.content.strip()
-
-            elif provider in ('local', 'ollama'):
-                if _openai_lib is None:
-                    return []
-                from src.core.config import settings as _cfg
-                base_url = getattr(settings, 'ai_api_url', None) or _cfg.ollama_base_url
-                model = getattr(settings, 'ai_model', None) or 'ornith-1.5:9b'
-                client = _openai_lib.OpenAI(api_key='local', base_url=base_url)
-                resp = client.chat.completions.create(
-                    model=model,
-                    messages=[{'role': 'user', 'content': prompt}],
-                    max_tokens=_max_tokens,
-                    tool_choice="none",              # RULE-AI-EXEC-1 (best-effort for local models)
-                    **({'reasoning_effort': 'none'} if provider == 'ollama' else {}),  # thinking off
-                )
-                text = resp.choices[0].message.content.strip()
-
-            elif provider == 'vertex':
-                if _openai_lib is None:
-                    return []
-                import google.auth
-                import google.auth.transport.requests as _google_requests
-                creds, _ = google.auth.default(
-                    scopes=['https://www.googleapis.com/auth/cloud-platform']
-                )
-                creds.refresh(_google_requests.Request())
-                project = getattr(settings, 'google_project_id', None)
-                location = getattr(settings, 'google_location', None) or 'us-central1'
-                base_url = (
-                    f'https://{location}-aiplatform.googleapis.com/v1beta1/projects/'
-                    f'{project}/locations/{location}/endpoints/openapi/'
-                )
-                _raw_model = getattr(settings, 'ai_model', None) or 'google/gemini-2.5-flash'
-                model = _raw_model if '/' in _raw_model else f'google/{_raw_model}'
-                client = _openai_lib.OpenAI(api_key=creds.token, base_url=base_url)
-                resp = client.chat.completions.create(
-                    model=model,
-                    messages=[{'role': 'user', 'content': prompt}],
-                    max_tokens=_max_tokens,
-                    tool_choice="none",              # RULE-AI-EXEC-1
-                    extra_body={"tool_config": {"function_calling_config": {"mode": "NONE"}}},
-                )
-                text = resp.choices[0].message.content.strip()
-
-            else:
-                logger.warning('Unknown AI provider: %s', provider)
+            from src.plugins import registry
+            categorizer = registry.get_categorizer(provider)
+            if categorizer is None:
+                logger.info('No categorizer plugin for provider %s — memory path only', provider)
                 return []
+            text = categorizer.classify(prompt, settings, registry.make_context(settings))
+            if inspect.isawaitable(text):
+                text = await text
+            text = text.strip()
 
             raw = json.loads(text)
             if not isinstance(raw, list):

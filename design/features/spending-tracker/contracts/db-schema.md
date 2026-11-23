@@ -63,6 +63,8 @@ Single-row table (id always = 1, enforced at application layer).
 | anthropic_api_key | VARCHAR(200) | NULL | NULL |
 | openai_api_key | VARCHAR(200) | NULL | NULL |
 
+The AI key and model columns on this table (`anthropic_api_key`, `openai_api_key`, `gemini_api_key`, `ai_model`, `google_project_id`, `google_location`, `max_output_tokens`) are kept in core but are owned by the AI plugin (`spending-tracker-ai`). Core does not read them directly; plugin descriptors declare them in `config_fields`. No migration was made when AI moved to the plugin.
+
 Seeded on first startup: INSERT … ON CONFLICT DO NOTHING (id=1, provider='tesseract').
 
 ---

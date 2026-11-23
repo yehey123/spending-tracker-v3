@@ -1,0 +1,6 @@
+#!/bin/sh
+# Strip Claude-Session trailers added by Claude Code (security: session URLs in public history)
+tmp=$(mktemp)
+grep -v '^Claude-Session:' "$1" | sed -e '/^[[:space:]]*$/{N;/^\n[[:space:]]*$/d;}' > "$tmp"
+cat "$tmp" > "$1"
+rm -f "$tmp"

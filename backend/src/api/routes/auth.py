@@ -140,7 +140,9 @@ async def _consume_invite_token(raw_token: str, db: AsyncSession) -> None:
     )
     row = result.fetchone()
     if row is None:
-        raise HTTPException(status_code=400, detail="Invalid, already-used, or expired invite token")
+        raise HTTPException(
+            status_code=400, detail="Invalid, already-used, or expired invite token"
+        )
 
     await db.execute(
         text("UPDATE invite_tokens SET consumed_at = now() WHERE token_hash = :token_hash"),

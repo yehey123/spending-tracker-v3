@@ -23,10 +23,15 @@ import src.domain.models  # noqa: F401 — registers all ORM models with SQLAlch
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from src.tasks.ttl_cleanup import run_ttl_cleanup
 from src.tasks.monthly_rollover import run_monthly_rollover
-from src.domain.services.model_sync import sync_all as sync_models
 
 _scheduler = AsyncIOScheduler()
 _scheduler.add_job(run_ttl_cleanup, 'cron', hour=2)
+async def sync_models() -> None:
+    """Refresh model lists for every installed provider plugin that exposes list_models."""
+    from src.plugins.registry import sync_all_models
+    await sync_all_models()
+
+
 _scheduler.add_job(
     lambda: asyncio.ensure_future(sync_models()),
     'cron', hour=3, minute=0,

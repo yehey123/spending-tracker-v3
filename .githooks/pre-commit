@@ -1,0 +1,33 @@
+#!/bin/sh
+# Lint staged files only. Install via scripts/install-hooks.sh.
+root=$(git rev-parse --show-toplevel) || exit 1
+cd "$root" || exit 1
+status=0
+
+# Frontend: eslint on staged ts/tsx/js/jsx
+fe_list=$(mktemp)
+git diff --cached --name-only --diff-filter=ACMR -z -- 'frontend/*.ts' 'frontend/*.tsx' 'frontend/*.js' 'frontend/*.jsx' > "$fe_list"
+if [ -s "$fe_list" ]; then
+  # strip "frontend/" prefix, keep NUL separation
+  if ! (cd frontend && tr '\0' '\n' < "$fe_list" | sed 's|^frontend/||' | tr '\n' '\0' \
+        | xargs -0 npx --no-install eslint --max-warnings=0); then
+    status=1
+  fi
+fi
+rm -f "$fe_list"
+
+# Backend: ruff on staged py
+be_list=$(mktemp)
+git diff --cached --name-only --diff-filter=ACMR -z -- 'backend/*.py' > "$be_list"
+if [ -s "$be_list" ]; then
+  if command -v ruff >/dev/null 2>&1; then
+    xargs -0 ruff check < "$be_list" || status=1
+  elif python3 -m ruff --version >/dev/null 2>&1; then
+    xargs -0 python3 -m ruff check < "$be_list" || status=1
+  else
+    echo "pre-commit: ruff not found, skipping backend lint" >&2
+  fi
+fi
+rm -f "$be_list"
+
+exit $status
