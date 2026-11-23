@@ -11,7 +11,7 @@ export default defineConfig({
     baseURL: process.env.BASE_URL ?? 'http://localhost',
     storageState: 'tests/playwright/.auth/user.json',
     serviceWorkers: 'block',
-    trace: 'on-first-retry',
+    trace: 'retain-on-failure',
     screenshot: 'on',
   },
   projects: [

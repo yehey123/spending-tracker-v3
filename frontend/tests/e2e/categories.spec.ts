@@ -41,7 +41,12 @@ test('can create a subcategory via settings page', async ({ page }) => {
   await catSection.getByPlaceholder(/new category name/i).fill(E2E_SUBCATEGORY);
   // Select the E2E parent in the parent picker
   await catSection.locator('select', { hasText: /top-level/i }).selectOption({ label: E2E_CATEGORY });
-  await catSection.getByRole('button', { name: /^add$/i }).click();
+  // Wait on the POST itself, so a failure reports its status instead of a missing list item.
+  const [createResp] = await Promise.all([
+    page.waitForResponse((r) => r.url().endsWith('/categories') && r.request().method() === 'POST'),
+    catSection.getByRole('button', { name: /^add$/i }).click(),
+  ]);
+  expect(createResp.status(), await createResp.text()).toBe(201);
 
   await expect(catSection.getByText(E2E_SUBCATEGORY).first()).toBeVisible();
 });
