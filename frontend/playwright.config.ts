@@ -5,7 +5,7 @@ export default defineConfig({
   fullyParallel: false,
   retries: process.env.CI ? 1 : 0,
   workers: 1,
-  reporter: process.env.CI ? 'github' : 'html',
+  reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'html',
   globalSetup: './tests/global-setup.ts',
   use: {
     baseURL: process.env.BASE_URL ?? 'http://localhost',

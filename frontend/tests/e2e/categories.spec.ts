@@ -11,8 +11,16 @@ test.beforeAll(async () => {
   const resp = await ctx.post(`${apiURL()}/categories`, {
     data: { name: E2E_CATEGORY, slug: 'e2e-dining', color: '#f97316' },
   });
-  const cat = await resp.json();
-  categoryId = cat.id;
+  if (resp.ok()) {
+    categoryId = ((await resp.json()) as { id: number }).id;
+  } else if (resp.status() === 409) {
+    // A retry restarts the worker and re-runs beforeAll; reuse the category seeded earlier.
+    const listResp = await ctx.get(`${apiURL()}/categories`);
+    const categories = (await listResp.json()) as Array<{ id: number; name: string }>;
+    const existing = categories.find((c) => c.name.toLowerCase() === E2E_CATEGORY.toLowerCase());
+    if (existing) categoryId = existing.id;
+  }
+  if (!categoryId) throw new Error(`Failed to seed category: HTTP ${resp.status()}`);
   await ctx.dispose();
 });
 
@@ -27,6 +35,8 @@ test('seeded category appears in settings list', async ({ page }) => {
 test('can create a subcategory via settings page', async ({ page }) => {
   await page.goto('/settings');
   const catSection = page.locator('section').filter({ hasText: 'Categories' });
+  // The list renders client-side, so this also proves the page has hydrated.
+  await expect(catSection.getByText(E2E_CATEGORY).first()).toBeVisible();
 
   await catSection.getByPlaceholder(/new category name/i).fill(E2E_SUBCATEGORY);
   // Select the E2E parent in the parent picker

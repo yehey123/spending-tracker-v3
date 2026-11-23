@@ -45,7 +45,12 @@ test.describe('real statement OCR pipeline', () => {
 
     const fixture = chooseFixture(ocr_provider);
     await page.goto('/upload');
-    await page.locator('input[type="file"]').setInputFiles(fixture);
+    // Dropzone listeners attach on hydration; retry until React shows the chosen file.
+    const fileInput = page.locator('input[type="file"]');
+    await expect(async () => {
+      await fileInput.setInputFiles(fixture);
+      await expect(page.getByText(path.basename(fixture))).toBeVisible({ timeout: 1000 });
+    }).toPass({ timeout: 15000 });
     await page.getByRole('button', { name: 'Credit Card' }).click();
     await page.getByText(/upload & process/i).click();
 
