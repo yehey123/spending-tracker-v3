@@ -500,6 +500,9 @@ class StatementPipeline:
         # Insert transactions as 'staged'
         transactions = []
         for p in parsed_rows:
+            if p.amount <= 0:
+                logger.warning("Skipping parsed row with non-positive amount %s (%s)", p.amount, p.description)
+                continue
             tx = Transaction(
                 date=p.date,
                 description=p.description,
