@@ -115,6 +115,7 @@ async def upload_statement(
     except HTTPException:
         raise
     except Exception as e:
+        await db.rollback()  # a failed flush leaves the session unusable until rolled back
         statement.status = "failed"
         statement.error_message = str(e)
         await db.commit()
