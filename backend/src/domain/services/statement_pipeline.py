@@ -242,7 +242,6 @@ class StatementPipeline:
         from uuid import UUID
         from sqlalchemy import select as _sel_settings
         from src.domain.services.pdf_parser import extract_pdf_text
-        from src.domain.services.preprocessor import preprocess
         from src.domain.services.statement_parser import parse_statement
 
         settings = None
@@ -377,10 +376,8 @@ class StatementPipeline:
                     _conv = img.convert(_mode)
                     img = PILImage.frombytes(_mode, _conv.size, _conv.tobytes())
 
-                    # Preprocessing (grayscale + threshold) helps Tesseract but hurts
-                    # AI vision models — send the original color image to those.
-                    if settings.ocr_provider == "tesseract":
-                        img = preprocess(img)
+                    # No OpenCV preprocessing: Tesseract's own binarisation scores
+                    # better on the original image, and AI vision models want color.
                     MAX_SIDE = 1536
                     if settings.ocr_provider != "tesseract":
                         w, h = img.size
@@ -488,6 +485,9 @@ class StatementPipeline:
         # Insert transactions as 'staged'
         transactions = []
         for p in parsed_rows:
+            if p.amount <= 0:
+                logger.warning("Skipping parsed row with non-positive amount %s (%s)", p.amount, p.description)
+                continue
             tx = Transaction(
                 date=p.date,
                 description=p.description,

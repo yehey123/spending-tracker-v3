@@ -1,0 +1,51 @@
+{
+  "rows": [
+    {
+      "date": "2026-10-05",
+      "amount": "12262.57",
+      "direction": "debit"
+    },
+    {
+      "date": "2026-10-08",
+      "amount": "7616.61",
+      "direction": "debit"
+    },
+    {
+      "date": "2026-10-09",
+      "amount": "2926.02",
+      "direction": "debit"
+    },
+    {
+      "date": "2026-10-14",
+      "amount": "10374.77",
+      "direction": "debit"
+    },
+    {
+      "date": "2026-10-18",
+      "amount": "1013.10",
+      "direction": "credit"
+    },
+    {
+      "date": "2026-10-18",
+      "amount": "3230.31",
+      "direction": "debit"
+    },
+    {
+      "date": "2026-10-19",
+      "amount": "8878.33",
+      "direction": "debit"
+    },
+    {
+      "date": "2026-10-24",
+      "amount": "1357.27",
+      "direction": "debit"
+    },
+    {
+      "date": "2026-10-24",
+      "amount": "8028.13",
+      "direction": "debit"
+    }
+  ],
+  "total_debits": "54674.01",
+  "total_credits": "1013.10"
+}

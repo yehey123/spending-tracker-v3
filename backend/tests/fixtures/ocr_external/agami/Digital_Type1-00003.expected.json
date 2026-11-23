@@ -1,0 +1,796 @@
+{
+ "rows": [
+  {
+   "date": "2024-01-01",
+   "amount": "247043.19",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-01-02",
+   "amount": "134742.38",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-01-02",
+   "amount": "73964.13",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-01-03",
+   "amount": "44306.53",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-01-05",
+   "amount": "11329.42",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-01-05",
+   "amount": "8873.10",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-01-09",
+   "amount": "3706.78",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-01-09",
+   "amount": "769482.01",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-01-10",
+   "amount": "453459.01",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-01-12",
+   "amount": "17304.40",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-01-12",
+   "amount": "63241.15",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-01-12",
+   "amount": "19960.56",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-01-13",
+   "amount": "30427.64",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-01-13",
+   "amount": "73777.92",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-01-15",
+   "amount": "38618.31",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-01-15",
+   "amount": "89860.08",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-01-15",
+   "amount": "318056.15",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-01-16",
+   "amount": "172791.98",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-01-16",
+   "amount": "9884.44",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-01-17",
+   "amount": "57260.53",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-01-17",
+   "amount": "262237.08",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-01-19",
+   "amount": "9894.65",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-01-19",
+   "amount": "159365.60",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-01-19",
+   "amount": "339159.93",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-01-19",
+   "amount": "1056856.45",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-01-19",
+   "amount": "82258.07",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-01-19",
+   "amount": "127970.01",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-01-20",
+   "amount": "51531.90",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-01-20",
+   "amount": "23732.58",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-01-22",
+   "amount": "289700.98",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-01-22",
+   "amount": "343679.57",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-01-23",
+   "amount": "340790.57",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-01-24",
+   "amount": "203226.35",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-01-24",
+   "amount": "454993.06",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-01-25",
+   "amount": "226322.11",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-01-29",
+   "amount": "41247.47",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-01-29",
+   "amount": "2656.49",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-01-29",
+   "amount": "255265.09",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-01-30",
+   "amount": "76843.06",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-01-30",
+   "amount": "3953.10",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-01-30",
+   "amount": "7659.72",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-01-30",
+   "amount": "131178.58",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-01-31",
+   "amount": "503329.75",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-01-31",
+   "amount": "16193.42",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-02-01",
+   "amount": "85844.07",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-02-01",
+   "amount": "248001.00",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-02-02",
+   "amount": "13831.79",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-02-02",
+   "amount": "444932.40",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-02-02",
+   "amount": "233524.63",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-02-02",
+   "amount": "46449.95",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-02-02",
+   "amount": "57483.43",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-02-02",
+   "amount": "856968.16",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-02-03",
+   "amount": "444561.30",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-02-03",
+   "amount": "161109.09",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-02-03",
+   "amount": "18428.09",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-02-05",
+   "amount": "335566.74",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-02-05",
+   "amount": "18037.72",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-02-06",
+   "amount": "388930.51",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-02-06",
+   "amount": "244453.35",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-02-06",
+   "amount": "78307.33",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-02-07",
+   "amount": "112545.00",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-02-07",
+   "amount": "10805.20",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-02-08",
+   "amount": "205312.98",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-02-08",
+   "amount": "78307.33",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-02-09",
+   "amount": "206930.02",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-02-09",
+   "amount": "337720.92",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-02-09",
+   "amount": "49673.70",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-02-10",
+   "amount": "34674.59",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-02-10",
+   "amount": "549095.85",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-02-12",
+   "amount": "451052.02",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-02-13",
+   "amount": "58810.09",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-02-13",
+   "amount": "23359.02",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-02-13",
+   "amount": "25316.65",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-02-13",
+   "amount": "19500.04",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-02-13",
+   "amount": "192697.05",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-02-14",
+   "amount": "19809.56",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-02-14",
+   "amount": "17378.32",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-02-15",
+   "amount": "123944.10",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-02-15",
+   "amount": "28193.35",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-02-16",
+   "amount": "45611.01",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-02-17",
+   "amount": "208441.85",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-02-19",
+   "amount": "14522.66",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-02-19",
+   "amount": "17412.57",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-02-19",
+   "amount": "102872.62",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-02-20",
+   "amount": "65518.24",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-02-20",
+   "amount": "249526.76",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-02-20",
+   "amount": "9765.64",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-02-20",
+   "amount": "53388.50",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-02-21",
+   "amount": "29022.09",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-02-21",
+   "amount": "13568.94",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-02-22",
+   "amount": "42918.08",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-02-22",
+   "amount": "602194.70",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-02-23",
+   "amount": "42269.68",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-02-23",
+   "amount": "276790.12",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-02-23",
+   "amount": "32032.56",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-02-23",
+   "amount": "17332.83",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-02-24",
+   "amount": "659708.80",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-02-24",
+   "amount": "80714.81",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-02-26",
+   "amount": "11509.86",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-02-26",
+   "amount": "206931.58",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-02-26",
+   "amount": "20464.66",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-02-27",
+   "amount": "141764.05",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-02-27",
+   "amount": "79180.86",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-02-28",
+   "amount": "5739.94",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-02-28",
+   "amount": "24.07",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-02-28",
+   "amount": "459.57",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-02-28",
+   "amount": "174.17",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-02-29",
+   "amount": "22454.82",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-02-29",
+   "amount": "8043.52",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-03-02",
+   "amount": "27177.56",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-03-04",
+   "amount": "31686.41",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-03-04",
+   "amount": "76972.63",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-03-04",
+   "amount": "11988.59",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-03-04",
+   "amount": "221120.77",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-03-04",
+   "amount": "28873.74",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-03-05",
+   "amount": "123016.42",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-03-06",
+   "amount": "10374.17",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-03-06",
+   "amount": "48823.47",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-03-06",
+   "amount": "13457.90",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-03-06",
+   "amount": "23694.96",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-03-06",
+   "amount": "53446.00",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-03-07",
+   "amount": "83374.92",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-03-07",
+   "amount": "276548.41",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-03-07",
+   "amount": "221120.77",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-03-07",
+   "amount": "30563.91",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-03-13",
+   "amount": "28113.42",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-03-13",
+   "amount": "70731.94",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-03-13",
+   "amount": "1126.83",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-03-13",
+   "amount": "2786.25",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-03-13",
+   "amount": "25686.68",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-03-13",
+   "amount": "144426.34",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-03-13",
+   "amount": "61969.24",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-03-14",
+   "amount": "5787.43",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-03-14",
+   "amount": "4961.15",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-03-15",
+   "amount": "11831.05",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-03-15",
+   "amount": "175450.66",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-03-15",
+   "amount": "1796.35",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-03-16",
+   "amount": "3655.38",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-03-16",
+   "amount": "444.52",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-03-16",
+   "amount": "11355.34",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-03-16",
+   "amount": "2840.50",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-03-18",
+   "amount": "10258.17",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-03-19",
+   "amount": "4030.98",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-03-20",
+   "amount": "27828.77",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-03-21",
+   "amount": "10557.65",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-03-22",
+   "amount": "13441.40",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-03-22",
+   "amount": "2330.87",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-03-22",
+   "amount": "5517.45",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-03-26",
+   "amount": "987.64",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-03-26",
+   "amount": "25668.63",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-03-26",
+   "amount": "1818.19",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-03-27",
+   "amount": "2602.93",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-03-27",
+   "amount": "1356.55",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-03-28",
+   "amount": "2523.71",
+   "direction": "credit"
+  },
+  {
+   "date": "2024-03-28",
+   "amount": "172.69",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-03-28",
+   "amount": "169.78",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-03-28",
+   "amount": "365.83",
+   "direction": "debit"
+  },
+  {
+   "date": "2024-03-30",
+   "amount": "3413.23",
+   "direction": "credit"
+  }
+ ],
+ "total_debits": "9636908.14",
+ "total_credits": "9241390.25"
+}

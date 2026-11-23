@@ -1,4 +1,4 @@
-import datetime
+from datetime import date, timedelta
 
 import pytest
 
@@ -41,19 +41,19 @@ async def test_by_category(client):
 
 @pytest.mark.asyncio
 async def test_cash_flow(client):
-    # Relative to today so the seeded month stays inside the 6-month window.
-    first = datetime.date.today().replace(day=1)
-    month = (first - datetime.timedelta(days=1)).strftime("%Y-%m")
+    # Seed last month so it always falls inside the rolling 6-month window.
+    first = date.today().replace(day=1)
+    month = (first - timedelta(days=1)).strftime("%Y-%m")
     await _seed(client, month=month, n_debit=1, n_credit=1)
     res = await client.get("/analytics/cash-flow?months=6")
     assert res.status_code == 200
     data = res.json()
     assert "months" in data
     assert len(data["months"]) > 0
-    may = next((m for m in data["months"] if m["month"] == month), None)
-    assert may is not None
-    assert float(may["total_debit"]) == pytest.approx(100.0)
-    assert float(may["total_credit"]) == pytest.approx(5000.0)
+    seeded = next((m for m in data["months"] if m["month"] == month), None)
+    assert seeded is not None
+    assert float(seeded["total_debit"]) == pytest.approx(100.0)
+    assert float(seeded["total_credit"]) == pytest.approx(5000.0)
 
 
 # --- currency allowlist ---

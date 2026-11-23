@@ -63,12 +63,15 @@ services:
       "
     restart: "no"
 
-  # Local AI. Starts and stops with the app (`docker compose up` / `down`); a model only
-  # occupies memory while loaded and unloads after 5 min idle. CPU-only on macOS (Docker has
-  # no Metal GPU) — for speed on a Mac, run native Ollama and set
-  # OLLAMA_BASE_URL=http://host.docker.internal:11434/v1 in .env. On Linux with an NVIDIA
-  # GPU, start with `scripts/compose.sh up -d` to use it when present.
+  # Local AI (optional). The default path is Tesseract + merchant memory and needs no AI.
+  # Ollama sits behind the "ai" compose profile, so a plain `docker compose up` does not
+  # start it. To start it: `docker compose --profile ai up -d`, or set COMPOSE_PROFILES=ai
+  # in .env. A model only occupies memory while loaded and unloads after 5 min idle.
+  # CPU-only on macOS (Docker has no Metal GPU) — for speed on a Mac, run native Ollama and
+  # set OLLAMA_BASE_URL=http://host.docker.internal:11434/v1 in .env. On Linux with an NVIDIA
+  # GPU, use `COMPOSE_PROFILES=ai scripts/compose.sh up -d` to use it when present.
   ollama:
+    profiles: ["ai"]
     image: ollama/ollama:latest
     expose:
       - "11434"
@@ -82,6 +85,7 @@ services:
 
   # Pulls the default OCR model on first start; a no-op once it is in the volume.
   ollama-init:
+    profiles: ["ai"]
     image: ollama/ollama:latest
     environment:
       OLLAMA_HOST: http://ollama:11434

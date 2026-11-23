@@ -4,12 +4,14 @@
 **Date**: 2026-07-13
 **Rationale**: Approved 2026-07-13 — build started on branch initial_backend.
 
+**Amended 2026-11-22**: AI is optional. Wherever this proposal describes AI/LLM OCR (Claude/OpenAI vision) or AI categorization (Story 2.5, Stage 3) as the primary or expected path, read it as an opt-in. The default path is non-AI: Tesseract OCR plus merchant-category memory, with no API key and no Ollama container (Ollama runs only under the `ai` compose profile). There is also no OpenCV preprocessing step on any path now; see `contracts/ocr-pipeline.md`. Sections below are kept as the original record. Stories 1.1 and 2.5 and the Summary, risk, and dependency lines were updated 2026-11-22 to the current design (Tesseract default, no preprocess, native-DPI render, layout-aware Tesseract; AI vision and AI categorization are optional fallbacks).
+
 ---
 
 ## 1. Summary, Goals, Non-Goals
 
 ### Summary
-Self-hosted personal finance app. Users upload credit card statement screenshots and bank statement PDFs; an OCR pipeline (OpenCV → configurable provider) extracts transactions; a Next.js PWA presents analytics. Distributable via browser install or App Store (Capacitor).
+Self-hosted personal finance app. Users upload credit card statement screenshots and bank statement PDFs; an OCR pipeline (Tesseract by default, no image preprocessing; optional AI vision fallback) extracts transactions; a Next.js PWA presents analytics. Distributable via browser install or App Store (Capacitor).
 
 ### Goals
 - Automate transaction ingestion from statement files — no manual entry
@@ -36,7 +38,7 @@ Self-hosted personal finance app. Users upload credit card statement screenshots
 - Self-hosted → user controls all data, no SaaS privacy concerns
 - Tesseract default → zero API keys required to get started
 - Capacitor → single web codebase compiles to App Store + Play Store artifacts
-- OpenCV preprocessing → meaningfully improves Tesseract accuracy on phone photos of statements
+- Native-DPI rendering with layout-aware Tesseract (no preprocessing) is the accuracy baseline for statements; AI vision is an optional fallback (OpenCV preprocessing was removed)
 - Statement-based model → works with any bank without an API integration
 - FastAPI async → suitable for file-upload / OCR workloads without blocking
 
@@ -66,7 +68,6 @@ spending-tracker/
 │   │   │   ├── models/             ← Category, Statement, Transaction, AppSettings
 │   │   │   └── services/
 │   │   │       ├── ocr/            ← base + tesseract + claude + openai providers
-│   │   │       ├── preprocessor.py ← OpenCV pipeline
 │   │   │       ├── pdf_parser.py   ← pdfplumber extraction
 │   │   │       └── statement_parser.py ← text → ParsedTransaction[]
 │   │   ├── api/
@@ -111,7 +112,6 @@ Alembic initial migration creates 4 tables: `categories`, `statements`, `transac
 | `python-multipart` | File upload support |
 | `pillow` | Image handling |
 | `pytesseract` | Tesseract Python binding |
-| `opencv-python-headless` | Image preprocessing (no GUI) |
 | `pdfplumber` | PDF text/table extraction |
 | `aiofiles` | Async file I/O |
 | `anthropic` | Claude Vision (optional) |
@@ -173,14 +173,14 @@ Alembic initial migration creates 4 tables: `categories`, `statements`, `transac
 
 | ID | Risk | Class | Mitigation |
 |---|---|---|---|
-| R1 | Tesseract misreads low-quality statement screenshots | [ASSUMPTION] | OpenCV preprocessing (deskew, denoise, threshold) reduces this; provide manual correction UI |
+| R1 | Tesseract misreads low-quality statement screenshots | [ASSUMPTION] | native-DPI render and layout-aware Tesseract reduce this (no preprocessing); optional AI vision fallback; provide manual correction UI |
 | R2 | pdfplumber fails on image-based PDFs (scanned) | [ASSUMPTION] | Detect image-PDF and fall back to OCR pipeline for each page |
 | R3 | Philippine bank statement formats not handled by generic parser | [UNKNOWN] | Parser is extensible; ship with generic patterns + allow user correction |
 | R4 | App Store review rejects Capacitor build | [ASSUMPTION] | Add required privacy labels; test on TestFlight before submission |
 | R5 | Auth retrofit is painful with single-user assumptions | [ASSUMPTION] | Add `user_id` FK placeholder to all tables now even if unused; soft-wires auth path |
 | R6 | OCR API keys stored plaintext | ~~KNOWN~~ **CLOSED 2026-07-26** | Auth landed, so the "prioritize encryption if auth lands" trigger fired. Keys Fernet-encrypted at rest. **New residual risk R12.** |
 | R12 | `APP_SECRET` now derives the at-rest encryption key as well as account fingerprints — rotating it silently breaks both | KNOWN, accepted 2026-07-26 | Legacy-plaintext passthrough bounds the blast radius; a rotation requires re-entering provider keys in Settings. Documented here because nothing in the code warns about it. |
-| R7 | `opencv-python-headless` not available on Python 3.14 | [UNKNOWN] | Verify at implementation start; fallback to `opencv-python` or pin Python version |
+| R7 | ~~`opencv-python-headless` not available on Python 3.14~~ | Resolved 2026-11-22 | OpenCV dependency removed; no preprocessing step |
 | R8 | Frankfurter/ECB historical rates start 1999 — pre-1999 transactions have no automated source | KNOWN | Mark such transactions `unconverted` in analytics; never zero or silently skip. Future story: bundled IMF/World Bank CSV for older rates. |
 | R9 | Frankfurter covers ~30 currencies (ECB basket + majors); exotic currencies absent | [ASSUMPTION] | Same unconverted-count path; user must manually seed missing pairs via a future manual-rate entry story |
 | R10 | Frankfurter is an outbound external API call — contradicts "all processing local by default" goal | KNOWN | Rate data is not PII. Mitigated: the daily CI pipeline ships a pre-seeded `exchange_rates.db` artifact (Story 7.6); on first `docker compose up` the bootstrap downloads it so no live Frankfurter call is needed for historical data. On-demand fetch (Story 7.3) fills only the ~24 h gap since the last artifact publish. Air-gapped users override `RATES_DB_URL` to a local mirror. |
@@ -204,15 +204,15 @@ Alembic initial migration creates 4 tables: `categories`, `statements`, `transac
 
 **Acceptance criteria**
 - Given a PNG or JPEG is `POST`-ed to `/statements/upload`
-- When the server runs OpenCV preprocessing → configured OCR provider
+- When the server runs the configured OCR provider (Tesseract by default; native-DPI render, layout-aware, no preprocessing; Claude/OpenAI vision only if opted in)
 - Then transactions are parsed, saved to `transactions`, linked to the statement record
 - And `statements.status` = `done` with `transaction_count` in the response
 - And if parsing fails, `status` = `failed` with `error_message`
 
-**In scope**: PNG, JPEG upload; OpenCV preprocess; Tesseract/Claude/OpenAI OCR; generic transaction line parser; DB persistence.
+**In scope**: PNG, JPEG upload; Tesseract OCR (default, no preprocess) with optional Claude/OpenAI vision fallback; generic transaction line parser; DB persistence.
 **Out of scope**: HEIC/RAW formats; real-time progress streaming; duplicate detection.
 
-**Touched files**: `backend/src/domain/services/preprocessor.py`, `backend/src/domain/services/ocr/`, `backend/src/domain/services/statement_parser.py`, `backend/src/api/routes/statements.py`, `backend/src/domain/models/statement.py`, `backend/src/domain/models/transaction.py`.
+**Touched files**: `backend/src/domain/services/ocr/`, `backend/src/domain/services/statement_parser.py`, `backend/src/api/routes/statements.py`, `backend/src/domain/models/statement.py`, `backend/src/domain/models/transaction.py`.
 
 **Contract delta**: `POST /statements/upload` — see `contracts/api.md §statements`.
 
@@ -381,20 +381,20 @@ User can also edit `markdown_content` directly via `PATCH /statements/{id}` and 
 
 ---
 
-#### Story 2.5 — AI categorization with confidence flags
+#### Story 2.5 — Optional AI categorization with confidence flags
 
-> As a user, I want the system to suggest a category for each transaction using AI, so that I spend less time manually assigning categories after every upload.
+> As a user, I want the system to suggest a category for each transaction using AI, so that I spend less time manually assigning categories after every upload. AI is an optional fallback; the default path is merchant-category memory with no AI.
 
 **Acceptance criteria**
-- Given a statement reaches Stage 3 (AI categorization)
-- When the configured AI provider (Claude/OpenAI, reusing the OCR provider key from Story 1.3) receives the `markdown_content` table as a single batched prompt
+- Given an AI provider is configured and a statement reaches Stage 3 (optional AI categorization, after merchant-memory lookup)
+- When the configured optional AI provider (Claude/OpenAI, reusing the OCR provider key from Story 1.3) receives the `markdown_content` table as a single batched prompt
 - Then it returns `[{row_index, category_name, confidence}]` for each transaction row
 - Rows with `confidence ≥ ai_category_confidence_auto` (default 0.85): category auto-applied, `transaction_flags` row created with `status=resolved, resolved_by=system`
 - Rows with `confidence` between thresholds: category applied tentatively, `transaction_flags` row with `flag_type=low_confidence_category, status=open`
 - Rows below `ai_category_confidence_suggest` (default 0.50): `category_id=null`, flag open
 - Category names from AI are fuzzy-matched against existing `categories` rows; unmatched names create a `parse_error` entry rather than silently failing
 - `POST /statements/{id}/categorize` retries Stage 3 for all transactions on that statement where `category_id IS NULL` or flag is open — idempotent
-- If AI provider is not configured (`anthropic_api_key` and `openai_api_key` both null): Stage 3 is skipped entirely, no flags created, `status=done` after Stage 2
+- If AI provider is not configured (`anthropic_api_key` and `openai_api_key` both null): Stage 3 is skipped entirely (this is the default), no flags created, `status=done` after Stage 2
 
 **AI prompt contract (sent as system + user message):**
 ```
@@ -958,7 +958,7 @@ WHERE status = 'staged'
 > As a user, I want to choose which OCR backend processes my images, so that I can balance privacy vs. accuracy.
 
 **Acceptance criteria**
-- Given the Settings screen shows provider options: Tesseract | Claude Vision | OpenAI Vision
+- Given the Settings screen shows provider options: Tesseract (default) | Claude Vision | OpenAI Vision (optional)
 - When I select Claude Vision and enter my API key and tap Save
 - Then `PUT /settings` persists the selection to `app_settings`
 - And future screenshot uploads use Claude Vision

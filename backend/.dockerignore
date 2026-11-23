@@ -1,0 +1,2 @@
+# Real financial data — never bake into an image (mount it at run time instead)
+**/fixtures/private/
